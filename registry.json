@@ -1,0 +1,19 @@
+{
+  "name": "Rocket Pudding Tools",
+  "description": "A growing registry of self-contained web tools.",
+  "updated": "2026-07-11",
+  "tools": [
+    {
+      "slug": "dag-layout-lab",
+      "name": "DAG Layout Lab",
+      "tagline": "Prototype & benchmark DAG layout algorithms on an Excalidraw-style canvas.",
+      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms — layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress — with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export.",
+      "path": "tools/dag-layout-lab/",
+      "entry": "tools/dag-layout-lab/index.html",
+      "tags": ["graph", "layout", "dag", "visualization", "canvas", "algorithm", "diagram"],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#b05a3c"
+    }
+  ]
+}

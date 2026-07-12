@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;background:#eceae3;color:#191b1e;font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+a{color:#b05a3c}
+a:hover{color:#8f4530}
+::selection{background:#b05a3c;color:#f4f3ef}
+code{font-family:'IBM Plex Mono',monospace;font-size:.86em;background:#e2ded5;padding:1px 5px;border-radius:4px;color:#3a3d42}
+h2{font-size:18px;margin:0}
+li{margin-bottom:3px}
+</style>
+</helmet>
+<div style="min-height:100vh;padding:44px 22px 90px;display:flex;justify-content:center">
+  <div style="width:100%;max-width:820px">
+
+    <a href="DAG Layout Lab.dc.html" style="position:fixed;top:18px;left:18px;z-index:20;display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:600;letter-spacing:.3px;text-decoration:none;color:#f4f3ef;background:#b05a3c;border-radius:9px;padding:9px 15px;box-shadow:0 6px 18px rgba(176,90,60,0.35)">&#8592; Back to DAG</a>
+    <a href="DAG Layout Lab.dc.html" style="display:inline-flex;align-items:center;gap:7px;font-family:'IBM Plex Mono',monospace;font-size:11px;text-decoration:none;color:#8a5a44;margin-bottom:20px">&#8592; back to the canvas</a>
+
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:6px">
+      <div style="width:13px;height:13px;border-radius:3px;background:#b05a3c;box-shadow:0 0 10px rgba(176,90,60,0.55)"></div>
+      <div style="font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:2px;font-size:15px">DAG LAYOUT LAB</div>
+    </div>
+    <h1 style="font-size:34px;line-height:1.1;margin:6px 0 8px;letter-spacing:-0.5px">FAQ &amp; Reference</h1>
+    <p style="font-size:15px;line-height:1.6;color:#565961;margin:0 0 22px;max-width:660px">A sandbox for laying out a nested, grouped directed graph — a system of containers &rarr; subsystems &rarr; leaf nodes — while experimenting with layout algorithms, edge routing, and grid discipline. This page documents what each part does, and is candid about what is still a placeholder or stub.</p>
+
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:30px;font-family:'IBM Plex Mono',monospace;font-size:11px">
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#ffffff;border:1px solid #d7e3da;border-radius:20px;padding:5px 11px"><span style="width:8px;height:8px;border-radius:50%;background:#2f7d4f"></span>functional</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#ffffff;border:1px solid #ece0c6;border-radius:20px;padding:5px 11px"><span style="width:8px;height:8px;border-radius:50%;background:#c08a2d"></span>partial / illustrative</span>
+      <span style="display:inline-flex;align-items:center;gap:6px;background:#ffffff;border:1px solid #e6cccc;border-radius:20px;padding:5px 11px"><span style="width:8px;height:8px;border-radius:50%;background:#b23b3b"></span>stub / placeholder</span>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:16px">
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Layout functions</h2></div>
+        <p style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0 0 10px">The DETAILS panel's algorithm picker drives placement. The default is <b>&#9733; Rank-weighted stress</b> — weighted stress seeded by node rank, with group cohesion, crossing reduction, and <i>wire discipline</i> (the routing style feeds back into placement, so a right-angle style yields a circuit-board grid).</p>
+        <p style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0 0 10px">Also available: the stress family (SMACOF, Kamada&ndash;Kawai, Pivot MDS), Layered / Sugiyama, Tree, Bipartite, Swim-lane Bands, Grid, Coffman&ndash;Graham, Orthogonal, Radial, force-directed variants (Fruchterman&ndash;Reingold, ForceAtlas2, Eades, GEM, Yifan&nbsp;Hu), Spectral, and diagrammatic forms (circular, concentric, spiral, hive, arc, quadrant, treemap, clustered).</p>
+        <p style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0">The <b>PARAMETERS</b> sliders (rank weight, ideal edge length, crossing penalty, evenness, wire discipline, group cohesion, repulsion, gravity, spacing, iterations&hellip;) tune the active algorithm; sliders it doesn't read are dimmed. Switching algorithms re-runs the layout and animates the change. The <b>&#9889; benchmark</b> overlay runs every algorithm and ranks them by readability.</p>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Grid snapping</h2></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li>Everything lives on a <code>26px</code> grid. Node dimensions are exact 26px multiples, so a snapped box tiles on both edges — not just one corner.</li>
+          <li>Layout output, node drags, and container drags/resizes all <b>settle onto the grid on release</b>; a node's top-left corner lands on the lattice.</li>
+          <li>Container frames expand out to the nearest gridlines so nested boxes align.</li>
+          <li>Resizing scales children smoothly while dragging, then snaps on release (no cell-to-cell jumping); the NW corner stays put.</li>
+          <li><span style="color:#b8801f">Tradeoff:</span> quantising sizes to whole cells makes this graph's nodes fall on one size tier, so boxes read uniform.</li>
+        </ul>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Edge routing</h2><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:#8a8d93;letter-spacing:.5px">EDGE ROUTING panel</span></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li><b>Geometry:</b> Direct, Curved, B&eacute;zier, Spline, Orthogonal, Sloppy. <b>Corners:</b> sharp / rounded (+ radius). <b>Terminal:</b> perpendicular / direct.</li>
+          <li><b>Attachment:</b> port policy (Nearest / Spread / Center), side margin, port gap — where edges dock on a node's sides.</li>
+          <li><b>Sliders</b> bundle margin, port gap, clearance, radius, curve tension, stroke width.</li>
+          <li><b>Style:</b> stroke colour, dash, arrowheads (source / target), and <b>bridge hops</b> — the more-horizontal edge arcs over the one it crosses. Container-to-container links render as dashed boundary edges.</li>
+          <li>Edges have a fat invisible hit-band, so they're easy to click even though they're drawn thin.</li>
+        </ul>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Colour &amp; properties</h2></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li><b>Auto colour</b> (droplet toggle in the toolbar): each innermost subsystem gets its own hue, with its nodes tinted as a gradient from it; wrapper containers stay neutral. Toggle off for plain slate.</li>
+          <li>Select a container to open <b>PROPERTIES</b> — override its border colour/style/width and fill colour/opacity, and rename its label. These overrides persist.</li>
+          <li>Double-click a leaf node to rename it inline; double-click a container's label to edit it.</li>
+          <li>Node text (tag / title / metadata / port) and container labels share one uppercase mono treatment; the top of every box reserves a label margin.</li>
+        </ul>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Click, hover &amp; drag behavior</h2></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li><b>Hover</b> a node/edge to focus it: its layer stays bright while other layers subdue (leaf nodes dim less than containers &amp; edges, preserving depth). Hovering a node shows its URI bottom-right and highlights its file in the tree.</li>
+          <li><b>Click</b> to pin that focus; it holds until you click empty canvas.</li>
+          <li><b>Drag</b> a node to move it (grid-snapped); grab a container by its <b>north edge</b> (the &equiv; handle) to move the whole subtree, or the SE grip to resize.</li>
+          <li><b>Pushing</b> toggle: dragging shoves same-level neighbours aside with a margin; the cascade reflows sibling containers and their parents. Resizing then shrinks a container only until its parts are packed.</li>
+          <li><b>Ctrl/&#8984;-click</b> multiple nodes, then <b>right-click</b> for a menu to Group / Ungroup.</li>
+          <li>Scroll to zoom, drag empty canvas to pan.</li>
+        </ul>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Left columns &amp; the URI</h2></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li>The <b>work tree</b> is generated from the live graph: containers become folders, leaf nodes become files (<code>title.ts</code>). It's bidirectional — hovering a node highlights &amp; auto-scrolls to its file row; clicking a file row selects and centers its node.</li>
+          <li>Both columns collapse/expand from their headers, or together via the toolbar's two-panel button.</li>
+          <li>Each node carries a content-addressed <b>Caramel URI</b>: <code>repo@commit#path:symbol:line</code> — repo = outermost container, path = the subsystem chain + file, commit = a short hash. Shown bottom-right on hover.</li>
+        </ul>
+      </section>
+
+      <section style="background:#fff8f4;border:1px solid #e6cccc;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#b23b3b;flex:none"></span><h2>Not yet functional — placeholders &amp; stubs</h2></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li><b>File viewer body</b> <span style="color:#b23b3b;font-family:'IBM Plex Mono',monospace;font-size:11px">stub</span> — the code shown is a fixed sample (an <code>index.html</code>); it doesn't reflect the selected node. The header path does update.</li>
+          <li><b>Per-node URI</b> <span style="color:#c08a2d;font-family:'IBM Plex Mono',monospace;font-size:11px">illustrative</span> — the commit hash, file path, symbol and line are synthesized deterministically from the node, not read from a real repo.</li>
+          <li><b>Creation toolbar</b> (select / hand / rectangle / diamond / ellipse / arrow / line / draw / text / image / eraser + lock) <span style="color:#b23b3b;font-family:'IBM Plex Mono',monospace;font-size:11px">stub</span> — modeled on Excalidraw's UI; the tools set active state but don't yet create or edit drawable elements on the canvas.</li>
+          <li><b>Element PROPERTIES</b> for the drawing tools (stroke / background / fill style / stroke style &amp; width / sloppiness / edges / arrowheads / font / size / align / opacity / arrange / duplicate&mdash;copy&mdash;link&mdash;delete) <span style="color:#b23b3b;font-family:'IBM Plex Mono',monospace;font-size:11px">stub</span> — these belong to that Excalidraw layer and are illustrative. (The <i>container</i> properties above are live.)</li>
+          <li><b>Dark theme</b> <span style="color:#c08a2d;font-family:'IBM Plex Mono',monospace;font-size:11px">partial</span> — a quick global colour inversion, not a hand-tuned dark palette.</li>
+          <li><b>Random / generated graphs</b> beyond the built-in sample systems are minimal test fixtures.</li>
+        </ul>
+      </section>
+
+      <section style="background:#ffffff;border:1px solid #dcd9d2;border-radius:12px;padding:20px 22px">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px"><span style="width:9px;height:9px;border-radius:50%;background:#2f7d4f;flex:none"></span><h2>Shortcuts &amp; persistence</h2></div>
+        <ul style="font-size:14px;line-height:1.62;color:#3a3d42;margin:0;padding-left:20px">
+          <li><b>&#8984;/Ctrl&nbsp;+&nbsp;F</b> opens graph search — matches tags, titles, ports, metadata, and lights the results like a hover. <b>Esc</b> clears search / selection.</li>
+          <li>Your <b>layout, manual positions, algorithm, routing settings, container styles/labels and tags persist</b> across reloads (saved locally). Grouping/ungrouping and node renames are <span style="color:#c08a2d">in-session</span> and reset on a hard reload.</li>
+          <li><b>Tag</b> any node or container from its Properties panel to organize and find it later.</li>
+          <li>The status line up top reports node / edge / group counts for the current system.</li>
+          <li>Layout changes <b>animate</b> so you can see how an algorithm reorganizes; turn motion off for instant snaps.</li>
+        </ul>
+      </section>
+
+      <p style="font-size:12px;color:#8a8d93;text-align:center;margin:8px 0 0;font-family:'IBM Plex Mono',monospace">This reference tracks the current build and may lag behind the very latest tweaks.</p>
+
+    </div>
+  </div>
+</div>
+<template id="__bundler_thumbnail"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="#b05a3c"/><text x="50" y="66" font-size="52" font-family="monospace" font-weight="700" text-anchor="middle" fill="#f4f3ef">?</text></svg></template>
+
+</x-dc>
+</body>
+</html>
