@@ -850,6 +850,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "cidr-calculator",
+      "name": "CIDR Calculator",
+      "tagline": "IPv4/IPv6 subnet workbench: analyze, subnet, aggregate, convert.",
+      "description": "Zero-dependency IP subnet workbench for IPv4 and IPv6. Analyze a CIDR (network, broadcast, first/last host, netmask, wildcard, host count) with a visual mask bit ruler; split a block into equal subnets or a target prefix; aggregate CIDR lists into minimal covering blocks; test IP membership; convert addresses between dotted/decimal/hex/binary and expanded/compressed IPv6 — all on BigInt, entirely in your browser.",
+      "path": "tools/cidr-calculator/",
+      "tags": [
+        "cidr",
+        "subnet",
+        "ip",
+        "network",
+        "ipv6"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#22d3ee",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
