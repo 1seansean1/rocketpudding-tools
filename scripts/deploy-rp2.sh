@@ -23,7 +23,7 @@ export AWS_PROFILE="$PROFILE"
 echo ">> packaging registry + tools"
 TARBALL="$(mktemp -t rp2-tools-XXXX.tgz)"
 tar czf "$TARBALL" --exclude='.git' --exclude='.gitignore' --exclude='.playwright-mcp' \
-  index.html registry.json README.md tools
+  index.html registry.json building.json BACKLOG.md README.md tools
 echo ">> $(tar tzf "$TARBALL" | wc -l) entries -> $(du -h "$TARBALL" | cut -f1)"
 
 echo ">> upload + presign"
