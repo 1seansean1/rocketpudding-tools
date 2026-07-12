@@ -802,6 +802,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "string-escaper",
+      "name": "String Escaper",
+      "tagline": "Escape and unescape JSON, JavaScript, HTML, URL, Base64, Unicode, CSV, and shell strings.",
+      "description": "Zero-dependency string escape workbench for hostile text: convert to and from JSON strings, JavaScript escapes, HTML entities, URL components, Base64 UTF-8, Unicode code points, CSV fields, and shell-safe single quotes. Includes byte counts, delta sizing, swap, copy, and sample data.",
+      "path": "tools/string-escaper/",
+      "tags": [
+        "string",
+        "escape",
+        "unicode",
+        "base64",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#c9a227",
+      "origin": "original",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

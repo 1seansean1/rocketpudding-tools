@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>String Escaper</title>
+<meta name="description" content="Zero-dependency string escape and unescape workbench for JSON, JavaScript, HTML entities, URL components, Base64, Unicode code points, CSV fields, and shell-safe single quotes.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c9a227'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#08060f;--fg:#f5f1df;--muted:#a9a078;--line:#302943;--card:#141020;--accent:#c9a227;--accent2:#22d3ee;--bad:#ff6b60;--ok:#5ee38a;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:radial-gradient(900px 520px at 0 -10%,rgba(201,162,39,.16),transparent 60%),radial-gradient(860px 500px at 105% 0,rgba(34,211,238,.12),transparent 56%),var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+header{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:rgba(20,16,32,.9);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:3;backdrop-filter:blur(10px)}
+.sq{width:12px;height:12px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+.brand{font:700 13px var(--mono);letter-spacing:1.4px}
+.back{margin-left:auto;color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:6px 10px;text-decoration:none;font:700 10px var(--mono);letter-spacing:.7px}
+.back:hover{color:var(--accent);border-color:var(--accent)}
+main{max-width:1280px;margin:0 auto;padding:22px 18px}
+.hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:16px}
+h1{margin:0;font-size:28px;letter-spacing:-.015em}
+.hero p{max-width:760px;margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.55}
+.badge{border:1px solid var(--line);border-radius:16px;padding:7px 10px;font:700 10px var(--mono);color:var(--muted);white-space:nowrap}
+.grid{display:grid;grid-template-columns:minmax(330px,1fr) minmax(330px,1fr);gap:14px}
+.panel{background:rgba(20,16,32,.9);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.panel h2{margin:0;padding:11px 12px;border-bottom:1px solid var(--line);font:700 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+textarea{width:100%;min-height:360px;margin:0;border:0;background:#0d0a19;color:var(--fg);font:400 12px/1.55 var(--mono);padding:13px;resize:vertical;outline:none;tab-size:2}
+.toolbar,.formats{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+button,select,input{height:31px;border:1px solid var(--line);border-radius:16px;background:#18122b;color:var(--fg);font:700 10px var(--mono);letter-spacing:.45px}
+button{padding:0 11px;cursor:pointer}
+button:hover,select:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08060f}
+button.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 1px rgba(201,162,39,.3)}
+select,input{padding:0 10px}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.metric{background:rgba(20,16,32,.9);border:1px solid var(--line);border-radius:8px;padding:11px}
+.metric .k{font:700 9px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.metric .v{margin-top:5px;font:700 19px var(--mono)}
+.log{min-height:38px;color:var(--muted);font:600 10px var(--mono);padding:10px 12px;border-top:1px solid var(--line);white-space:pre-wrap}
+.err{color:var(--bad)}
+footer{padding:16px 18px 22px;text-align:center;color:var(--muted);font:500 10px var(--mono)}
+@media(max-width:920px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,1fr)}.hero{display:block}.badge{display:inline-flex;margin-top:12px}textarea{min-height:260px}}
+</style>
+</head>
+<body>
+<header><span class="sq"></span><div class="brand">ROCKET PUDDING / STRING ESCAPER</div><a class="back" href="../../">ALL TOOLS</a></header>
+<main>
+  <section class="hero">
+    <div>
+      <h1>Escape hatches for hostile strings.</h1>
+      <p>Convert text into JSON, JavaScript, HTML, URL, Base64, Unicode, CSV, or shell-safe forms, then reverse it when the format supports decoding. Everything stays in the browser.</p>
+    </div>
+    <div class="badge" id="status">zero dependency</div>
+  </section>
+
+  <section class="toolbar">
+    <select id="format" aria-label="Format">
+      <option value="json">JSON string</option>
+      <option value="js">JavaScript string</option>
+      <option value="html">HTML entities</option>
+      <option value="url">URL component</option>
+      <option value="base64">Base64 UTF-8</option>
+      <option value="unicode">Unicode \\u / code point</option>
+      <option value="csv">CSV field</option>
+      <option value="shell">Shell single quote</option>
+    </select>
+    <button class="primary" id="escape">Escape</button>
+    <button id="unescape">Unescape</button>
+    <button id="swap">Swap</button>
+    <button id="copy">Copy</button>
+    <button id="sample">Sample</button>
+  </section>
+
+  <section class="formats">
+    <button data-f="json">JSON</button>
+    <button data-f="js">JS</button>
+    <button data-f="html">HTML</button>
+    <button data-f="url">URL</button>
+    <button data-f="base64">Base64</button>
+    <button data-f="unicode">Unicode</button>
+    <button data-f="csv">CSV</button>
+    <button data-f="shell">Shell</button>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Input</h2>
+      <textarea id="input" spellcheck="false"></textarea>
+      <div class="log" id="inLog"></div>
+    </div>
+    <div class="panel">
+      <h2>Output</h2>
+      <textarea id="output" spellcheck="false"></textarea>
+      <div class="log" id="outLog"></div>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <div class="metric"><div class="k">Input chars</div><div class="v" id="mIn">0</div></div>
+    <div class="metric"><div class="k">Output chars</div><div class="v" id="mOut">0</div></div>
+    <div class="metric"><div class="k">Input bytes</div><div class="v" id="mInB">0</div></div>
+    <div class="metric"><div class="k">Output bytes</div><div class="v" id="mOutB">0</div></div>
+    <div class="metric"><div class="k">Delta</div><div class="v" id="mDelta">0%</div></div>
+  </section>
+</main>
+<footer>Original zero-dependency Rocket Pudding string escape workbench. Native TextEncoder/TextDecoder only.</footer>
+<script>
+const $ = id => document.getElementById(id);
+const enc = new TextEncoder();
+const dec = new TextDecoder();
+const sample = `Quote: "Rocket Pudding"
+Path: C:\\tools\\banana
+URL: https://tools.rocketpudding.ai/?q=barbarians & bananas
+Emoji: 🍌
+HTML: <strong>safe?</strong>`;
+const htmlMap = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'};
+const htmlUnmap = {'amp':'&','lt':'<','gt':'>','quot':'"','#39':"'",'apos':"'"};
+function bytes(s){ return enc.encode(s).length; }
+function setStatus(s, bad=false){ $('status').textContent = s; $('status').classList.toggle('err', bad); }
+function updateStats(){
+  const a = $('input').value, b = $('output').value;
+  $('mIn').textContent = a.length.toLocaleString();
+  $('mOut').textContent = b.length.toLocaleString();
+  $('mInB').textContent = bytes(a).toLocaleString();
+  $('mOutB').textContent = bytes(b).toLocaleString();
+  const base = Math.max(1, bytes(a));
+  const delta = ((bytes(b)-bytes(a))/base*100);
+  $('mDelta').textContent = (delta >= 0 ? '+' : '') + delta.toFixed(1) + '%';
+  $('inLog').textContent = `${a.split(/\r?\n/).length} lines / ${bytes(a)} bytes`;
+  $('outLog').textContent = `${b.split(/\r?\n/).length} lines / ${bytes(b)} bytes`;
+}
+function toBase64(s){
+  let bin = '';
+  for(const b of enc.encode(s)) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function fromBase64(s){
+  const bin = atob(s.replace(/\s+/g,''));
+  const arr = new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++) arr[i] = bin.charCodeAt(i);
+  return dec.decode(arr);
+}
+function escapeJs(s){
+  return s.replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/\r/g,'\\r').replace(/\t/g,'\\t').replace(/\f/g,'\\f').replace(/\b/g,'\\b').replace(/"/g,'\\"').replace(/'/g,"\\'");
+}
+function unescapeJs(s){
+  return s.replace(/\\u\{([0-9a-fA-F]+)\}/g, (_,h)=>String.fromCodePoint(parseInt(h,16)))
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_,h)=>String.fromCharCode(parseInt(h,16)))
+    .replace(/\\x([0-9a-fA-F]{2})/g, (_,h)=>String.fromCharCode(parseInt(h,16)))
+    .replace(/\\n/g,'\n').replace(/\\r/g,'\r').replace(/\\t/g,'\t').replace(/\\f/g,'\f').replace(/\\b/g,'\b')
+    .replace(/\\"/g,'"').replace(/\\'/g,"'").replace(/\\\\/g,'\\');
+}
+function toUnicode(s){
+  return Array.from(s).map(ch => {
+    const cp = ch.codePointAt(0);
+    return cp <= 0xffff ? '\\u' + cp.toString(16).padStart(4,'0') : '\\u{' + cp.toString(16) + '}';
+  }).join('');
+}
+function fromUnicode(s){ return unescapeJs(s); }
+function escapeCsv(s){ return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; }
+function unescapeCsv(s){
+  const t = s.trim();
+  if(t.startsWith('"') && t.endsWith('"')) return t.slice(1,-1).replace(/""/g,'"');
+  return s;
+}
+function escapeShell(s){ return "'" + s.replace(/'/g, "'\\''") + "'"; }
+function unescapeShell(s){
+  const t = s.trim();
+  if(t.startsWith("'") && t.endsWith("'")) return t.slice(1,-1).replace(/'\\''/g, "'");
+  return s;
+}
+function doConvert(direction){
+  const f = $('format').value;
+  const s = $('input').value;
+  try{
+    let out = s;
+    if(direction === 'escape'){
+      if(f === 'json') out = JSON.stringify(s);
+      if(f === 'js') out = escapeJs(s);
+      if(f === 'html') out = s.replace(/[&<>"']/g, ch => htmlMap[ch]);
+      if(f === 'url') out = encodeURIComponent(s);
+      if(f === 'base64') out = toBase64(s);
+      if(f === 'unicode') out = toUnicode(s);
+      if(f === 'csv') out = escapeCsv(s);
+      if(f === 'shell') out = escapeShell(s);
+    } else {
+      if(f === 'json') out = JSON.parse(s);
+      if(f === 'js') out = unescapeJs(s);
+      if(f === 'html') out = s.replace(/&([^;]+);/g, (m,k) => htmlUnmap[k] ?? (k[0] === '#' ? String.fromCodePoint(Number(k[1].toLowerCase()==='x' ? '0x'+k.slice(2) : k.slice(1))) : m));
+      if(f === 'url') out = decodeURIComponent(s);
+      if(f === 'base64') out = fromBase64(s);
+      if(f === 'unicode') out = fromUnicode(s);
+      if(f === 'csv') out = unescapeCsv(s);
+      if(f === 'shell') out = unescapeShell(s);
+    }
+    $('output').value = out;
+    setStatus(direction + ' ' + f);
+  }catch(err){
+    $('output').value = String(err.message || err);
+    setStatus('conversion error', true);
+  }
+  updateStats();
+}
+function setFormat(f){
+  $('format').value = f;
+  document.querySelectorAll('[data-f]').forEach(b => b.classList.toggle('active', b.dataset.f === f));
+}
+document.querySelectorAll('[data-f]').forEach(b => b.addEventListener('click', () => setFormat(b.dataset.f)));
+$('format').addEventListener('change', () => setFormat($('format').value));
+$('escape').addEventListener('click', () => doConvert('escape'));
+$('unescape').addEventListener('click', () => doConvert('unescape'));
+$('swap').addEventListener('click', () => { const x=$('input').value; $('input').value=$('output').value; $('output').value=x; updateStats(); });
+$('copy').addEventListener('click', () => { navigator.clipboard && navigator.clipboard.writeText($('output').value); setStatus('copied'); });
+$('sample').addEventListener('click', () => { $('input').value = sample; doConvert('escape'); });
+$('input').addEventListener('input', updateStats);
+$('output').addEventListener('input', updateStats);
+$('input').value = sample;
+setFormat('json');
+doConvert('escape');
+</script>
+</body>
+</html>
