@@ -1,0 +1,805 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chmod Calculator</title>
+<meta name="description" content="Zero-dependency Unix file-permission workbench. A live 3x3 owner/group/other x read/write/execute grid stays in sync with the octal form (755), the symbolic form (rwxr-xr-x), and a symbolic-mode expression input (u+x,go-w,a=r). Includes the setuid/setgid/sticky special bits with s/S/t/T rendering, a plain-English explanation, a umask calculator for default file and directory permissions, and a ready-to-copy chmod command line -- all reactive, entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%238a5a44'/%3E%3C/svg%3E">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #8a5a44;
+    --accent-ink: #ffffff;
+    --accent-soft: rgba(138, 90, 68, 0.12);
+    --accent-line: rgba(138, 90, 68, 0.42);
+    --ok: #2e8b57;
+    --err: #b3261e;
+    --special: #b07d1e;
+    --off: rgba(138, 141, 147, 0.16);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #b07a5f;
+      --accent-ink: #17120f;
+      --accent-soft: rgba(176, 122, 95, 0.16);
+      --accent-line: rgba(176, 122, 95, 0.44);
+      --ok: #5cbf82;
+      --err: #ff6b60;
+      --special: #d9a94a;
+      --off: rgba(138, 141, 147, 0.22);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+  }
+  section { margin-top: 28px; }
+  section:first-child { margin-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); flex: none; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  /* ---- copy button ---- */
+  .copy {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy.ok { border-color: var(--ok); color: var(--ok); }
+  .copy svg { pointer-events: none; }
+  .copy.sm { width: 28px; height: 28px; border-radius: 6px; }
+
+  /* ---- inputs ---- */
+  .field-lab {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .row { display: flex; gap: 8px; align-items: stretch; }
+  input[type=text] {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15px;
+    padding: 11px 13px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+    min-width: 0;
+  }
+  input.big { font-size: 24px; font-weight: 500; letter-spacing: 0.06em; }
+  input:focus { border-color: var(--accent); }
+  input.invalid { border-color: var(--err); }
+  .note { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); text-transform: none; letter-spacing: 0; }
+
+  .ferr {
+    display: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; color: var(--err);
+    margin-top: 8px;
+  }
+  .ferr.show { display: block; }
+
+  .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    padding: 10px 16px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn:hover { filter: brightness(1.06); }
+  .btn.sm { padding: 8px 13px; font-size: 12px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .chips .lab { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-right: 2px; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px;
+    padding: 6px 12px; background: transparent; color: var(--fg);
+    border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip b { color: var(--accent); font-weight: 600; }
+
+  /* ---- top representation row ---- */
+  .repr { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .repr .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 6px; letter-spacing: 0.04em; }
+
+  /* ---- symbolic strip ---- */
+  .strip-wrap { margin-top: 18px; }
+  .strip { display: flex; gap: 6px; flex-wrap: wrap; }
+  .cls { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .cls-head { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+  .cls-cells { display: flex; gap: 4px; }
+  .pc {
+    width: 34px; height: 40px; display: flex; align-items: center; justify-content: center;
+    border-radius: 6px; font-family: "IBM Plex Mono", monospace; font-size: 18px; font-weight: 600;
+    background: var(--off); color: var(--muted); border: 1px solid transparent;
+  }
+  .pc.on { background: var(--accent-soft); color: var(--accent); border-color: var(--accent-line); }
+  .pc.special { background: rgba(176, 137, 46, 0.16); color: var(--special); border-color: rgba(176, 137, 46, 0.5); }
+  .cls-digit { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .cls-digit b { color: var(--fg); font-weight: 600; }
+  .strip-sep { align-self: center; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 20px; padding: 0 2px; }
+
+  /* ---- permission grid ---- */
+  .grid-wrap { overflow-x: auto; }
+  table.perm { border-collapse: collapse; width: 100%; font-family: "IBM Plex Mono", monospace; }
+  table.perm th, table.perm td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: center; }
+  table.perm thead th { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  table.perm tbody th { text-align: left; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  table.perm tbody th small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; letter-spacing: 0.02em; }
+  table.perm tbody tr:last-child td, table.perm tbody tr:last-child th { border-bottom: none; }
+  table.perm td.digit { font-size: 15px; font-weight: 600; color: var(--accent); }
+  .cell-lab { display: inline-flex; flex-direction: column; align-items: center; gap: 4px; cursor: pointer; }
+  .cell-lab .spname { font-size: 10px; color: var(--muted); letter-spacing: 0.04em; }
+  input[type=checkbox] {
+    appearance: none; -webkit-appearance: none;
+    width: 22px; height: 22px; border: 1px solid var(--line); border-radius: 6px;
+    background: var(--bg); cursor: pointer; position: relative; flex: none; outline: none; margin: 0;
+    transition: background .12s, border-color .12s;
+  }
+  input[type=checkbox]:hover { border-color: var(--accent); }
+  input[type=checkbox]:focus-visible { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  input[type=checkbox]:checked { background: var(--accent); border-color: var(--accent); }
+  input[type=checkbox]:checked::after {
+    content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px;
+    border: solid var(--accent-ink); border-width: 0 2px 2px 0; transform: rotate(45deg);
+  }
+  input[type=checkbox].sp:checked { background: var(--special); border-color: var(--special); }
+
+  /* ---- english ---- */
+  .english { font-size: 16px; line-height: 1.65; }
+  .english b { color: var(--accent); font-weight: 600; }
+  .english .sp { color: var(--special); font-weight: 600; }
+  .english .sp-note { display: block; font-size: 13px; color: var(--muted); margin-top: 8px; font-family: "IBM Plex Mono", monospace; }
+
+  /* ---- umask ---- */
+  .umask-grid { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: start; }
+  .umask-out { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .tile {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 13px 15px; min-width: 0;
+  }
+  .tile .t-label { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .tile .t-value { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 20px; }
+  .tile .t-value .sym { color: var(--accent); }
+  .tile .t-sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 18px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex; gap: 8px; flex-wrap: wrap;
+  }
+
+  @media (max-width: 720px) {
+    .repr { grid-template-columns: 1fr; }
+    .umask-grid { grid-template-columns: 1fr; }
+    .umask-out { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Chmod Calculator</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <!-- ============ REPRESENTATIONS ============ -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M6 2h4l4 4v8H2V2z"></path><path d="M9.5 2v4h4"></path>
+      </svg>
+      Permissions &mdash; octal &amp; symbolic, always in sync
+    </div>
+    <div class="card">
+      <div class="repr">
+        <div>
+          <div class="field-lab">octal <span class="note">3 or 4 digits &middot; e.g. 755, 0644, 4755</span></div>
+          <div class="row">
+            <input id="octal" class="big mono" type="text" spellcheck="false" autocomplete="off" inputmode="numeric" value="0644" aria-label="Octal permission" style="flex:1">
+            <button class="copy" data-copy-input="octal" title="Copy octal" aria-label="Copy octal"></button>
+          </div>
+          <div class="sub" id="octal-sub"></div>
+        </div>
+        <div>
+          <div class="field-lab">symbolic <span class="note">9 chars &middot; rwx r-x r-x</span></div>
+          <div class="row">
+            <input id="symstr" class="big mono" type="text" spellcheck="false" autocomplete="off" value="rw-r--r--" aria-label="Symbolic permission string" style="flex:1">
+            <button class="copy" data-copy-input="symstr" title="Copy symbolic" aria-label="Copy symbolic"></button>
+          </div>
+          <div class="sub" id="sym-sub"></div>
+        </div>
+      </div>
+      <div class="ferr" id="repr-err"></div>
+
+      <div class="strip-wrap">
+        <div class="field-lab">position map <span class="note">special bits recolor the execute slots (s / S / t / T)</span></div>
+        <div class="strip" id="strip"></div>
+      </div>
+
+      <div class="chips" style="margin-top:18px">
+        <span class="lab">presets</span>
+        <button class="chip" data-preset="644" type="button"><b>644</b> file</button>
+        <button class="chip" data-preset="755" type="button"><b>755</b> dir/exec</button>
+        <button class="chip" data-preset="600" type="button"><b>600</b> private</button>
+        <button class="chip" data-preset="777" type="button"><b>777</b> all</button>
+        <button class="chip" data-preset="700" type="button"><b>700</b> owner-only</button>
+        <button class="chip" data-preset="664" type="button"><b>664</b> group-write</button>
+        <button class="chip" data-preset="775" type="button"><b>775</b> group-exec</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ GRID ============ -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <rect x="2" y="2" width="5" height="5" rx="1"></rect><rect x="9" y="2" width="5" height="5" rx="1"></rect>
+        <rect x="2" y="9" width="5" height="5" rx="1"></rect><rect x="9" y="9" width="5" height="5" rx="1"></rect>
+      </svg>
+      Permission matrix &mdash; toggle any bit
+    </div>
+    <div class="card">
+      <div class="grid-wrap">
+        <table class="perm">
+          <thead>
+            <tr>
+              <th style="text-align:left">class</th>
+              <th>read <span class="note">(4)</span></th>
+              <th>write <span class="note">(2)</span></th>
+              <th>execute <span class="note">(1)</span></th>
+              <th>special</th>
+              <th>= digit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th>Owner <small>u &middot; user</small></th>
+              <td><input type="checkbox" id="c-ur" aria-label="Owner read"></td>
+              <td><input type="checkbox" id="c-uw" aria-label="Owner write"></td>
+              <td><input type="checkbox" id="c-ux" aria-label="Owner execute"></td>
+              <td><label class="cell-lab"><input type="checkbox" class="sp" id="c-setuid" aria-label="setuid"><span class="spname">setuid</span></label></td>
+              <td class="digit" id="d-u">0</td>
+            </tr>
+            <tr>
+              <th>Group <small>g &middot; group</small></th>
+              <td><input type="checkbox" id="c-gr" aria-label="Group read"></td>
+              <td><input type="checkbox" id="c-gw" aria-label="Group write"></td>
+              <td><input type="checkbox" id="c-gx" aria-label="Group execute"></td>
+              <td><label class="cell-lab"><input type="checkbox" class="sp" id="c-setgid" aria-label="setgid"><span class="spname">setgid</span></label></td>
+              <td class="digit" id="d-g">0</td>
+            </tr>
+            <tr>
+              <th>Others <small>o &middot; world</small></th>
+              <td><input type="checkbox" id="c-or" aria-label="Others read"></td>
+              <td><input type="checkbox" id="c-ow" aria-label="Others write"></td>
+              <td><input type="checkbox" id="c-ox" aria-label="Others execute"></td>
+              <td><label class="cell-lab"><input type="checkbox" class="sp" id="c-sticky" aria-label="sticky"><span class="spname">sticky</span></label></td>
+              <td class="digit" id="d-o">0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SYMBOLIC EXPRESSION ============ -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 8h10M8 3v10"></path>
+      </svg>
+      Symbolic mode &mdash; apply a chmod expression
+    </div>
+    <div class="card">
+      <div class="field-lab">expression <span class="note">applied to current mode &middot; e.g. u+x,go-w &middot; a=r &middot; +t &middot; u+s</span></div>
+      <div class="row">
+        <input id="expr" class="mono" type="text" spellcheck="false" autocomplete="off" placeholder="u+x,go-w" value="" aria-label="Symbolic mode expression" style="flex:1">
+        <button class="btn" id="expr-apply" type="button">Apply</button>
+      </div>
+      <div class="ferr" id="expr-err"></div>
+      <div class="chips" style="margin-top:14px">
+        <span class="lab">try</span>
+        <button class="chip expr-ex" type="button">u=rwx,go=rx</button>
+        <button class="chip expr-ex" type="button">a=r</button>
+        <button class="chip expr-ex" type="button">u+x,go-w</button>
+        <button class="chip expr-ex" type="button">+t</button>
+        <button class="chip expr-ex" type="button">u+s</button>
+        <button class="chip expr-ex" type="button">o-rwx</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ ENGLISH + COMMAND ============ -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M2.5 4h11M2.5 8h11M2.5 12h7"></path>
+      </svg>
+      In plain English
+    </div>
+    <div class="card">
+      <div class="english" id="english"></div>
+      <div style="margin-top:18px">
+        <div class="field-lab">chmod command</div>
+        <div class="row">
+          <input id="cmd" class="mono" type="text" readonly value="" aria-label="chmod command" style="flex:1;font-size:16px">
+          <button class="copy" data-copy-input="cmd" title="Copy command" aria-label="Copy command"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ UMASK ============ -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="8" cy="8" r="6"></circle><path d="M8 2v12M2 8h12"></path>
+      </svg>
+      Umask &mdash; default permissions for new files &amp; directories
+    </div>
+    <div class="card">
+      <div class="umask-grid">
+        <div>
+          <div class="field-lab">umask <span class="note">e.g. 022, 077, 002</span></div>
+          <div class="row">
+            <input id="umask" class="big mono" type="text" spellcheck="false" autocomplete="off" inputmode="numeric" value="022" aria-label="umask" style="flex:1">
+          </div>
+          <div class="ferr" id="umask-err"></div>
+          <div class="sub note" style="margin-top:10px">files = 666 &amp; ~umask<br>dirs&nbsp; = 777 &amp; ~umask</div>
+        </div>
+        <div class="umask-out" id="umask-out"></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>zero dependencies</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------------- icons ---------------- */
+  var ICON_COPY = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>';
+  var ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.2 3.2L13 5"></path></svg>';
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"), function (b) { if (!b.innerHTML.trim()) b.innerHTML = ICON_COPY; });
+
+  function flashCopy(btn) {
+    btn.classList.add("ok"); btn.innerHTML = ICON_CHECK;
+    setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = ICON_COPY; }, 950);
+  }
+  function copyText(text, btn) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove(); if (btn) flashCopy(btn);
+      } catch (e) { /* ignore */ }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { if (btn) flashCopy(btn); }, fallback);
+    } else fallback();
+  }
+
+  /* =================================================================
+     CORE PERMISSION LOGIC  (mode = 12-bit integer 0..4095)
+     bits: 4000 setuid, 2000 setgid, 1000 sticky
+           0400 ur 0200 uw 0100 ux  0040 gr 0020 gw 0010 gx  0004 or 0002 ow 0001 ox
+     ================================================================= */
+  var SUID = 0o4000, SGID = 0o2000, STICKY = 0o1000;
+  /* per-class descriptors: r/w/x bit masks + which special bit + on/off exec chars */
+  var CLASSES = [
+    { key: "u", name: "Owner", r: 0o400, w: 0o200, x: 0o100, sp: SUID, on: "s", off: "S" },
+    { key: "g", name: "Group", r: 0o040, w: 0o020, x: 0o010, sp: SGID, on: "s", off: "S" },
+    { key: "o", name: "Others", r: 0o004, w: 0o002, x: 0o001, sp: STICKY, on: "t", off: "T" }
+  ];
+
+  function modeToOctal(mode) { return (mode & 0o7777).toString(8).padStart(4, "0"); }
+
+  /* mode -> "rwxr-xr-x" (9 chars, s/S/t/T applied on the execute slots) */
+  function modeToSymbolic(mode) {
+    var s = "";
+    for (var i = 0; i < 3; i++) {
+      var c = CLASSES[i];
+      s += (mode & c.r) ? "r" : "-";
+      s += (mode & c.w) ? "w" : "-";
+      var xset = (mode & c.x) !== 0;
+      if (mode & c.sp) s += xset ? c.on : c.off;
+      else s += xset ? "x" : "-";
+    }
+    return s;
+  }
+
+  /* octal digit (0..7) for one class, ignoring special bits */
+  function classDigit(mode, c) {
+    var d = 0;
+    if (mode & c.r) d += 4;
+    if (mode & c.w) d += 2;
+    if (mode & c.x) d += 1;
+    return d;
+  }
+  function specialDigit(mode) {
+    var d = 0;
+    if (mode & SUID) d += 4;
+    if (mode & SGID) d += 2;
+    if (mode & STICKY) d += 1;
+    return d;
+  }
+
+  /* parse "0755" / "755" / "4755" / "0o755" -> mode int */
+  function parseOctal(str) {
+    var s = String(str).trim().replace(/^0o/i, "");
+    if (s === "") throw new Error("enter an octal value");
+    if (!/^[0-7]{1,4}$/.test(s)) throw new Error("use 1-4 octal digits (0-7)");
+    return parseInt(s, 8) & 0o7777;
+  }
+
+  /* parse "rwxr-xr-x" (or 10-char ls form) -> mode int, honoring s/S/t/T */
+  function parseSymbolic(str) {
+    var s = String(str).trim();
+    if (s.length === 10) s = s.slice(1); /* drop leading file-type char */
+    if (s.length !== 9) throw new Error("need 9 characters, e.g. rwxr-xr-x");
+    var mode = 0;
+    for (var i = 0; i < 3; i++) {
+      var c = CLASSES[i];
+      var rc = s[i * 3], wc = s[i * 3 + 1], xc = s[i * 3 + 2];
+      if (rc === "r") mode |= c.r; else if (rc !== "-") throw new Error('position ' + (i * 3 + 1) + ' must be "r" or "-"');
+      if (wc === "w") mode |= c.w; else if (wc !== "-") throw new Error('position ' + (i * 3 + 2) + ' must be "w" or "-"');
+      if (xc === "x") mode |= c.x;
+      else if (xc === c.on) { mode |= c.x; mode |= c.sp; }
+      else if (xc === c.off) { mode |= c.sp; }
+      else if (xc !== "-") throw new Error('position ' + (i * 3 + 3) + ' must be x/' + c.on + "/" + c.off + "/-");
+    }
+    return mode;
+  }
+
+  /* apply a chmod symbolic expression to a base mode -> new mode */
+  function applySymbolicExpr(mode, expr) {
+    var clauses = String(expr).split(",").map(function (s) { return s.trim(); }).filter(Boolean);
+    if (!clauses.length) throw new Error("empty expression");
+    var CM = { u: CLASSES[0], g: CLASSES[1], o: CLASSES[2] };
+    for (var ci = 0; ci < clauses.length; ci++) {
+      var clause = clauses[ci];
+      var m = clause.match(/^([ugoa]*)([+\-=])([rwxXst]*)$/);
+      if (!m) throw new Error('cannot parse "' + clause + '"');
+      var who = m[1], op = m[2], perm = m[3];
+      if (who === "") who = "a";
+      var whoSet = {};
+      who.split("").forEach(function (w) { if (w === "a") { whoSet.u = whoSet.g = whoSet.o = 1; } else whoSet[w] = 1; });
+      var wantR = perm.indexOf("r") >= 0, wantW = perm.indexOf("w") >= 0, wantX = perm.indexOf("x") >= 0;
+      var wantS = perm.indexOf("s") >= 0, wantT = perm.indexOf("t") >= 0, wantXc = perm.indexOf("X") >= 0;
+      var anyExec = (mode & 0o111) !== 0; /* for X: only if some execute already set (dirs approximated as "already exec") */
+      var effX = wantX || (wantXc && anyExec);
+      ["u", "g", "o"].forEach(function (k) {
+        if (!whoSet[k]) return;
+        var c = CM[k];
+        var bits = 0;
+        if (wantR) bits |= c.r;
+        if (wantW) bits |= c.w;
+        if (effX) bits |= c.x;
+        if (wantS) { if (k === "u") bits |= SUID; if (k === "g") bits |= SGID; }
+        if (wantT) bits |= STICKY;
+        if (op === "=") {
+          var clear = c.r | c.w | c.x;
+          if (k === "u") clear |= SUID; else if (k === "g") clear |= SGID; else clear |= STICKY;
+          mode = (mode & ~clear) | bits;
+        } else if (op === "+") { mode |= bits; }
+        else { mode &= ~bits; } /* "-" */
+      });
+    }
+    return mode & 0o7777;
+  }
+
+  /* umask: default perms for new files/dirs */
+  function umaskFile(um) { return 0o666 & ~um & 0o7777; }
+  function umaskDir(um) { return 0o777 & ~um & 0o7777; }
+
+  /* plain-English explanation */
+  function explain(mode) {
+    var verb = function (perms) {
+      if (!perms.length) return "has no access";
+      if (perms.length === 1) return "can " + perms[0];
+      return "can " + perms.slice(0, -1).join(", ") + " and " + perms[perms.length - 1];
+    };
+    /* build a perm list per class, then merge adjacent classes with identical lists */
+    var items = CLASSES.map(function (c) {
+      var p = [];
+      if (mode & c.r) p.push("read");
+      if (mode & c.w) p.push("write");
+      if (mode & c.x) p.push("execute");
+      return { name: c.name, key: c.name, perms: p, sig: p.join("|") };
+    });
+    var merged = [];
+    items.forEach(function (it) {
+      var last = merged[merged.length - 1];
+      if (last && last.sig === it.sig) last.names.push(it.name);
+      else merged.push({ names: [it.name], perms: it.perms, sig: it.sig });
+    });
+    function joinNames(names) {
+      names = names.map(function (n) { return n.toLowerCase(); });
+      /* "Owner" stays capitalized if first */
+      if (names.length === 1) return names[0];
+      if (names.length === 2) return names[0] + " and " + names[1];
+      return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    }
+    var sentences = merged.map(function (g, i) {
+      var subj = joinNames(g.names);
+      if (i === 0) subj = subj.charAt(0).toUpperCase() + subj.slice(1);
+      return subj + " " + verb(g.perms);
+    });
+    var html = "<b>" + modeToSymbolic(mode) + "</b> (" + modeToOctal(mode) + ") — " +
+      sentences.join("; ") + ".";
+
+    var notes = [];
+    if (mode & SUID) notes.push("The <span class=\"sp\">setuid</span> bit is set — the file runs with the privileges of its <b>owner</b>, not the user who launched it.");
+    if (mode & SGID) notes.push("The <span class=\"sp\">setgid</span> bit is set — executables run as the file’s <b>group</b>; new files inside a directory inherit that group.");
+    if (mode & STICKY) notes.push("The <span class=\"sp\">sticky</span> bit is set — in a shared directory, only a file’s <b>owner</b> (or root) may delete or rename it.");
+    if ((mode & SUID) && !(mode & 0o100)) notes.push("Note: setuid is set but owner-execute is off, so it shows as an uppercase <b>S</b> (inert).");
+    if ((mode & SGID) && !(mode & 0o010)) notes.push("Note: setgid is set but group-execute is off, so it shows as an uppercase <b>S</b> (inert).");
+    if ((mode & STICKY) && !(mode & 0o001)) notes.push("Note: sticky is set but others-execute is off, so it shows as an uppercase <b>T</b>.");
+    notes.forEach(function (n) { html += "<span class=\"sp-note\">" + n + "</span>"; });
+    return html;
+  }
+
+  /* =================================================================
+     STATE + RENDER
+     ================================================================= */
+  var mode = 0o644;
+
+  function setMode(m, from) {
+    mode = m & 0o7777;
+    render(from);
+  }
+
+  function renderStrip() {
+    var html = "";
+    for (var i = 0; i < 3; i++) {
+      var c = CLASSES[i];
+      var chars = [
+        { ch: (mode & c.r) ? "r" : "-", on: !!(mode & c.r) },
+        { ch: (mode & c.w) ? "w" : "-", on: !!(mode & c.w) }
+      ];
+      var xset = (mode & c.x) !== 0, spset = (mode & c.sp) !== 0;
+      var xch, xcls;
+      if (spset) { xch = xset ? c.on : c.off; xcls = "special"; }
+      else { xch = xset ? "x" : "-"; xcls = xset ? "on" : ""; }
+      chars.push({ ch: xch, cls: xcls });
+      var cells = chars.map(function (cc) {
+        var cls = cc.cls !== undefined ? cc.cls : (cc.on ? "on" : "");
+        return '<div class="pc ' + cls + '">' + cc.ch + '</div>';
+      }).join("");
+      html += '<div class="cls"><div class="cls-head">' + c.name + " (" + c.key + ')</div>' +
+        '<div class="cls-cells">' + cells + '</div>' +
+        '<div class="cls-digit">= <b>' + classDigit(mode, c) + '</b></div></div>';
+      if (i < 2) html += '<div class="strip-sep"> </div>';
+    }
+    $("strip").innerHTML = html;
+  }
+
+  function render(from) {
+    /* octal input (skip if user is typing there) */
+    if (from !== "octal" && document.activeElement !== $("octal")) $("octal").value = modeToOctal(mode);
+    /* symbolic input */
+    if (from !== "sym" && document.activeElement !== $("symstr")) $("symstr").value = modeToSymbolic(mode);
+
+    /* subs */
+    var sp = specialDigit(mode);
+    $("octal-sub").textContent = "special " + sp + " · owner " + classDigit(mode, CLASSES[0]) +
+      " · group " + classDigit(mode, CLASSES[1]) + " · other " + classDigit(mode, CLASSES[2]);
+    $("sym-sub").textContent = "ls -l shows -" + modeToSymbolic(mode);
+
+    /* grid checkboxes */
+    $("c-ur").checked = !!(mode & 0o400); $("c-uw").checked = !!(mode & 0o200); $("c-ux").checked = !!(mode & 0o100);
+    $("c-gr").checked = !!(mode & 0o040); $("c-gw").checked = !!(mode & 0o020); $("c-gx").checked = !!(mode & 0o010);
+    $("c-or").checked = !!(mode & 0o004); $("c-ow").checked = !!(mode & 0o002); $("c-ox").checked = !!(mode & 0o001);
+    $("c-setuid").checked = !!(mode & SUID); $("c-setgid").checked = !!(mode & SGID); $("c-sticky").checked = !!(mode & STICKY);
+    $("d-u").textContent = classDigit(mode, CLASSES[0]);
+    $("d-g").textContent = classDigit(mode, CLASSES[1]);
+    $("d-o").textContent = classDigit(mode, CLASSES[2]);
+
+    renderStrip();
+
+    /* english + command */
+    $("english").innerHTML = explain(mode);
+    var oct = modeToOctal(mode);
+    var cmdArg = (sp === 0) ? oct.slice(1) : oct; /* drop leading 0 when no special bits */
+    $("cmd").value = "chmod " + cmdArg + " file";
+  }
+
+  function setErr(id, msg) {
+    var el = $(id);
+    if (msg) { el.textContent = msg; el.classList.add("show"); }
+    else { el.textContent = ""; el.classList.remove("show"); }
+  }
+
+  /* =================================================================
+     WIRING
+     ================================================================= */
+  /* octal input */
+  $("octal").addEventListener("input", function () {
+    try { setMode(parseOctal(this.value), "octal"); setErr("repr-err", ""); this.classList.remove("invalid"); }
+    catch (e) { setErr("repr-err", "octal: " + e.message); this.classList.add("invalid"); }
+  });
+  $("octal").addEventListener("blur", function () { this.classList.remove("invalid"); this.value = modeToOctal(mode); setErr("repr-err", ""); });
+
+  /* symbolic string input */
+  $("symstr").addEventListener("input", function () {
+    try { setMode(parseSymbolic(this.value), "sym"); setErr("repr-err", ""); this.classList.remove("invalid"); }
+    catch (e) { setErr("repr-err", "symbolic: " + e.message); this.classList.add("invalid"); }
+  });
+  $("symstr").addEventListener("blur", function () { this.classList.remove("invalid"); this.value = modeToSymbolic(mode); setErr("repr-err", ""); });
+
+  /* grid checkboxes */
+  var GRID = [
+    ["c-ur", 0o400], ["c-uw", 0o200], ["c-ux", 0o100],
+    ["c-gr", 0o040], ["c-gw", 0o020], ["c-gx", 0o010],
+    ["c-or", 0o004], ["c-ow", 0o002], ["c-ox", 0o001],
+    ["c-setuid", SUID], ["c-setgid", SGID], ["c-sticky", STICKY]
+  ];
+  GRID.forEach(function (pair) {
+    $(pair[0]).addEventListener("change", function () {
+      var m = mode;
+      if (this.checked) m |= pair[1]; else m &= ~pair[1];
+      setMode(m, "grid");
+    });
+  });
+
+  /* presets */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-preset]"), function (b) {
+    b.addEventListener("click", function () {
+      setMode(parseOctal(b.getAttribute("data-preset")), "preset");
+      setErr("repr-err", "");
+    });
+  });
+
+  /* symbolic expression */
+  function applyExpr() {
+    var raw = $("expr").value.trim();
+    if (!raw) { setErr("expr-err", "enter an expression like u+x,go-w"); return; }
+    try { setMode(applySymbolicExpr(mode, raw), "expr"); setErr("expr-err", ""); $("expr").classList.remove("invalid"); }
+    catch (e) { setErr("expr-err", e.message); $("expr").classList.add("invalid"); }
+  }
+  $("expr-apply").addEventListener("click", applyExpr);
+  $("expr").addEventListener("keydown", function (e) { if (e.key === "Enter") applyExpr(); });
+  Array.prototype.forEach.call(document.querySelectorAll(".expr-ex"), function (b) {
+    b.addEventListener("click", function () { $("expr").value = b.textContent; applyExpr(); });
+  });
+
+  /* umask */
+  function renderUmask() {
+    var raw = $("umask").value;
+    var um;
+    try {
+      var s = String(raw).trim().replace(/^0o/i, "");
+      if (!/^[0-7]{1,4}$/.test(s)) throw new Error("use 1-4 octal digits (0-7)");
+      um = parseInt(s, 8) & 0o7777;
+      setErr("umask-err", ""); $("umask").classList.remove("invalid");
+    } catch (e) { setErr("umask-err", e.message); $("umask").classList.add("invalid"); return; }
+    var f = umaskFile(um), d = umaskDir(um);
+    function tile(label, m2, note) {
+      return '<div class="tile"><div class="t-label">' + label + '</div>' +
+        '<div class="t-value">' + modeToOctal(m2).slice(1) + ' <span class="sym">' + modeToSymbolic(m2) + '</span></div>' +
+        '<div class="t-sub">' + note + '</div></div>';
+    }
+    $("umask-out").innerHTML =
+      tile("New files", f, "666 &amp; ~" + modeToOctal(um).slice(1)) +
+      tile("New directories", d, "777 &amp; ~" + modeToOctal(um).slice(1));
+  }
+  $("umask").addEventListener("input", renderUmask);
+
+  /* delegated copy */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("[data-copy-input]") : null;
+    if (!btn) return;
+    var el = $(btn.getAttribute("data-copy-input"));
+    var text = el ? el.value : "";
+    if (text !== "") copyText(text, btn);
+  });
+
+  /* ---------------- init ---------------- */
+  render();
+  renderUmask();
+})();
+</script>
+</body>
+</html>

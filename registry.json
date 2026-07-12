@@ -1018,6 +1018,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "chmod-calculator",
+      "name": "Chmod Calculator",
+      "tagline": "Unix file-permission workbench: octal, symbolic, umask",
+      "description": "Zero-dependency Unix file-permission calculator. A 3x3 owner/group/other x read/write/execute grid stays in sync with the octal form (755), the symbolic form (rwxr-xr-x), and a chmod symbolic-mode expression (u+x,go-w,a=r). Handles setuid/setgid/sticky with s/S/t/T rendering, a live plain-English explanation, a umask calculator for default file (666 & ~umask) and directory (777 & ~umask) permissions, presets, and a copy-ready chmod command.",
+      "path": "tools/chmod-calculator/",
+      "tags": [
+        "chmod",
+        "permissions",
+        "unix",
+        "octal",
+        "umask"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#8a5a44",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
