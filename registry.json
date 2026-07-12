@@ -922,6 +922,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "hex-viewer",
+      "name": "Hex Viewer",
+      "tagline": "Classic hexdump and byte inspector, entirely in your browser",
+      "description": "Zero-dependency binary file inspector. Drop, pick, or paste a file (or hex/text) for a classic hexdump with hex offsets, 16 bytes, and an ASCII gutter. Virtualized for large files; go-to-offset and hex/ASCII search; selection synced across panes; a byte inspector interpreting int/uint 8-64 and float32/64 in little- and big-endian plus binary/char; magic-byte type detection (35 formats); copy selection as hex, C array, or base64. Nothing leaves the browser.",
+      "path": "tools/hex-viewer/",
+      "tags": [
+        "hex",
+        "binary",
+        "file",
+        "inspector",
+        "bytes"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#c24bff",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

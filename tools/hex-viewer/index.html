@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hex Viewer</title>
+<meta name="description" content="Zero-dependency in-browser binary file inspector. Drop, pick, or paste a file (or paste hex/text) for a classic hexdump: offset, 16 hex bytes, ASCII gutter. Go-to-offset, hex/ASCII search, synced selection, a byte inspector (int/uint 8-64, float32/64, LE + BE, binary, char), magic-byte type detection, and copy as hex / C array / base64. Nothing is uploaded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #c24bff;
+  --accent-fg: #ffffff;
+  --amber: #e08a1e;
+  --hover: rgba(0,0,0,0.035);
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #c24bff;
+    --accent-fg: #ffffff;
+    --amber: #f0a93a;
+    --hover: rgba(255,255,255,0.045);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+.sq { width: 13px; height: 13px; background: var(--accent); flex: none; border-radius: 2px; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.24em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: color .15s, background .15s;
+}
+.back:hover, .back:focus-visible { color: var(--fg); background: var(--hover); outline: none; }
+footer {
+  margin-top: auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+footer .sq { width: 8px; height: 8px; opacity: .8; }
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.subhead {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.icon { width: 15px; height: 15px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- input ---------- */
+.input-grid { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(0,1fr); gap: 18px; }
+@media (max-width: 780px) { .input-grid { grid-template-columns: 1fr; } }
+#drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: var(--card);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+#drop:hover, #drop.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--card)); }
+#drop .big-icon { width: 40px; height: 40px; color: var(--accent); margin: 0 auto 12px; display: block; }
+#drop h3 { font: 600 16px "IBM Plex Sans", sans-serif; margin-bottom: 6px; }
+#drop p { color: var(--muted); font-size: 13px; }
+.kbd { font-family: "IBM Plex Mono", monospace; font-size: 11px; background: var(--hover); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.paste-wrap { display: flex; flex-direction: column; }
+.paste-wrap > label { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
+#pasteBox {
+  flex: 1; min-height: 120px; resize: vertical;
+  font: 400 12.5px/1.5 "IBM Plex Mono", monospace;
+  background: var(--card); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 11px 12px;
+}
+#pasteBox:focus { outline: none; border-color: var(--accent); }
+.paste-actions { display: flex; gap: 10px; margin-top: 10px; }
+
+/* ---------- buttons / inputs ---------- */
+button {
+  font: 500 13px "IBM Plex Sans", sans-serif;
+  background: var(--accent); color: var(--accent-fg);
+  border: none; border-radius: 6px; padding: 8px 15px;
+  cursor: pointer; transition: filter .15s;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+button:hover { filter: brightness(1.06); }
+button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+button.ghost:hover { background: var(--hover); filter: none; }
+button:disabled { opacity: .45; cursor: not-allowed; filter: none; }
+input[type="text"] {
+  font: 500 13px "IBM Plex Mono", monospace;
+  background: var(--card); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
+}
+input[type="text"]:focus { outline: none; border-color: var(--accent); }
+.hidden { display: none !important; }
+
+/* ---------- stats ---------- */
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.stat { background: var(--card); padding: 12px 14px; }
+.stat .k { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font: 500 15px "IBM Plex Mono", monospace; margin-top: 3px; word-break: break-all; }
+.stat .v.sm { font-size: 13px; }
+.stat .v .badge { display: inline-block; background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); border-radius: 5px; padding: 1px 7px; font-size: 12px; }
+
+/* ---------- toolbar ---------- */
+.toolbar { display: flex; flex-wrap: wrap; gap: 12px 16px; align-items: flex-end; margin-bottom: 16px; }
+.tgroup { display: flex; flex-direction: column; gap: 5px; }
+.tgroup > label { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.trow { display: flex; gap: 6px; align-items: center; }
+#gotoInput { width: 130px; }
+#searchInput { width: 210px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { background: transparent; color: var(--muted); border: none; border-radius: 0; padding: 7px 11px; font: 600 11px "IBM Plex Mono", monospace; letter-spacing: .08em; }
+.seg button.on { background: var(--accent); color: var(--accent-fg); }
+.iconbtn { background: transparent; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+.iconbtn:hover { background: var(--hover); filter: none; }
+.matchinfo { font: 500 12px "IBM Plex Mono", monospace; color: var(--muted); min-width: 92px; }
+.matchinfo.hit { color: var(--fg); }
+.matchinfo.miss { color: var(--amber); }
+.spacer { flex: 1 1 auto; }
+.selinfo { font: 500 12px "IBM Plex Mono", monospace; color: var(--muted); }
+.copybar { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ---------- dump + inspector ---------- */
+.dump-grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .dump-grid { grid-template-columns: 1fr; } }
+#viewport {
+  position: relative;
+  height: 62vh; min-height: 340px; max-height: 720px;
+  overflow-y: auto; overflow-x: auto;
+  border: 1px solid var(--line); border-radius: 8px;
+  background: var(--card);
+  outline: none;
+}
+#viewport:focus-visible { border-color: var(--accent); }
+#sizer { width: 1px; }
+#content { position: absolute; top: 0; left: 0; right: 0; will-change: transform; min-width: max-content; }
+.hx-row { display: flex; align-items: center; white-space: pre; font: 400 12.5px/22px "IBM Plex Mono", monospace; padding: 0 10px; }
+.hx-row:hover { background: var(--hover); }
+.off { color: var(--muted); padding: 0 14px 0 4px; user-select: none; flex: none; }
+.hex, .asc { user-select: none; }
+.asc { padding-left: 12px; border-left: 1px solid var(--line); margin-left: 4px; color: var(--fg); flex: none; }
+.hb, .ac { border-radius: 3px; cursor: pointer; }
+.hb { padding: 0 3px; }
+.hb.gap { margin-right: 11px; }
+.ac.gap { margin-right: 6px; }
+.hb.pad, .ac.pad { cursor: default; color: transparent; }
+.hb.zero { color: var(--muted); }
+.hb.sel, .ac.sel { background: color-mix(in srgb, var(--accent) 28%, transparent); color: var(--fg); }
+.hb.match, .ac.match { background: color-mix(in srgb, var(--amber) 42%, transparent); }
+.hb.mcur, .ac.mcur { background: color-mix(in srgb, var(--amber) 82%, transparent); color: #191b1e; }
+.hb.cur, .ac.cur { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+/* ---------- inspector ---------- */
+#inspector { position: sticky; top: 74px; border: 1px solid var(--line); border-radius: 8px; background: var(--card); padding: 16px; }
+.insp-meta { font: 500 12px "IBM Plex Mono", monospace; color: var(--muted); margin-bottom: 12px; line-height: 1.7; word-break: break-all; }
+.insp-meta b { color: var(--fg); font-weight: 600; }
+table.insp { width: 100%; border-collapse: collapse; font: 500 12px "IBM Plex Mono", monospace; }
+table.insp th { text-align: right; color: var(--muted); font-weight: 600; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; padding: 4px 6px; border-bottom: 1px solid var(--line); }
+table.insp th:first-child { text-align: left; }
+table.insp td { padding: 4px 6px; border-bottom: 1px solid var(--line); }
+table.insp td.t { color: var(--muted); white-space: nowrap; }
+table.insp td.v { text-align: right; word-break: break-all; }
+table.insp td.v.na { color: var(--muted); }
+table.insp tr:last-child td { border-bottom: none; }
+
+.note { font-size: 12px; color: var(--muted); margin-top: 12px; }
+.note b { color: var(--fg); }
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+  background: var(--fg); color: var(--bg);
+  padding: 9px 16px; border-radius: 8px;
+  font: 500 13px "IBM Plex Sans", sans-serif;
+  display: flex; align-items: center; gap: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sq"></div>
+  <h1>HEX VIEWER</h1>
+  <a class="back mono" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <!-- ============ INPUT ============ -->
+  <section id="input" class="card">
+    <div class="input-grid">
+      <div id="drop" tabindex="0" role="button" aria-label="Drop, click, or paste a file">
+        <svg class="big-icon" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M5 3h9l5 5v11a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/><path d="M8 13h5M8 17h8"/></svg>
+        <h3>Drop a file, click to pick, or paste</h3>
+        <p>Bytes are read locally &mdash; <span class="kbd">Ctrl/&#8984; V</span> pastes a file from the clipboard.</p>
+        <input id="file" type="file" class="hidden">
+      </div>
+      <div class="paste-wrap">
+        <label>or paste hex / text</label>
+        <textarea id="pasteBox" spellcheck="false" placeholder="89 50 4E 47 0D 0A 1A 0A&#10;&#10;— or paste plain text and load it as UTF-8 bytes —"></textarea>
+        <div class="paste-actions">
+          <button id="loadHex" class="ghost"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Load as hex</button>
+          <button id="loadText" class="ghost"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg> Load as text</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <div id="results" class="hidden" style="display:flex; flex-direction:column; gap:20px;">
+
+    <section class="card">
+      <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg> File</div>
+      <div class="stats" id="stats"></div>
+    </section>
+
+    <section class="card">
+      <div class="toolbar">
+        <div class="tgroup">
+          <label for="gotoInput">Go to offset</label>
+          <div class="trow">
+            <input id="gotoInput" type="text" placeholder="0x1A0 or 416" spellcheck="false">
+            <button class="iconbtn" id="gotoBtn" title="Jump"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+        <div class="tgroup">
+          <label for="searchInput">Search</label>
+          <div class="trow">
+            <div class="seg" id="modeSeg">
+              <button data-mode="hex" class="on">HEX</button>
+              <button data-mode="ascii">ASCII</button>
+            </div>
+            <input id="searchInput" type="text" placeholder="deadbeef" spellcheck="false">
+            <button class="iconbtn" id="prevBtn" title="Previous match"><svg class="icon" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
+            <button class="iconbtn" id="nextBtn" title="Next match"><svg class="icon" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            <span class="matchinfo" id="matchInfo"></span>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="tgroup">
+          <label>Copy selection</label>
+          <div class="copybar">
+            <span class="selinfo" id="selInfo" style="align-self:center; margin-right:4px;">no selection</span>
+            <button class="ghost" id="copyHex" disabled>Hex</button>
+            <button class="ghost" id="copyC" disabled>C array</button>
+            <button class="ghost" id="copyB64" disabled>Base64</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="dump-grid">
+        <div id="viewport" tabindex="0" aria-label="Hex dump. Click a byte to inspect; arrow keys move the cursor.">
+          <div id="sizer"></div>
+          <div id="content"></div>
+        </div>
+        <aside id="inspector">
+          <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg> Byte inspector</div>
+          <div class="insp-meta" id="inspMeta">Hover or click a byte to interpret the bytes starting there.</div>
+          <table class="insp"><tbody id="inspBody"></tbody></table>
+        </aside>
+      </div>
+      <div class="note" id="dumpNote"></div>
+    </section>
+
+    <div>
+      <button class="ghost" id="resetBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9"/><path d="M3 4v5h5"/></svg> Load another file</button>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="sq"></div>
+  <span class="mono">zero dependencies &middot; nothing leaves your browser</span>
+</footer>
+
+<div id="toast"><span id="toastMsg"></span></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+   * PURE FUNCTIONS (unit-testable in Node without a DOM)
+   * ============================================================ */
+
+  var HEXTAB = (function () {
+    var t = [];
+    for (var i = 0; i < 256; i++) t.push(i.toString(16).padStart(2, "0"));
+    return t;
+  })();
+
+  function toHexByte(b) { return HEXTAB[b & 0xff]; }
+
+  function formatOffset(n) { return (n >>> 0).toString(16).padStart(8, "0"); }
+
+  // Parse a hex string ("89 50 4E 47", "89504e47", "0x89,0x50") -> Uint8Array.
+  // Returns null on invalid (odd length / non-hex).
+  function parseHexInput(str) {
+    if (str == null) return null;
+    var toks = String(str).trim().split(/[\s,;:]+/).filter(Boolean);
+    var compact = "";
+    for (var t = 0; t < toks.length; t++) {
+      var tk = toks[t];
+      if (/^0x/i.test(tk)) tk = tk.slice(2);
+      compact += tk;
+    }
+    if (compact.length === 0) return new Uint8Array(0);
+    if (!/^[0-9a-fA-F]+$/.test(compact)) return null;
+    if (compact.length % 2 !== 0) return null;
+    var out = new Uint8Array(compact.length / 2);
+    for (var i = 0; i < out.length; i++) out[i] = parseInt(compact.substr(i * 2, 2), 16);
+    return out;
+  }
+
+  // Parse an offset string (decimal or 0x-hex or bare hex) -> integer or null.
+  function parseOffset(str) {
+    if (str == null) return null;
+    var s = String(str).trim();
+    if (s === "") return null;
+    if (/^0x[0-9a-fA-F]+$/.test(s)) return parseInt(s.slice(2), 16);
+    if (/^[0-9]+$/.test(s)) return parseInt(s, 10);
+    if (/^[0-9a-fA-F]+$/.test(s)) return parseInt(s, 16);
+    return null;
+  }
+
+  function textToBytes(str) { return new TextEncoder().encode(String(str)); }
+
+  function bytesToHex(bytes, sep) {
+    if (sep == null) sep = " ";
+    var out = [];
+    for (var i = 0; i < bytes.length; i++) out.push(toHexByte(bytes[i]));
+    return out.join(sep);
+  }
+
+  function bytesToCArray(bytes, name) {
+    name = name || "data";
+    var lines = [], row = [];
+    for (var i = 0; i < bytes.length; i++) {
+      row.push("0x" + toHexByte(bytes[i]));
+      if (row.length === 12) { lines.push("  " + row.join(", ") + ","); row = []; }
+    }
+    if (row.length) lines.push("  " + row.join(", ") + ",");
+    var body = lines.join("\n").replace(/,\s*$/, "");
+    return "unsigned char " + name + "[" + bytes.length + "] = {\n" + body + "\n};";
+  }
+
+  var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  function bytesToBase64(bytes) {
+    var out = "", i = 0, n;
+    for (; i + 3 <= bytes.length; i += 3) {
+      n = (bytes[i] << 16) | (bytes[i + 1] << 8) | bytes[i + 2];
+      out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + B64[(n >> 6) & 63] + B64[n & 63];
+    }
+    var rem = bytes.length - i;
+    if (rem === 1) {
+      n = bytes[i] << 16;
+      out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + "==";
+    } else if (rem === 2) {
+      n = (bytes[i] << 16) | (bytes[i + 1] << 8);
+      out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + B64[(n >> 6) & 63] + "=";
+    }
+    return out;
+  }
+
+  // Naive byte-pattern search over a Uint8Array. Returns sorted match offsets.
+  function findPattern(hay, needle, max) {
+    var res = [];
+    if (!needle) return res;
+    var n = hay.length, m = needle.length;
+    if (m === 0 || m > n) return res;
+    max = max || 100000;
+    var first = needle[0];
+    for (var i = 0; i + m <= n; i++) {
+      if (hay[i] !== first) continue;
+      var ok = true;
+      for (var j = 1; j < m; j++) { if (hay[i + j] !== needle[j]) { ok = false; break; } }
+      if (ok) { res.push(i); if (res.length >= max) break; }
+    }
+    return res;
+  }
+
+  var CTRL = { 0: "NUL", 8: "BS", 9: "TAB", 10: "LF", 11: "VT", 12: "FF",
+               13: "CR", 27: "ESC", 32: "SPACE", 127: "DEL" };
+  function charLabel(v) {
+    if (v >= 33 && v <= 126) return "'" + String.fromCharCode(v) + "'";
+    if (CTRL[v] != null) return CTRL[v];
+    if (v >= 160) return "'" + String.fromCharCode(v) + "'";
+    return "ctrl";
+  }
+
+  // Interpret bytes of `u8` starting at `off` as every scalar width, LE + BE.
+  // Missing widths (not enough trailing bytes) are returned as null.
+  function interpret(u8, off) {
+    var dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength);
+    var n = u8.length;
+    function has(k) { return off >= 0 && off + k <= n; }
+    var r = {};
+    if (has(1)) {
+      r.int8 = dv.getInt8(off);
+      r.uint8 = dv.getUint8(off);
+      r.binary = r.uint8.toString(2).padStart(8, "0");
+      r.hex = toHexByte(r.uint8);
+      r.char = charLabel(r.uint8);
+    }
+    if (has(2)) {
+      r.int16le = dv.getInt16(off, true);   r.int16be = dv.getInt16(off, false);
+      r.uint16le = dv.getUint16(off, true); r.uint16be = dv.getUint16(off, false);
+    }
+    if (has(4)) {
+      r.int32le = dv.getInt32(off, true);   r.int32be = dv.getInt32(off, false);
+      r.uint32le = dv.getUint32(off, true); r.uint32be = dv.getUint32(off, false);
+      r.float32le = dv.getFloat32(off, true); r.float32be = dv.getFloat32(off, false);
+    }
+    if (has(8)) {
+      r.int64le = dv.getBigInt64(off, true);   r.int64be = dv.getBigInt64(off, false);
+      r.uint64le = dv.getBigUint64(off, true); r.uint64be = dv.getBigUint64(off, false);
+      r.float64le = dv.getFloat64(off, true);  r.float64be = dv.getFloat64(off, false);
+    }
+    return r;
+  }
+
+  // Magic-byte file-type detection. Returns {name, ext, mime} or null.
+  function detectType(b) {
+    function eq(off, arr) {
+      if (off + arr.length > b.length) return false;
+      for (var i = 0; i < arr.length; i++) if (b[off + i] !== arr[i]) return false;
+      return true;
+    }
+    if (eq(0, [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])) return { name: "PNG image", ext: "png", mime: "image/png" };
+    if (eq(0, [0xFF, 0xD8, 0xFF])) return { name: "JPEG image", ext: "jpg", mime: "image/jpeg" };
+    if (eq(0, [0x47, 0x49, 0x46, 0x38])) return { name: "GIF image", ext: "gif", mime: "image/gif" };
+    if (eq(0, [0x42, 0x4D])) return { name: "BMP image", ext: "bmp", mime: "image/bmp" };
+    if (eq(0, [0x52, 0x49, 0x46, 0x46]) && eq(8, [0x57, 0x45, 0x42, 0x50])) return { name: "WebP image", ext: "webp", mime: "image/webp" };
+    if (eq(0, [0x52, 0x49, 0x46, 0x46]) && eq(8, [0x57, 0x41, 0x56, 0x45])) return { name: "WAV audio", ext: "wav", mime: "audio/wav" };
+    if (eq(0, [0x52, 0x49, 0x46, 0x46]) && eq(8, [0x41, 0x56, 0x49, 0x20])) return { name: "AVI video", ext: "avi", mime: "video/x-msvideo" };
+    if (eq(0, [0x00, 0x00, 0x01, 0x00])) return { name: "ICO icon", ext: "ico", mime: "image/x-icon" };
+    if (eq(0, [0x25, 0x50, 0x44, 0x46])) return { name: "PDF document", ext: "pdf", mime: "application/pdf" };
+    if (eq(0, [0x50, 0x4B, 0x03, 0x04]) || eq(0, [0x50, 0x4B, 0x05, 0x06]) || eq(0, [0x50, 0x4B, 0x07, 0x08])) return { name: "ZIP archive (or ZIP-based: docx/jar/apk/…)", ext: "zip", mime: "application/zip" };
+    if (eq(0, [0x1F, 0x8B])) return { name: "GZIP archive", ext: "gz", mime: "application/gzip" };
+    if (eq(0, [0x42, 0x5A, 0x68])) return { name: "BZIP2 archive", ext: "bz2", mime: "application/x-bzip2" };
+    if (eq(0, [0xFD, 0x37, 0x7A, 0x58, 0x5A, 0x00])) return { name: "XZ archive", ext: "xz", mime: "application/x-xz" };
+    if (eq(0, [0x28, 0xB5, 0x2F, 0xFD])) return { name: "Zstandard archive", ext: "zst", mime: "application/zstd" };
+    if (eq(0, [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])) return { name: "7-Zip archive", ext: "7z", mime: "application/x-7z-compressed" };
+    if (eq(0, [0x52, 0x61, 0x72, 0x21, 0x1A, 0x07])) return { name: "RAR archive", ext: "rar", mime: "application/vnd.rar" };
+    if (eq(0, [0x7F, 0x45, 0x4C, 0x46])) return { name: "ELF executable", ext: "elf", mime: "application/x-elf" };
+    if (eq(0, [0x00, 0x61, 0x73, 0x6D])) return { name: "WebAssembly module", ext: "wasm", mime: "application/wasm" };
+    if (eq(0, [0xCA, 0xFE, 0xBA, 0xBE])) return { name: "Java class / Mach-O FAT binary", ext: "class", mime: "application/java-vm" };
+    if (eq(0, [0xFE, 0xED, 0xFA, 0xCE]) || eq(0, [0xFE, 0xED, 0xFA, 0xCF]) || eq(0, [0xCF, 0xFA, 0xED, 0xFE]) || eq(0, [0xCE, 0xFA, 0xED, 0xFE])) return { name: "Mach-O executable", ext: "macho", mime: "application/x-mach-binary" };
+    if (eq(0, [0x4D, 0x5A])) return { name: "DOS/PE executable (EXE/DLL)", ext: "exe", mime: "application/x-msdownload" };
+    if (eq(0, [0x53, 0x51, 0x4C, 0x69, 0x74, 0x65, 0x20, 0x66, 0x6F, 0x72, 0x6D, 0x61, 0x74, 0x20, 0x33, 0x00])) return { name: "SQLite 3 database", ext: "sqlite", mime: "application/x-sqlite3" };
+    if (eq(0, [0x49, 0x44, 0x33])) return { name: "MP3 audio (ID3)", ext: "mp3", mime: "audio/mpeg" };
+    if (eq(0, [0xFF, 0xFB]) || eq(0, [0xFF, 0xF3]) || eq(0, [0xFF, 0xF2])) return { name: "MP3 audio", ext: "mp3", mime: "audio/mpeg" };
+    if (eq(0, [0x4F, 0x67, 0x67, 0x53])) return { name: "Ogg container", ext: "ogg", mime: "application/ogg" };
+    if (eq(0, [0x66, 0x4C, 0x61, 0x43])) return { name: "FLAC audio", ext: "flac", mime: "audio/flac" };
+    if (eq(4, [0x66, 0x74, 0x79, 0x70])) return { name: "MP4 / QuickTime (ftyp)", ext: "mp4", mime: "video/mp4" };
+    if (eq(0, [0x1A, 0x45, 0xDF, 0xA3])) return { name: "Matroska / WebM", ext: "mkv", mime: "video/x-matroska" };
+    if (eq(0, [0x25, 0x21, 0x50, 0x53])) return { name: "PostScript", ext: "ps", mime: "application/postscript" };
+    if (eq(0, [0x3C, 0x3F, 0x78, 0x6D, 0x6C])) return { name: "XML document", ext: "xml", mime: "application/xml" };
+    if (eq(0, [0xEF, 0xBB, 0xBF])) return { name: "UTF-8 text (BOM)", ext: "txt", mime: "text/plain" };
+    if (eq(0, [0xFF, 0xFE])) return { name: "UTF-16 LE text (BOM)", ext: "txt", mime: "text/plain" };
+    if (eq(0, [0xFE, 0xFF])) return { name: "UTF-16 BE text (BOM)", ext: "txt", mime: "text/plain" };
+    if (eq(257, [0x75, 0x73, 0x74, 0x61, 0x72])) return { name: "TAR archive (ustar)", ext: "tar", mime: "application/x-tar" };
+    if (eq(0, [0x23, 0x21])) return { name: "Script (shebang #!)", ext: "sh", mime: "text/x-shellscript" };
+    return null;
+  }
+
+  // Export for Node unit tests (harmless in the browser).
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      toHexByte: toHexByte, formatOffset: formatOffset, parseHexInput: parseHexInput,
+      parseOffset: parseOffset, textToBytes: textToBytes, bytesToHex: bytesToHex,
+      bytesToCArray: bytesToCArray, bytesToBase64: bytesToBase64, findPattern: findPattern,
+      interpret: interpret, detectType: detectType, charLabel: charLabel
+    };
+  }
+
+  /* ============================================================
+   * DOM WIRING (skipped entirely under Node)
+   * ============================================================ */
+  if (typeof document === "undefined") return;
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var ROWH = 22;            // px per hexdump row
+  var BPR = 16;             // bytes per row
+  var MAX_PX = 12000000;    // cap the virtual scroller height (cross-browser safe)
+  var MAX_MATCHES = 20000;  // cap search matches
+
+  var els = {
+    input: $("input"), drop: $("drop"), file: $("file"),
+    pasteBox: $("pasteBox"), loadHex: $("loadHex"), loadText: $("loadText"),
+    results: $("results"), stats: $("stats"),
+    gotoInput: $("gotoInput"), gotoBtn: $("gotoBtn"),
+    modeSeg: $("modeSeg"), searchInput: $("searchInput"),
+    prevBtn: $("prevBtn"), nextBtn: $("nextBtn"), matchInfo: $("matchInfo"),
+    viewport: $("viewport"), sizer: $("sizer"), content: $("content"),
+    inspMeta: $("inspMeta"), inspBody: $("inspBody"),
+    selInfo: $("selInfo"), copyHex: $("copyHex"), copyC: $("copyC"), copyB64: $("copyB64"),
+    dumpNote: $("dumpNote"), resetBtn: $("resetBtn"),
+    toast: $("toast"), toastMsg: $("toastMsg")
+  };
+
+  var state = {
+    bytes: null, name: "", totalRows: 0, contentPx: 0, sizerPx: 0,
+    selStart: null, selEnd: null, anchor: null, cursor: null,
+    matches: [], matchLen: 0, curMatch: -1,
+    mode: "hex", firstRow: 0, lastFirst: -1
+  };
+
+  /* ---------- helpers ---------- */
+  function formatBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    if (n < 1073741824) return (n / 1048576).toFixed(2) + " MB";
+    return (n / 1073741824).toFixed(2) + " GB";
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (m) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+    });
+  }
+  var toastTimer;
+  function toast(msg) {
+    els.toastMsg.textContent = msg;
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 1500);
+  }
+  function copy(text, label) {
+    function done() { toast("Copied " + (label || "") + (label ? "" : text.length + " chars")); }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+    } else { fallbackCopy(text, done); }
+  }
+  function fallbackCopy(text, done) {
+    var t = document.createElement("textarea");
+    t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); done(); } catch (e) { toast("Copy failed"); }
+    document.body.removeChild(t);
+  }
+
+  /* ---------- load ---------- */
+  function loadFromFile(file) {
+    if (!file) return;
+    state.name = file.name || "(pasted file)";
+    var rd = new FileReader();
+    rd.onload = function () { applyBytes(new Uint8Array(rd.result)); };
+    rd.onerror = function () { toast("Could not read file"); };
+    rd.readAsArrayBuffer(file);
+  }
+
+  function applyBytes(u8) {
+    state.bytes = u8;
+    state.selStart = state.selEnd = state.anchor = state.cursor = (u8.length ? 0 : null);
+    state.matches = []; state.matchLen = 0; state.curMatch = -1;
+    state.firstRow = 0; state.lastFirst = -1;
+    els.searchInput.value = ""; els.matchInfo.textContent = ""; els.matchInfo.className = "matchinfo";
+
+    renderStats();
+    layout();
+    els.viewport.scrollTop = 0;
+    render(true);
+    renderInspector(state.cursor);
+    updateSelInfo();
+
+    els.input.classList.add("hidden");
+    els.results.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    els.viewport.focus();
+  }
+
+  function renderStats() {
+    var b = state.bytes, det = detectType(b);
+    var magicLen = Math.min(16, b.length);
+    var magic = magicLen ? bytesToHex(b.subarray(0, magicLen)) : "(empty)";
+    var typeHtml = det
+      ? escapeHtml(det.name) + ' <span class="badge">.' + escapeHtml(det.ext) + "</span>"
+      : "Unknown / raw binary";
+    var rows = [
+      ["Name", escapeHtml(state.name), "sm"],
+      ["Size", formatBytes(b.length), ""],
+      ["Bytes", b.length.toLocaleString(), ""],
+      ["Rows (×16)", Math.ceil(b.length / BPR).toLocaleString(), ""],
+      ["Detected type", typeHtml, "sm"],
+      ["MIME", det ? escapeHtml(det.mime) : "—", "sm"],
+      ["Magic (first 16)", '<span class="mono">' + magic + "</span>", "sm"]
+    ];
+    els.stats.innerHTML = rows.map(function (r) {
+      return '<div class="stat"><div class="k">' + r[0] + '</div><div class="v ' + r[2] + '">' + r[1] + "</div></div>";
+    }).join("");
+  }
+
+  /* ---------- virtual scroller ---------- */
+  function layout() {
+    var len = state.bytes.length;
+    state.totalRows = Math.max(1, Math.ceil(len / BPR));
+    state.contentPx = state.totalRows * ROWH;
+    state.sizerPx = Math.min(state.contentPx, MAX_PX);
+    els.sizer.style.height = state.sizerPx + "px";
+
+    var scaled = state.contentPx > MAX_PX;
+    els.dumpNote.innerHTML = "Showing <b>" + len.toLocaleString() + "</b> bytes in <b>" +
+      state.totalRows.toLocaleString() + "</b> rows. Only the visible window is rendered." +
+      (scaled ? " File exceeds the 1:1 scroll range, so the scrollbar is scaled &mdash; use <b>Go to offset</b> or <b>Search</b> for exact positions." : "") +
+      " Click a byte (or use arrow keys) to inspect; shift-click to select a range.";
+  }
+
+  function visibleRows() { return Math.ceil(els.viewport.clientHeight / ROWH) + 1; }
+  function maxFirst() { return Math.max(0, state.totalRows - visibleRows()); }
+  function maxScroll() { return Math.max(1, state.sizerPx - els.viewport.clientHeight); }
+
+  function render(force) {
+    if (!state.bytes) return;
+    var mf = maxFirst();
+    var frac = mf > 0 ? (els.viewport.scrollTop / maxScroll()) : 0;
+    if (frac < 0) frac = 0; else if (frac > 1) frac = 1;
+    var first = Math.round(frac * mf);
+    if (!force && first === state.lastFirst) {
+      els.content.style.transform = "translateY(" + els.viewport.scrollTop + "px)";
+      return;
+    }
+    state.lastFirst = first;
+    state.firstRow = first;
+    var vis = visibleRows();
+    var last = Math.min(state.totalRows, first + vis);
+    var startByte = first * BPR, endByte = Math.min(state.bytes.length, last * BPR);
+    var flags = matchFlags(startByte, endByte);
+
+    var html = [];
+    for (var row = first; row < last; row++) html.push(buildRow(row, flags));
+    els.content.innerHTML = html.join("");
+    els.content.style.transform = "translateY(" + els.viewport.scrollTop + "px)";
+  }
+
+  function buildRow(row, flags) {
+    var b = state.bytes, len = b.length, base = row * BPR;
+    var hex = [], asc = [];
+    for (var i = 0; i < BPR; i++) {
+      var o = base + i, gap = i === 7 ? " gap" : "";
+      if (o >= len) {
+        hex.push('<span class="hb pad' + gap + '">··</span>');
+        asc.push('<span class="ac pad' + gap + '"> </span>');
+        continue;
+      }
+      var v = b[o];
+      var cls = "";
+      if (state.selStart != null && o >= state.selStart && o <= state.selEnd) cls += " sel";
+      if (flags.m[o]) cls += " match";
+      if (flags.c[o]) cls += " mcur";
+      if (o === state.cursor) cls += " cur";
+      if (v === 0) cls += " zero";
+      hex.push('<span class="hb' + gap + cls + '" data-o="' + o + '">' + toHexByte(v) + "</span>");
+      var ch = (v >= 32 && v <= 126) ? escapeHtml(String.fromCharCode(v)) : ".";
+      asc.push('<span class="ac' + gap + cls + '" data-o="' + o + '">' + ch + "</span>");
+    }
+    return '<div class="hx-row" style="height:' + ROWH + 'px">' +
+      '<span class="off">' + formatOffset(base) + "</span>" +
+      '<span class="hex">' + hex.join("") + "</span>" +
+      '<span class="asc">' + asc.join("") + "</span></div>";
+  }
+
+  // Which offsets in [a,b) fall inside a match / the current match.
+  function matchFlags(a, b) {
+    var res = { m: {}, c: {} };
+    var ms = state.matches, mlen = state.matchLen;
+    if (!ms.length || mlen === 0) return res;
+    // lower bound: first match that could overlap `a`
+    var lo = 0, hi = ms.length, target = a - mlen + 1;
+    while (lo < hi) { var mid = (lo + hi) >> 1; if (ms[mid] < target) lo = mid + 1; else hi = mid; }
+    for (var k = lo; k < ms.length; k++) {
+      var m = ms[k];
+      if (m >= b) break;
+      var cur = (k === state.curMatch);
+      for (var j = 0; j < mlen; j++) {
+        var o = m + j;
+        if (o >= a && o < b) { res.m[o] = 1; if (cur) res.c[o] = 1; }
+      }
+    }
+    return res;
+  }
+
+  /* ---------- navigation ---------- */
+  function scrollToOffset(off) {
+    var row = Math.floor(off / BPR);
+    var vis = visibleRows();
+    var wanted = Math.max(0, row - Math.floor(vis / 4));
+    var mf = maxFirst();
+    els.viewport.scrollTop = mf > 0 ? (wanted / mf) * maxScroll() : 0;
+    render(true);
+  }
+  function ensureVisible(off) {
+    var row = Math.floor(off / BPR);
+    if (row < state.firstRow + 1 || row >= state.firstRow + visibleRows() - 1) scrollToOffset(off);
+    else render(true);
+  }
+
+  function setCursor(off, extend) {
+    if (state.bytes == null || !state.bytes.length) return;
+    off = Math.max(0, Math.min(state.bytes.length - 1, off));
+    state.cursor = off;
+    if (extend && state.anchor != null) {
+      state.selStart = Math.min(state.anchor, off);
+      state.selEnd = Math.max(state.anchor, off);
+    } else {
+      state.anchor = off;
+      state.selStart = state.selEnd = off;
+    }
+    updateSelInfo();
+    renderInspector(off);
+  }
+
+  function updateSelInfo() {
+    var enabled = state.selStart != null;
+    els.copyHex.disabled = els.copyC.disabled = els.copyB64.disabled = !enabled;
+    if (!enabled) { els.selInfo.textContent = "no selection"; return; }
+    var n = state.selEnd - state.selStart + 1;
+    els.selInfo.textContent = "0x" + state.selStart.toString(16) +
+      (n > 1 ? "–0x" + state.selEnd.toString(16) : "") + " · " + n + (n === 1 ? " byte" : " bytes");
+  }
+
+  function selectionBytes() {
+    if (state.selStart == null) return new Uint8Array(0);
+    return state.bytes.subarray(state.selStart, state.selEnd + 1);
+  }
+
+  /* ---------- inspector ---------- */
+  function fnum(v) {
+    if (v == null) return "—";
+    if (!isFinite(v)) return String(v);
+    if (v === 0) return "0";
+    var a = Math.abs(v);
+    if (a >= 1e-4 && a < 1e16) {
+      var s = v.toPrecision(9);
+      if (s.indexOf(".") >= 0 && s.indexOf("e") < 0) s = s.replace(/0+$/, "").replace(/\.$/, "");
+      return s;
+    }
+    return v.toExponential(6);
+  }
+  function renderInspector(off) {
+    if (state.bytes == null || off == null) {
+      els.inspMeta.textContent = "Hover or click a byte to interpret the bytes starting there.";
+      els.inspBody.innerHTML = ""; return;
+    }
+    var u8 = state.bytes, n = u8.length;
+    var r = interpret(u8, off);
+    var span = Math.min(8, n - off);
+    var raw = bytesToHex(u8.subarray(off, off + span));
+    els.inspMeta.innerHTML = "offset <b>0x" + off.toString(16) + "</b> (" + off + ") · byte <b>0x" +
+      r.hex + "</b> · <b>" + escapeHtml(r.char) + "</b><br>bytes: <b>" + raw + "</b>";
+
+    function span2(t, v) { return '<tr><td class="t">' + t + '</td><td class="v" colspan="2">' + v + "</td></tr>"; }
+    function pair(t, le, be) {
+      var na = (le == null) ? " na" : "";
+      return '<tr><td class="t">' + t + '</td><td class="v' + na + '">' + (le == null ? "—" : le) +
+        '</td><td class="v' + na + '">' + (be == null ? "—" : be) + "</td></tr>";
+    }
+    var rows = [
+      '<tr><th>type</th><th>little-endian</th><th>big-endian</th></tr>',
+      span2("int8", r.int8 == null ? "—" : r.int8),
+      span2("uint8", r.uint8 == null ? "—" : r.uint8),
+      pair("int16", r.int16le, r.int16be),
+      pair("uint16", r.uint16le, r.uint16be),
+      pair("int32", r.int32le, r.int32be),
+      pair("uint32", r.uint32le, r.uint32be),
+      pair("int64", r.int64le == null ? null : r.int64le.toString(), r.int64be == null ? null : r.int64be.toString()),
+      pair("uint64", r.uint64le == null ? null : r.uint64le.toString(), r.uint64be == null ? null : r.uint64be.toString()),
+      pair("float32", r.float32le == null ? null : fnum(r.float32le), r.float32be == null ? null : fnum(r.float32be)),
+      pair("float64", r.float64le == null ? null : fnum(r.float64le), r.float64be == null ? null : fnum(r.float64be)),
+      span2("binary", r.binary == null ? "—" : r.binary),
+      span2("char", r.char == null ? "—" : escapeHtml(r.char))
+    ];
+    els.inspBody.innerHTML = rows.join("");
+  }
+
+  /* ---------- search ---------- */
+  function runSearch() {
+    var q = els.searchInput.value;
+    var needle;
+    if (state.mode === "hex") {
+      needle = parseHexInput(q);
+      if (needle === null) { setMatchInfo("bad hex", "miss"); state.matches = []; state.curMatch = -1; render(true); return; }
+    } else {
+      needle = textToBytes(q);
+    }
+    if (!needle.length) { state.matches = []; state.matchLen = 0; state.curMatch = -1; setMatchInfo("", ""); render(true); return; }
+    state.matches = findPattern(state.bytes, needle, MAX_MATCHES);
+    state.matchLen = needle.length;
+    if (!state.matches.length) { state.curMatch = -1; setMatchInfo("no matches", "miss"); render(true); return; }
+    state.curMatch = 0;
+    gotoMatch(0);
+  }
+  function gotoMatch(i) {
+    if (!state.matches.length) return;
+    var n = state.matches.length;
+    state.curMatch = ((i % n) + n) % n;
+    var off = state.matches[state.curMatch];
+    state.anchor = off;
+    state.selStart = off; state.selEnd = off + state.matchLen - 1;
+    state.cursor = off;
+    setMatchInfo((state.curMatch + 1) + " / " + n + (n >= MAX_MATCHES ? "+" : ""), "hit");
+    updateSelInfo();
+    renderInspector(off);
+    scrollToOffset(off);
+  }
+  function setMatchInfo(txt, cls) {
+    els.matchInfo.textContent = txt;
+    els.matchInfo.className = "matchinfo" + (cls ? " " + cls : "");
+  }
+
+  /* ---------- event wiring ---------- */
+  // file input / dropzone
+  els.drop.addEventListener("click", function () { els.file.click(); });
+  els.drop.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.file.click(); }
+  });
+  els.file.addEventListener("change", function () { if (els.file.files[0]) loadFromFile(els.file.files[0]); });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.remove("drag"); });
+  });
+  els.drop.addEventListener("drop", function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) loadFromFile(f);
+  });
+  document.addEventListener("paste", function (e) {
+    if (document.activeElement === els.pasteBox) return; // let textarea handle its own paste
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].kind === "file") {
+        var f = items[i].getAsFile();
+        if (f) { loadFromFile(f); e.preventDefault(); return; }
+      }
+    }
+  });
+
+  // paste box buttons
+  els.loadHex.addEventListener("click", function () {
+    var u8 = parseHexInput(els.pasteBox.value);
+    if (u8 === null) { toast("Invalid hex (need pairs of 0-9 a-f)"); return; }
+    if (!u8.length) { toast("Nothing to load"); return; }
+    state.name = "(pasted hex)"; applyBytes(u8);
+  });
+  els.loadText.addEventListener("click", function () {
+    if (!els.pasteBox.value.length) { toast("Nothing to load"); return; }
+    state.name = "(pasted text)"; applyBytes(textToBytes(els.pasteBox.value));
+  });
+
+  // go-to-offset
+  function doGoto() {
+    var off = parseOffset(els.gotoInput.value);
+    if (off == null) { toast("Enter a decimal or 0x-hex offset"); return; }
+    if (off < 0 || off >= state.bytes.length) { toast("Offset out of range"); return; }
+    setCursor(off, false);
+    scrollToOffset(off);
+  }
+  els.gotoBtn.addEventListener("click", doGoto);
+  els.gotoInput.addEventListener("keydown", function (e) { if (e.key === "Enter") doGoto(); });
+
+  // search
+  els.modeSeg.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-mode]");
+    if (!btn) return;
+    state.mode = btn.getAttribute("data-mode");
+    Array.prototype.forEach.call(els.modeSeg.children, function (c) { c.classList.toggle("on", c === btn); });
+    els.searchInput.placeholder = state.mode === "hex" ? "deadbeef" : "search text";
+    if (els.searchInput.value) runSearch();
+  });
+  var searchTimer;
+  els.searchInput.addEventListener("input", function () {
+    clearTimeout(searchTimer); searchTimer = setTimeout(runSearch, 180);
+  });
+  els.searchInput.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") { e.preventDefault(); if (state.matches.length) gotoMatch(state.curMatch + (e.shiftKey ? -1 : 1)); else runSearch(); }
+  });
+  els.prevBtn.addEventListener("click", function () { gotoMatch(state.curMatch - 1); });
+  els.nextBtn.addEventListener("click", function () { gotoMatch(state.curMatch + 1); });
+
+  // copy
+  els.copyHex.addEventListener("click", function () { copy(bytesToHex(selectionBytes()), "selection as hex"); });
+  els.copyC.addEventListener("click", function () { copy(bytesToCArray(selectionBytes(), "data"), "selection as C array"); });
+  els.copyB64.addEventListener("click", function () { copy(bytesToBase64(selectionBytes()), "selection as base64"); });
+
+  // viewport: click / hover / scroll / keys
+  els.viewport.addEventListener("scroll", function () { render(false); });
+  els.viewport.addEventListener("mousedown", function (e) {
+    var cell = e.target.closest("[data-o]");
+    if (!cell) return;
+    e.preventDefault();
+    els.viewport.focus();
+    setCursor(parseInt(cell.getAttribute("data-o"), 10), e.shiftKey);
+    render(true);
+  });
+  els.viewport.addEventListener("mousemove", function (e) {
+    var cell = e.target.closest("[data-o]");
+    if (cell) renderInspector(parseInt(cell.getAttribute("data-o"), 10));
+  });
+  els.viewport.addEventListener("mouseleave", function () { renderInspector(state.cursor); });
+  els.viewport.addEventListener("keydown", function (e) {
+    if (state.cursor == null) return;
+    var d = 0;
+    if (e.key === "ArrowRight") d = 1;
+    else if (e.key === "ArrowLeft") d = -1;
+    else if (e.key === "ArrowDown") d = BPR;
+    else if (e.key === "ArrowUp") d = -BPR;
+    else if (e.key === "PageDown") d = BPR * (visibleRows() - 2);
+    else if (e.key === "PageUp") d = -BPR * (visibleRows() - 2);
+    else if (e.key === "Home") { setCursor(0, e.shiftKey); scrollToOffset(0); e.preventDefault(); return; }
+    else if (e.key === "End") { setCursor(state.bytes.length - 1, e.shiftKey); scrollToOffset(state.bytes.length - 1); e.preventDefault(); return; }
+    else return;
+    e.preventDefault();
+    setCursor(state.cursor + d, e.shiftKey);
+    ensureVisible(state.cursor);
+  });
+
+  // reset
+  els.resetBtn.addEventListener("click", function () {
+    state.bytes = null; state.matches = []; state.curMatch = -1;
+    els.file.value = "";
+    els.results.classList.add("hidden");
+    els.input.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  var resizeTimer;
+  window.addEventListener("resize", function () {
+    if (!state.bytes) return;
+    clearTimeout(resizeTimer); resizeTimer = setTimeout(function () { render(true); }, 100);
+  });
+})();
+</script>
+</body>
+</html>
