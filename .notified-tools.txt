@@ -24,3 +24,6 @@ epoch-time
 id-forge
 diff-lab
 color-lab
+bytecode-lab
+wasm-explorer
+compression-lab

@@ -4,228 +4,1020 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Compression Lab</title>
-<meta name="description" content="Client-side compression workbench comparing gzip, zlib, deflate, native CompressionStream, and Brotli WASM over pasted text or local files. Shows size, ratio, time, entropy, and verification.">
+<meta name="description" content="Drop text or a file and compare compression algorithms head-to-head: gzip, deflate, deflate-raw, zip and brotli via native CompressionStream, vendored fflate and brotli-wasm. Ratios, timings, round-trip checks and a Shannon-entropy floor, all in-browser.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#070812;--fg:#f6f3ff;--muted:#a7a0c4;--faint:#645c83;--line:#28223f;--card:#12101f;--accent:#ff2d95;--accent2:#22d3ee;--ok:#5ee38a;--bad:#ff5b7d;--warn:#ffd166;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
-*{box-sizing:border-box}
-html,body{min-height:100%}
-body{margin:0;background:
-radial-gradient(920px 520px at 0% -12%,rgba(255,45,149,.18),transparent 60%),
-radial-gradient(900px 500px at 105% 0%,rgba(34,211,238,.16),transparent 58%),
-var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
-header{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:rgba(18,16,31,.88);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4;backdrop-filter:blur(10px)}
-.sq{width:12px;height:12px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
-.brand{font:700 13px var(--mono);letter-spacing:1.4px}
-.back{margin-left:auto;color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:6px 10px;text-decoration:none;font:700 10px var(--mono);letter-spacing:.7px}
-.back:hover{color:var(--accent2);border-color:var(--accent2)}
-main{max-width:1280px;margin:0 auto;padding:22px 18px}
-.hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:16px}
-h1{margin:0;font-size:28px;letter-spacing:-.015em}
-.hero p{max-width:760px;margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.55}
-.badge{border:1px solid var(--line);border-radius:16px;padding:7px 10px;font:700 10px var(--mono);color:var(--muted);white-space:nowrap}
-.grid{display:grid;grid-template-columns:minmax(330px,.9fr) minmax(420px,1.1fr);gap:14px}
-.panel{background:rgba(18,16,31,.9);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
-.panel h2{margin:0;padding:11px 12px;border-bottom:1px solid var(--line);font:700 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--accent2)}
-.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
-button,label.file{height:30px;border:1px solid var(--line);border-radius:15px;background:#181426;color:var(--fg);padding:0 11px;font:700 10px var(--mono);letter-spacing:.5px;display:inline-flex;align-items:center;cursor:pointer}
-button:hover,label.file:hover{border-color:var(--accent2);color:var(--accent2)}
-button.primary{border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#070812}
-input[type=file]{display:none}
-input[type=range]{accent-color:var(--accent);width:116px}
-textarea{width:100%;min-height:430px;border:0;margin:0;padding:13px;background:#0c0a17;color:var(--fg);font:400 12px/1.55 var(--mono);resize:vertical;outline:none}
-.drop{padding:12px;border-top:1px solid var(--line);font:600 11px var(--mono);color:var(--muted);display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap}
-.drop.drag{color:var(--accent2);background:rgba(34,211,238,.08)}
-.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
-.metric{background:rgba(18,16,31,.9);border:1px solid var(--line);border-radius:8px;padding:12px}
-.metric .k{font:700 9px var(--mono);letter-spacing:.9px;color:var(--muted);text-transform:uppercase}
-.metric .v{margin-top:6px;font:700 20px var(--mono)}
-.metric .s{margin-top:4px;font:500 10px var(--mono);color:var(--faint)}
-table{width:100%;border-collapse:collapse;font:500 11px var(--mono)}
-th,td{padding:10px;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
-th:first-child,td:first-child{text-align:left}
-th{color:var(--muted);font-size:9px;text-transform:uppercase;letter-spacing:.8px}
-tr.best td{color:var(--ok)}
-.status-ok{color:var(--ok)}.status-bad{color:var(--bad)}.status-warn{color:var(--warn)}
-pre{margin:0;padding:12px;min-height:170px;max-height:320px;overflow:auto;background:#0c0a17;color:var(--muted);font:400 11px/1.5 var(--mono);white-space:pre-wrap}
-.note{padding:10px 12px;color:var(--muted);border-top:1px solid var(--line);font:500 10px var(--mono);line-height:1.5}
-footer{padding:16px 18px 22px;text-align:center;color:var(--muted);font:500 10px var(--mono)}
-footer a{color:var(--accent2)}
-@media(max-width:900px){.grid{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.hero{display:block}.badge{display:inline-flex;margin-top:12px}textarea{min-height:310px}}
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #b05a3c;
+  --accent-contrast: #ffffff;
+  --ok: #3f8f5b;
+  --bad: #c0503f;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #b05a3c;
+    --accent-contrast: #ffffff;
+    --ok: #57b57a;
+    --bad: #d9695a;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.sq { width: 12px; height: 12px; background: var(--accent); flex: none; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.20em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+}
+.back:hover, .back:focus-visible { color: var(--accent); }
+footer {
+  margin-top: auto;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  line-height: 1.7;
+}
+footer a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+footer a:hover { color: var(--accent); }
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 940px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 18px;
+}
+.card h2 {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card h2 .hint {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+label, .lbl {
+  display: block;
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* ---------- inputs ---------- */
+textarea {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 9px 11px;
+  font: 400 13px "IBM Plex Mono", monospace;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+  resize: vertical;
+  min-height: 128px;
+  line-height: 1.6;
+}
+textarea:focus, button:focus-visible, .drop:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
+/* ---------- segmented controls ---------- */
+.seg { display: flex; border: 1px solid var(--line); margin-bottom: 14px; }
+.seg button {
+  flex: 1;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--accent); }
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* ---------- panels ---------- */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ---------- file drop ---------- */
+.drop {
+  border: 1px dashed var(--line);
+  background: var(--bg);
+  padding: 30px 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.drop:hover { border-color: var(--accent); }
+.drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.drop .big { font: 500 13px "IBM Plex Mono", monospace; color: var(--fg); }
+.drop .sub { font: 400 12px "IBM Plex Sans", sans-serif; color: var(--muted); margin-top: 4px; }
+.drop svg { display: block; margin: 0 auto 10px; color: var(--muted); }
+.filemeta {
+  display: none;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font: 400 12px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  align-items: center;
+  gap: 12px;
+}
+.filemeta.show { display: flex; }
+.filemeta .name { font-weight: 500; word-break: break-all; }
+.filemeta .meta { color: var(--muted); margin-left: auto; white-space: nowrap; }
+.filemeta .x {
+  flex: none; cursor: pointer; color: var(--muted); background: none; border: none;
+  font: 500 14px "IBM Plex Mono", monospace; padding: 2px 4px; line-height: 1;
+}
+.filemeta .x:hover { color: var(--accent); }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn svg { flex: none; }
+.btn.ok { color: var(--accent); border-color: var(--accent); }
+.rowbar { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- entropy stats ---------- */
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+@media (max-width: 620px) { .stats { grid-template-columns: 1fr; } }
+.stat {
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 12px 14px;
+}
+.stat .k {
+  font: 500 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.stat .v { font: 500 20px "IBM Plex Mono", monospace; color: var(--fg); }
+.stat .v small { font-size: 12px; color: var(--muted); font-weight: 400; }
+
+/* ---------- results table ---------- */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; min-width: 640px; }
+th, td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+thead th {
+  font: 600 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+th.num, td.num { text-align: right; font-family: "IBM Plex Mono", monospace; }
+tbody tr:last-child td { border-bottom: none; }
+tbody tr.winner { background: color-mix(in srgb, var(--accent) 9%, var(--card)); }
+.algo {
+  font: 600 12px "IBM Plex Mono", monospace;
+  color: var(--fg);
+}
+.algo .eng {
+  display: block;
+  font-weight: 400;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.wtag {
+  display: inline-flex; align-items: center; gap: 4px;
+  margin-left: 6px;
+  font: 600 9px "IBM Plex Mono", monospace;
+  letter-spacing: 0.10em;
+  color: var(--accent);
+  vertical-align: middle;
+}
+.wtag svg { flex: none; }
+.saved.neg { color: var(--bad); }
+.rt { display: inline-flex; }
+.rt svg { flex: none; }
+.rt.pass { color: var(--ok); }
+.rt.fail { color: var(--bad); }
+td.barcell { width: 34%; min-width: 150px; white-space: normal; }
+.bar {
+  position: relative;
+  height: 16px;
+  background: color-mix(in srgb, var(--muted) 16%, transparent);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+.bar > i {
+  position: absolute; left: 0; top: 0; bottom: 0;
+  background: color-mix(in srgb, var(--muted) 55%, transparent);
+  display: block;
+}
+tr.winner .bar > i { background: var(--accent); }
+td.err { color: var(--bad); font: 400 12px "IBM Plex Mono", monospace; white-space: normal; }
+
+/* ---------- notes ---------- */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font: 400 12px/1.55 "IBM Plex Sans", sans-serif;
+  color: var(--muted);
+}
+.note + .note { margin-top: 10px; }
+.note svg { flex: none; color: var(--accent); margin-top: 1px; }
+.crosscheck {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+  font: 400 12px/1.6 "IBM Plex Sans", sans-serif;
+  color: var(--muted);
+}
+.crosscheck b { color: var(--fg); font-weight: 600; }
+.crosscheck .match { color: var(--ok); font-weight: 600; }
+.crosscheck .diff { color: var(--accent); font-weight: 600; }
+.placeholder {
+  padding: 26px 10px;
+  text-align: center;
+  color: var(--muted);
+  font: 400 13px "IBM Plex Sans", sans-serif;
+}
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.spin { animation: spin 0.9s linear infinite; transform-origin: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
-<header><span class="sq"></span><div class="brand">ROCKET PUDDING / COMPRESSION LAB</div><a class="back" href="../../">ALL TOOLS</a></header>
+
+<header>
+  <div class="sq" aria-hidden="true"></div>
+  <h1>COMPRESSION&nbsp;LAB</h1>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
 <main>
-  <section class="hero">
-    <div>
-      <h1>Make it smaller. Measure the tradeoff.</h1>
-      <p>Paste text or drop a local file and compare gzip, zlib, raw deflate, native CompressionStream, and Brotli WASM. The table shows compressed size, ratio, elapsed time, estimated entropy, and verification.</p>
-    </div>
-    <div class="badge" id="runtime">loading runtimes</div>
-  </section>
 
-  <section class="grid">
-    <div class="panel">
-      <h2>Input</h2>
-      <div class="toolbar">
-        <button class="primary" id="run">Compress</button>
-        <button id="sample">Sample</button>
-        <label class="file">Load file<input type="file" id="file"></label>
-        <span style="font:700 10px var(--mono);color:var(--muted)">level</span>
-        <input type="range" id="level" min="0" max="9" value="6">
-        <span id="levelLabel" class="badge">6</span>
+  <!-- ---------- INPUT ---------- -->
+  <div class="card">
+    <h2>Input <span class="hint" id="input-stats"></span></h2>
+    <div class="seg" role="tablist" aria-label="Input source">
+      <button type="button" data-mode="text" aria-pressed="true">TEXT</button>
+      <button type="button" data-mode="file" aria-pressed="false">FILE</button>
+    </div>
+
+    <div class="panel active" id="panel-text">
+      <label for="text-input" class="sr">Text to compress</label>
+      <textarea id="text-input" spellcheck="false" autocomplete="off" placeholder="Type or paste text to compress&hellip;"></textarea>
+      <div class="rowbar" style="margin-top:12px">
+        <button type="button" class="btn" id="s-sample">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2.5 3.5h9M2.5 7h9M2.5 10.5h6"/></svg>
+          Sample text
+        </button>
+        <button type="button" class="btn" id="s-comp">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2.5" width="10" height="3"/><rect x="2" y="8.5" width="10" height="3"/></svg>
+          Highly compressible
+        </button>
+        <button type="button" class="btn" id="s-rand">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="10" height="10" rx="1.5"/><circle cx="5" cy="5" r="0.9" fill="currentColor" stroke="none"/><circle cx="9" cy="9" r="0.9" fill="currentColor" stroke="none"/><circle cx="9" cy="5" r="0.9" fill="currentColor" stroke="none"/><circle cx="5" cy="9" r="0.9" fill="currentColor" stroke="none"/></svg>
+          Random / incompressible
+        </button>
+        <button type="button" class="btn" id="s-clear">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 3l8 8M11 3l-8 8"/></svg>
+          Clear
+        </button>
       </div>
-      <textarea id="input" spellcheck="false"></textarea>
-      <div class="drop" id="drop"><span>Drop text or binary file here. Files stay local.</span><span id="filename">text input</span></div>
     </div>
-    <div class="panel">
-      <h2>Results</h2>
-      <table>
-        <thead><tr><th>Codec</th><th>Bytes</th><th>Ratio</th><th>Time</th><th>Verify</th></tr></thead>
-        <tbody id="rows"></tbody>
-      </table>
-      <pre id="log"></pre>
-      <div class="note">Lower bytes wins. Ratio is compressed / original. Verification decompresses where a local decoder is available.</div>
-    </div>
-  </section>
 
-  <section class="metrics">
-    <div class="metric"><div class="k">Original</div><div class="v" id="mOriginal">0 B</div><div class="s">input size</div></div>
-    <div class="metric"><div class="k">Entropy</div><div class="v" id="mEntropy">0.00</div><div class="s">bits per byte</div></div>
-    <div class="metric"><div class="k">Best</div><div class="v" id="mBest">-</div><div class="s">smallest codec</div></div>
-    <div class="metric"><div class="k">Saved</div><div class="v" id="mSaved">0%</div><div class="s">vs original</div></div>
-  </section>
+    <div class="panel" id="panel-file">
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Drop a file or click to choose">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        <div class="big">Drop a file here</div>
+        <div class="sub">or click to choose &middot; up to 10 MB &middot; compressed locally, never uploaded</div>
+      </div>
+      <input type="file" id="file-input" hidden>
+      <div class="filemeta" id="filemeta">
+        <span class="name" id="file-name"></span>
+        <span class="meta" id="file-meta"></span>
+        <button type="button" class="x" id="file-clear" aria-label="Remove file">&times;</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ---------- ENTROPY ---------- -->
+  <div class="card">
+    <h2>Shannon entropy <span class="hint">order-0 information content of the input</span></h2>
+    <div class="stats">
+      <div class="stat">
+        <div class="k">Entropy</div>
+        <div class="v" id="e-bits">&mdash; <small>bits/byte</small></div>
+      </div>
+      <div class="stat">
+        <div class="k">Order-0 floor</div>
+        <div class="v" id="e-floor">&mdash; <small>bytes</small></div>
+      </div>
+      <div class="stat">
+        <div class="k">Redundancy</div>
+        <div class="v" id="e-red">&mdash; <small>of 8 bits</small></div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:14px">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2v3.6"/><circle cx="8" cy="5" r="0.4" fill="currentColor" stroke="none"/></svg>
+      <span>The floor is the smallest size a perfect <em>order-0</em> entropy coder could reach (frequency of each byte only). Real compressors model repeats and higher-order structure, so they routinely beat this floor &mdash; watch how far below it the algorithms land.</span>
+    </div>
+  </div>
+
+  <!-- ---------- RESULTS ---------- -->
+  <div class="card">
+    <h2>Results <span class="hint" id="res-hint"></span></h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Algorithm</th>
+            <th class="num">Original</th>
+            <th class="num">Compressed</th>
+            <th class="num">Ratio</th>
+            <th class="num">Saved</th>
+            <th class="num">Time</th>
+            <th style="text-align:center">RT</th>
+            <th>Relative size</th>
+          </tr>
+        </thead>
+        <tbody id="res-body">
+          <tr><td colspan="8"><div class="placeholder">Enter text or drop a file to compare algorithms.</div></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="crosscheck" id="crosscheck" hidden></div>
+    <div class="rowbar" style="margin-top:16px">
+      <button type="button" class="btn" id="btn-download" disabled>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M7 2v7m0 0L4 6m3 3l3-3"/><path d="M2.5 11.5h9"/></svg>
+        Download best (<span id="best-name">&mdash;</span>)
+      </button>
+      <button type="button" class="btn" id="btn-copy" disabled>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4.5" y="4.5" width="7" height="7" rx="1"/><path d="M2.5 9.5V2.5h7"/></svg>
+        Copy stats table
+      </button>
+    </div>
+  </div>
+
+  <!-- ---------- PRIVACY / METHOD ---------- -->
+  <div class="card">
+    <div class="note">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1.5l5 2v4c0 3-2.2 5.3-5 6.5C5.2 12.8 3 10.5 3 7.5v-4l5-2z"/><path d="M5.8 8l1.5 1.5L10.4 6.4"/></svg>
+      <span>Everything runs client-side. Your text and files are compressed in the browser &mdash; no uploads, no network calls, no telemetry. The only external request this page makes is for the IBM Plex fonts.</span>
+    </div>
+    <div class="note">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2.5 8h11M2.5 4.5h11M2.5 11.5h7"/></svg>
+      <span id="method-note">gzip / deflate at level 6, brotli at quality 11. Native results use the browser's built-in CompressionStream; the same formats are cross-checked against vendored fflate. Round-trip (RT) decompresses each result and asserts it matches the input byte-for-byte.</span>
+    </div>
+  </div>
+
 </main>
-<footer>fflate is MIT. brotli-wasm is Apache-2.0. See <a href="LICENSE-fflate.txt">fflate license</a>, <a href="LICENSE-brotli-wasm.txt">Brotli license</a>, and <a href="NOTICE.txt">notice</a>.</footer>
+
+<footer id="footer">
+  Native <span class="mono">CompressionStream</span> &middot;
+  <a href="LICENSE-fflate.txt">fflate</a> MIT &middot;
+  <a href="LICENSE-brotli-wasm.txt">brotli-wasm</a> Apache-2.0 &middot;
+  <a href="NOTICE.txt">notice</a> &middot;
+  all vendored, runs in-page
+</footer>
+
 <script src="fflate.min.js"></script>
 <script type="module">
-import initBrotli, { compress as brotliCompress, decompress as brotliDecompress } from './brotli_wasm.js';
-const $ = id => document.getElementById(id);
-const enc = new TextEncoder();
-const dec = new TextDecoder();
-let fileBytes = null;
-let fileName = '';
-let brotliReady = false;
-const sample = `Rocket Pudding compression sample
+  // brotli-wasm (pkg.web, wasm-bindgen --target web). init() fetches
+  // ./brotli_wasm_bg.wasm relative to this module — works on any static server.
+  import init, { compress, decompress } from './brotli_wasm.js';
+  init()
+    .then(function () {
+      window.__brotli = { compress: compress, decompress: decompress };
+      window.dispatchEvent(new CustomEvent('brotli-ready'));
+    })
+    .catch(function (err) {
+      window.__brotliError = err;
+      window.dispatchEvent(new CustomEvent('brotli-failed'));
+    });
+</script>
+<script>
+(function () {
+  "use strict";
 
-Compression is where representation meets consequence. Repeated words compress well.
-Repeated words compress well. Repeated words compress well.
+  var MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 
-{"kind":"bundle","target":"smallest useful artifact","levels":[1,3,6,9],"local":true}
-`;
-function fmt(n){ return n.toLocaleString() + ' B'; }
-function pct(x){ return (x * 100).toFixed(1) + '%'; }
-function entropy(bytes){
-  if(!bytes.length) return 0;
-  const freq = new Array(256).fill(0);
-  for(const b of bytes) freq[b]++;
-  let e = 0;
-  for(const f of freq){ if(f){ const p = f / bytes.length; e -= p * Math.log2(p); } }
-  return e;
-}
-function currentBytes(){
-  if(fileBytes) return fileBytes;
-  return enc.encode($('input').value);
-}
-async function nativeCompress(format, bytes){
-  if(!('CompressionStream' in window)) throw new Error('CompressionStream unavailable');
-  const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream(format));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-async function nativeDecompress(format, bytes){
-  if(!('DecompressionStream' in window)) throw new Error('DecompressionStream unavailable');
-  const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
-  return new Uint8Array(await new Response(stream).arrayBuffer());
-}
-function same(a,b){
-  if(a.length !== b.length) return false;
-  for(let i=0;i<a.length;i++) if(a[i] !== b[i]) return false;
-  return true;
-}
-async function measure(name, fn, verify, bytes){
-  const t0 = performance.now();
-  const out = await fn();
-  const ms = performance.now() - t0;
-  let ok = 'n/a', cls = 'status-warn';
-  if(verify){
-    try{
-      const back = await verify(out);
-      ok = same(bytes, back) ? 'ok' : 'mismatch';
-      cls = ok === 'ok' ? 'status-ok' : 'status-bad';
-    }catch(err){ ok = 'verify err'; cls = 'status-bad'; }
-  }
-  return {name, bytes:out.length, ratio:out.length / Math.max(1, bytes.length), ms, ok, cls};
-}
-function render(rows, original){
-  rows.sort((a,b) => a.bytes - b.bytes);
-  const best = rows[0];
-  $('rows').innerHTML = rows.map((r,i) => `<tr class="${i===0?'best':''}"><td>${r.name}</td><td>${fmt(r.bytes)}</td><td>${pct(r.ratio)}</td><td>${r.ms.toFixed(1)} ms</td><td class="${r.cls}">${r.ok}</td></tr>`).join('');
-  $('mBest').textContent = best ? best.name : '-';
-  $('mSaved').textContent = best ? pct(Math.max(0, 1 - best.bytes / Math.max(1, original))) : '0%';
-}
-async function run(){
-  const bytes = currentBytes();
-  const level = Number($('level').value);
-  $('mOriginal').textContent = fmt(bytes.length);
-  $('mEntropy').textContent = entropy(bytes).toFixed(2);
-  $('rows').innerHTML = '<tr><td colspan="5">running...</td></tr>';
-  $('log').textContent = '';
-  const jobs = [
-    measure('fflate gzip', () => fflate.gzipSync(bytes, {level}), out => fflate.gunzipSync(out), bytes),
-    measure('fflate zlib', () => fflate.zlibSync(bytes, {level}), out => fflate.unzlibSync(out), bytes),
-    measure('fflate deflate', () => fflate.deflateSync(bytes, {level}), out => fflate.inflateSync(out), bytes)
+  /* ============================================================
+   * Algorithm registry
+   * ============================================================ */
+  var ALGOS = [
+    { id: "native-gzip",        name: "gzip",         engine: "CompressionStream", kind: "native", fmt: "gzip",        ext: "gz" },
+    { id: "native-deflate",     name: "deflate (zlib)", engine: "CompressionStream", kind: "native", fmt: "deflate",   ext: "zz" },
+    { id: "native-deflate-raw", name: "deflate-raw",  engine: "CompressionStream", kind: "native", fmt: "deflate-raw", ext: "deflate" },
+    { id: "fflate-gzip",        name: "gzip",         engine: "fflate",            kind: "fflate", op: "gzip",         ext: "gz" },
+    { id: "fflate-zlib",        name: "deflate (zlib)", engine: "fflate",          kind: "fflate", op: "zlib",         ext: "zz" },
+    { id: "fflate-deflate",     name: "deflate-raw",  engine: "fflate",            kind: "fflate", op: "deflate",      ext: "deflate" },
+    { id: "fflate-zip",         name: "zip",          engine: "fflate",            kind: "fflate", op: "zip",          ext: "zip" },
+    { id: "brotli",             name: "brotli",       engine: "brotli-wasm",       kind: "brotli", ext: "br" }
   ];
-  if('CompressionStream' in window){
-    jobs.push(measure('native gzip', () => nativeCompress('gzip', bytes), out => nativeDecompress('gzip', out), bytes));
-    jobs.push(measure('native deflate', () => nativeCompress('deflate', bytes), out => nativeDecompress('deflate', out), bytes));
+
+  var LEVEL = 6; // gzip/deflate level for the head-to-head
+
+  /* ============================================================
+   * State + DOM
+   * ============================================================ */
+  var state = {
+    mode: "text",          // 'text' | 'file'
+    fileBuf: null,         // ArrayBuffer
+    fileName: "",
+    synthetic: false,      // fileBuf came from a sample generator
+    hasNative: (typeof CompressionStream !== "undefined" && typeof DecompressionStream !== "undefined"),
+    brotliReady: false,
+    brotliFailed: false,
+    lastRows: [],          // sorted result rows
+    origLen: 0,
+    seq: 0
+  };
+
+  var els = {
+    text: document.getElementById("text-input"),
+    inputStats: document.getElementById("input-stats"),
+    drop: document.getElementById("drop"),
+    fileInput: document.getElementById("file-input"),
+    filemeta: document.getElementById("filemeta"),
+    fileName: document.getElementById("file-name"),
+    fileMeta: document.getElementById("file-meta"),
+    fileClear: document.getElementById("file-clear"),
+    eBits: document.getElementById("e-bits"),
+    eFloor: document.getElementById("e-floor"),
+    eRed: document.getElementById("e-red"),
+    resBody: document.getElementById("res-body"),
+    resHint: document.getElementById("res-hint"),
+    crosscheck: document.getElementById("crosscheck"),
+    btnDownload: document.getElementById("btn-download"),
+    btnCopy: document.getElementById("btn-copy"),
+    bestName: document.getElementById("best-name"),
+    methodNote: document.getElementById("method-note")
+  };
+
+  /* ============================================================
+   * Formatting helpers
+   * ============================================================ */
+  function fmtBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    if (n < 1073741824) return (n / 1048576).toFixed(2) + " MB";
+    return (n / 1073741824).toFixed(2) + " GB";
   }
-  if(brotliReady){
-    jobs.push(measure('brotli wasm', () => brotliCompress(bytes, {quality:Math.min(11, level + 2)}), out => brotliDecompress(out), bytes));
+  function fmtInt(n) { return n.toLocaleString("en-US"); }
+  function fmtMs(ms) {
+    if (ms < 1) return "<1 ms";
+    if (ms < 1000) return ms.toFixed(ms < 10 ? 1 : 0) + " ms";
+    return (ms / 1000).toFixed(2) + " s";
   }
-  const settled = await Promise.allSettled(jobs);
-  const rows = [];
-  for(const s of settled){
-    if(s.status === 'fulfilled') rows.push(s.value);
-    else $('log').textContent += String(s.reason && s.reason.message || s.reason) + '\n';
+
+  function bytesEqual(a, b) {
+    if (!a || !b || a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) { if (a[i] !== b[i]) return false; }
+    return true;
   }
-  render(rows, bytes.length);
-  $('log').textContent += `input=${fmt(bytes.length)} entropy=${entropy(bytes).toFixed(3)} bits/byte level=${level}\n`;
-}
-function setSample(){
-  fileBytes = null; fileName = '';
-  $('filename').textContent = 'text input';
-  $('input').value = sample;
-  run();
-}
-async function loadFile(file){
-  fileBytes = new Uint8Array(await file.arrayBuffer());
-  fileName = file.name;
-  $('filename').textContent = `${file.name} (${fmt(fileBytes.length)})`;
-  $('input').value = dec.decode(fileBytes.slice(0, Math.min(fileBytes.length, 4096)));
-  run();
-}
-$('run').addEventListener('click', run);
-$('sample').addEventListener('click', setSample);
-$('file').addEventListener('change', e => e.target.files[0] && loadFile(e.target.files[0]));
-$('input').addEventListener('input', () => { fileBytes = null; $('filename').textContent = 'text input'; });
-$('level').addEventListener('input', () => { $('levelLabel').textContent = $('level').value; });
-for(const ev of ['dragenter','dragover']) $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.add('drag'); });
-for(const ev of ['dragleave','drop']) $('drop').addEventListener(ev, e => { e.preventDefault(); $('drop').classList.remove('drag'); });
-$('drop').addEventListener('drop', e => e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]));
-(async function init(){
-  $('input').value = sample;
-  try{
-    await initBrotli();
-    brotliReady = true;
-    $('runtime').textContent = 'fflate + brotli ready';
-  }catch(err){
-    $('runtime').textContent = 'fflate ready; brotli unavailable';
-    $('log').textContent = String(err.message || err);
+
+  /* ============================================================
+   * Shannon entropy (order-0)
+   * ============================================================ */
+  function entropy(bytes) {
+    var n = bytes.length;
+    if (!n) return { H: 0, floor: 0 };
+    var freq = new Uint32Array(256);
+    for (var i = 0; i < n; i++) freq[bytes[i]]++;
+    var H = 0;
+    for (var s = 0; s < 256; s++) {
+      if (freq[s]) { var p = freq[s] / n; H -= p * Math.log2(p); }
+    }
+    return { H: H, floor: Math.ceil(H * n / 8) };
   }
-  run();
+
+  /* ============================================================
+   * Native CompressionStream helpers
+   * ============================================================ */
+  async function pump(stream, bytes) {
+    var writer = stream.writable.getWriter();
+    writer.write(bytes);
+    writer.close();
+    var reader = stream.readable.getReader();
+    var chunks = [], total = 0;
+    while (true) {
+      var r = await reader.read();
+      if (r.done) break;
+      chunks.push(r.value);
+      total += r.value.length;
+    }
+    var out = new Uint8Array(total), off = 0;
+    for (var i = 0; i < chunks.length; i++) { out.set(chunks[i], off); off += chunks[i].length; }
+    return out;
+  }
+  function nativeCompress(bytes, fmt) { return pump(new CompressionStream(fmt), bytes); }
+  function nativeDecompress(bytes, fmt) { return pump(new DecompressionStream(fmt), bytes); }
+
+  /* ============================================================
+   * Compress / decompress dispatch
+   * ============================================================ */
+  function brotliQuality(len) { return len > 2 * 1024 * 1024 ? 9 : 11; }
+
+  async function compressOne(algo, bytes) {
+    if (algo.kind === "native") return nativeCompress(bytes, algo.fmt);
+    if (algo.kind === "fflate") {
+      switch (algo.op) {
+        case "gzip": return fflate.gzipSync(bytes, { level: LEVEL });
+        case "zlib": return fflate.zlibSync(bytes, { level: LEVEL });
+        case "deflate": return fflate.deflateSync(bytes, { level: LEVEL });
+        case "zip": return fflate.zipSync({ "data.bin": bytes }, { level: LEVEL });
+      }
+    }
+    if (algo.kind === "brotli") return window.__brotli.compress(bytes, { quality: brotliQuality(bytes.length) });
+    throw new Error("unknown algo");
+  }
+
+  async function decompressOne(algo, comp) {
+    if (algo.kind === "native") return nativeDecompress(comp, algo.fmt);
+    if (algo.kind === "fflate") {
+      switch (algo.op) {
+        case "gzip": return fflate.gunzipSync(comp);
+        case "zlib": return fflate.unzlibSync(comp);
+        case "deflate": return fflate.inflateSync(comp);
+        case "zip": return fflate.unzipSync(comp)["data.bin"];
+      }
+    }
+    if (algo.kind === "brotli") return window.__brotli.decompress(comp);
+    throw new Error("unknown algo");
+  }
+
+  function activeAlgos() {
+    return ALGOS.filter(function (a) {
+      if (a.kind === "native" && !state.hasNative) return false;
+      if (a.kind === "brotli" && !state.brotliReady) return false;
+      return true;
+    });
+  }
+
+  /* ============================================================
+   * Input
+   * ============================================================ */
+  function currentBytes() {
+    if (state.mode === "file") {
+      return state.fileBuf ? new Uint8Array(state.fileBuf) : null;
+    }
+    return new TextEncoder().encode(els.text.value);
+  }
+
+  /* ============================================================
+   * Render
+   * ============================================================ */
+  var CHECK_SVG = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 8l3 3 6-7"/></svg>';
+  var CROSS_SVG = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l7 7M11 4l-7 7"/></svg>';
+  var TROPHY_SVG = '<svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M4 2h6v3a3 3 0 01-6 0V2z"/><path d="M4 3H2.5v1A2 2 0 004 6M10 3h1.5v1A2 2 0 0110 6M6 8h2M5 11h4M7 8v3"/></svg>';
+
+  function renderEntropy(bytes) {
+    var e = entropy(bytes);
+    els.eBits.innerHTML = e.H.toFixed(3) + ' <small>bits/byte</small>';
+    els.eFloor.innerHTML = '&asymp; ' + fmtInt(e.floor) + ' <small>bytes</small>';
+    els.eRed.innerHTML = (8 - e.H).toFixed(2) + ' <small>redundant bits</small>';
+  }
+
+  function clearResults(msg) {
+    els.resBody.innerHTML = '<tr><td colspan="8"><div class="placeholder">' + msg + '</div></td></tr>';
+    els.crosscheck.hidden = true;
+    els.btnDownload.disabled = true;
+    els.btnCopy.disabled = true;
+    els.bestName.textContent = "—";
+    els.resHint.textContent = "";
+  }
+
+  function renderResults(rows, origLen) {
+    var done = rows.filter(function (r) { return !r.error; });
+    done.sort(function (a, b) { return a.size - b.size; });
+    var errs = rows.filter(function (r) { return r.error; });
+
+    if (!done.length && !errs.length) { clearResults("No algorithms available."); return; }
+
+    var winnerId = done.length ? done[0].algo.id : null;
+    var html = "";
+
+    done.forEach(function (r) {
+      var ratio = origLen > 0 ? origLen / r.size : 0;
+      var saved = origLen > 0 ? (1 - r.size / origLen) * 100 : 0;
+      var pct = origLen > 0 ? Math.min(100, (r.size / origLen) * 100) : 0;
+      var isWin = r.algo.id === winnerId;
+      var savedCls = saved < 0 ? " neg" : "";
+      var savedTxt = (saved < 0 ? "−" : "") + Math.abs(saved).toFixed(1) + "%";
+      var qNote = r.algo.kind === "brotli" ? " q" + brotliQuality(origLen) : "";
+      html +=
+        '<tr class="' + (isWin ? "winner" : "") + '">' +
+          '<td><span class="algo">' + r.algo.name +
+            (isWin ? '<span class="wtag">' + TROPHY_SVG + 'SMALLEST</span>' : '') +
+            '<span class="eng">' + r.algo.engine + qNote + '</span></span></td>' +
+          '<td class="num">' + fmtInt(origLen) + '</td>' +
+          '<td class="num">' + fmtInt(r.size) + '</td>' +
+          '<td class="num">' + (ratio > 0 ? ratio.toFixed(2) + " : 1" : "—") + '</td>' +
+          '<td class="num saved' + savedCls + '">' + savedTxt + '</td>' +
+          '<td class="num">' + fmtMs(r.dt) + '</td>' +
+          '<td style="text-align:center"><span class="rt ' + (r.ok ? "pass" : "fail") + '" title="' +
+            (r.ok ? "round-trip verified" : "round-trip FAILED") + '">' + (r.ok ? CHECK_SVG : CROSS_SVG) + '</span></td>' +
+          '<td class="barcell"><div class="bar"><i style="width:' + pct.toFixed(1) + '%"></i></div></td>' +
+        '</tr>';
+    });
+
+    errs.forEach(function (r) {
+      html +=
+        '<tr>' +
+          '<td><span class="algo">' + r.algo.name + '<span class="eng">' + r.algo.engine + '</span></span></td>' +
+          '<td class="err" colspan="7">error: ' + escapeHtml(r.error) + '</td>' +
+        '</tr>';
+    });
+
+    els.resBody.innerHTML = html;
+    els.resHint.textContent = done.length + " algorithm" + (done.length === 1 ? "" : "s") +
+      (state.brotliReady ? "" : (state.brotliFailed ? " · brotli unavailable" : " · brotli loading…")) +
+      (state.hasNative ? "" : " · native CompressionStream unavailable");
+
+    state.lastRows = done;
+    state.origLen = origLen;
+    els.btnDownload.disabled = !done.length;
+    els.btnCopy.disabled = !done.length;
+    if (done.length) {
+      var w = done[0];
+      els.bestName.textContent = w.algo.name + " · " + fmtBytes(w.size);
+    }
+    renderCrosscheck(done);
+  }
+
+  function findRow(rows, id) {
+    for (var i = 0; i < rows.length; i++) { if (rows[i].algo.id === id) return rows[i]; }
+    return null;
+  }
+
+  function renderCrosscheck(rows) {
+    var pairs = [
+      ["gzip", "native-gzip", "fflate-gzip"],
+      ["deflate (zlib)", "native-deflate", "fflate-zlib"],
+      ["deflate-raw", "native-deflate-raw", "fflate-deflate"]
+    ];
+    var parts = [];
+    pairs.forEach(function (p) {
+      var a = findRow(rows, p[1]), b = findRow(rows, p[2]);
+      if (!a || !b) return;
+      var same = a.size === b.size;
+      parts.push('<b>' + p[0] + '</b>: native ' + fmtInt(a.size) + ' B vs fflate ' + fmtInt(b.size) + ' B — ' +
+        (same ? '<span class="match">byte-identical</span>' : '<span class="diff">Δ ' + Math.abs(a.size - b.size) + ' B</span>'));
+    });
+    if (!parts.length) { els.crosscheck.hidden = true; return; }
+    els.crosscheck.hidden = false;
+    els.crosscheck.innerHTML = "Native ↔ fflate cross-check &mdash; " + parts.join(" &nbsp;·&nbsp; ");
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c];
+    });
+  }
+
+  function tick() { return new Promise(function (r) { setTimeout(r, 0); }); }
+
+  /* ============================================================
+   * Compute pipeline
+   * ============================================================ */
+  async function recompute() {
+    var seq = ++state.seq;
+    var bytes = currentBytes();
+
+    if (!bytes || bytes.length === 0) {
+      renderEntropy(new Uint8Array(0));
+      els.inputStats.textContent = state.mode === "file" ? "no file" : "empty";
+      clearResults(state.mode === "file" ? "Drop a file to compare algorithms." : "Enter text to compare algorithms.");
+      return;
+    }
+
+    els.inputStats.textContent = fmtBytes(bytes.length) + " · " + fmtInt(bytes.length) + " bytes";
+    renderEntropy(bytes);
+
+    els.resBody.innerHTML = '<tr><td colspan="8"><div class="placeholder"><svg class="spin" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" style="vertical-align:-3px;margin-right:8px"><path d="M8 2.5a5.5 5.5 0 105.5 5.5" stroke-linecap="round"/></svg>compressing…</div></td></tr>';
+    await tick(); // let the "compressing" state paint before sync-heavy work
+
+    var rows = [];
+    var algos = activeAlgos();
+    for (var i = 0; i < algos.length; i++) {
+      var algo = algos[i];
+      try {
+        var t0 = performance.now();
+        var comp = await compressOne(algo, bytes);
+        var dt = performance.now() - t0;
+        if (seq !== state.seq) return;
+        var ok = false;
+        try { ok = bytesEqual(await decompressOne(algo, comp), bytes); }
+        catch (e) { ok = false; }
+        if (seq !== state.seq) return;
+        rows.push({ algo: algo, comp: comp, size: comp.length, dt: dt, ok: ok });
+      } catch (e) {
+        if (seq !== state.seq) return;
+        rows.push({ algo: algo, error: e && e.message ? e.message : String(e) });
+      }
+      await tick();
+      if (seq !== state.seq) return;
+    }
+
+    if (seq !== state.seq) return;
+    renderResults(rows, bytes.length);
+  }
+
+  /* ============================================================
+   * Download best / copy stats
+   * ============================================================ */
+  function baseName() {
+    if (state.mode === "file" && state.fileName) {
+      return state.fileName.replace(/\.[^.]+$/, "") || state.fileName;
+    }
+    return "input";
+  }
+
+  els.btnDownload.addEventListener("click", function () {
+    if (!state.lastRows.length) return;
+    var w = state.lastRows[0];
+    var blob = new Blob([w.comp], { type: "application/octet-stream" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = baseName() + "." + w.algo.ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    flashOk(els.btnDownload);
+  });
+
+  els.btnCopy.addEventListener("click", function () {
+    if (!state.lastRows.length) return;
+    var e = entropy(currentBytes());
+    var lines = [];
+    lines.push("| Algorithm | Engine | Original | Compressed | Ratio | Saved | Time | Round-trip |");
+    lines.push("|---|---|---|---|---|---|---|---|");
+    state.lastRows.forEach(function (r) {
+      var ratio = (state.origLen / r.size).toFixed(2) + " : 1";
+      var saved = ((1 - r.size / state.origLen) * 100).toFixed(1) + "%";
+      var q = r.algo.kind === "brotli" ? " q" + brotliQuality(state.origLen) : "";
+      lines.push("| " + r.algo.name + " | " + r.algo.engine + q + " | " + state.origLen + " B | " +
+        r.size + " B | " + ratio + " | " + saved + " | " + fmtMs(r.dt) + " | " + (r.ok ? "pass" : "FAIL") + " |");
+    });
+    lines.push("");
+    lines.push("Shannon entropy: " + e.H.toFixed(3) + " bits/byte · order-0 floor ≈ " + e.floor + " bytes · input " + state.origLen + " bytes");
+    copyText(lines.join("\n"), els.btnCopy);
+  });
+
+  function flashOk(btn) {
+    btn.classList.add("ok");
+    setTimeout(function () { btn.classList.remove("ok"); }, 1100);
+  }
+  function copyText(txt, btn) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { flashOk(btn); }, function () { fallbackCopy(txt, btn); });
+    } else { fallbackCopy(txt, btn); }
+  }
+  function fallbackCopy(txt, btn) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flashOk(btn); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+
+  /* ============================================================
+   * Samples
+   * ============================================================ */
+  var SAMPLE_TEXT =
+"Compression works by finding and removing redundancy. The lab you are looking at runs several\n" +
+"algorithms over exactly the same input so you can watch the trade-offs directly: gzip and deflate\n" +
+"are the classic DEFLATE family, zip wraps DEFLATE in an archive container, and brotli uses a large\n" +
+"static dictionary plus context modelling to squeeze natural-language text harder than the others.\n\n" +
+"Natural-language prose is quite compressible because letters, words, and phrases recur. English\n" +
+"text carries only around one to one-and-a-half bits of real information per character even though\n" +
+"each character costs eight bits to store, so a good compressor throws most of that away. Paste your\n" +
+"own text, drop a file, or try the highly-compressible and random samples to feel the extremes.";
+
+  function setText(txt) {
+    exitFile();
+    switchMode("text");
+    els.text.value = txt;
+    recompute();
+  }
+
+  document.getElementById("s-sample").addEventListener("click", function () { setText(SAMPLE_TEXT); });
+
+  document.getElementById("s-comp").addEventListener("click", function () {
+    var unit = "rocket-pudding ";
+    var s = "";
+    for (var i = 0; i < 900; i++) s += unit; // ~13 KB of a repeating phrase
+    setText(s);
+  });
+
+  document.getElementById("s-rand").addEventListener("click", function () {
+    // Truly incompressible: cryptographically-random bytes loaded as a synthetic file.
+    var N = 4096;
+    var buf = new Uint8Array(N);
+    var CH = 65536;
+    for (var o = 0; o < N; o += CH) crypto.getRandomValues(buf.subarray(o, Math.min(o + CH, N)));
+    els.text.value = "";
+    switchMode("file");
+    state.fileBuf = buf.buffer;
+    state.fileName = "random-" + N + ".bin";
+    state.synthetic = true;
+    els.fileName.textContent = state.fileName;
+    els.fileMeta.textContent = fmtBytes(N) + " · generated";
+    els.filemeta.classList.add("show");
+    recompute();
+  });
+
+  document.getElementById("s-clear").addEventListener("click", function () {
+    exitFile();
+    switchMode("text");
+    els.text.value = "";
+    els.text.focus();
+    recompute();
+  });
+
+  /* ============================================================
+   * Mode toggle + file handling
+   * ============================================================ */
+  function switchMode(mode) {
+    state.mode = mode;
+    document.querySelectorAll(".seg button").forEach(function (x) {
+      x.setAttribute("aria-pressed", x.getAttribute("data-mode") === mode ? "true" : "false");
+    });
+    document.getElementById("panel-text").classList.toggle("active", mode === "text");
+    document.getElementById("panel-file").classList.toggle("active", mode === "file");
+  }
+
+  document.querySelectorAll(".seg button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var mode = b.getAttribute("data-mode");
+      if (mode === state.mode) return;
+      switchMode(mode);
+      recompute();
+    });
+  });
+
+  function exitFile() {
+    state.fileBuf = null; state.fileName = ""; state.synthetic = false;
+    els.fileInput.value = "";
+    els.filemeta.classList.remove("show");
+  }
+
+  function setFile(file) {
+    if (!file) return;
+    if (file.size > MAX_BYTES) {
+      els.fileName.textContent = file.name;
+      els.fileMeta.textContent = "too large (" + fmtBytes(file.size) + " > 10 MB)";
+      els.filemeta.classList.add("show");
+      state.fileBuf = null; state.fileName = "";
+      clearResults("File exceeds the 10 MB cap — pick a smaller file.");
+      renderEntropy(new Uint8Array(0));
+      els.inputStats.textContent = "over cap";
+      return;
+    }
+    var reader = new FileReader();
+    els.fileName.textContent = file.name;
+    els.fileMeta.textContent = "reading…";
+    els.filemeta.classList.add("show");
+    reader.onload = function () {
+      state.fileBuf = reader.result;
+      state.fileName = file.name;
+      state.synthetic = false;
+      els.fileMeta.textContent = fmtBytes(file.size);
+      recompute();
+    };
+    reader.onerror = function () { els.fileMeta.textContent = "read error"; };
+    reader.readAsArrayBuffer(file);
+  }
+
+  els.drop.addEventListener("click", function () { els.fileInput.click(); });
+  els.drop.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.fileInput.click(); }
+  });
+  els.fileInput.addEventListener("change", function () { if (els.fileInput.files[0]) setFile(els.fileInput.files[0]); });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); els.drop.classList.add("over"); });
+  });
+  ["dragleave", "dragend"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.remove("over"); });
+  });
+  els.drop.addEventListener("drop", function (e) {
+    e.preventDefault(); e.stopPropagation(); els.drop.classList.remove("over");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  els.fileClear.addEventListener("click", function () { exitFile(); recompute(); });
+
+  /* ============================================================
+   * Wiring
+   * ============================================================ */
+  var debTimer = null;
+  els.text.addEventListener("input", function () {
+    clearTimeout(debTimer);
+    debTimer = setTimeout(recompute, 220);
+  });
+
+  window.addEventListener("brotli-ready", function () {
+    state.brotliReady = true;
+    recompute();
+  });
+  window.addEventListener("brotli-failed", function () {
+    state.brotliFailed = true;
+    recompute();
+  });
+  if (window.__brotli) { state.brotliReady = true; }
+  else if (window.__brotliError) { state.brotliFailed = true; }
+
+  if (!state.hasNative) {
+    els.methodNote.textContent =
+      "This browser has no native CompressionStream, so gzip / deflate / deflate-raw are shown via vendored fflate; brotli via brotli-wasm. gzip / deflate at level 6, brotli at quality 11. Round-trip (RT) decompresses each result and asserts it matches the input byte-for-byte.";
+  }
+
+  // initial paint
+  setText(SAMPLE_TEXT);
 })();
 </script>
 </body>

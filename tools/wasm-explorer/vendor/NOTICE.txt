@@ -1,0 +1,15 @@
+WASM Explorer - Third-Party Notices
+===================================
+
+This tool bundles WABT, the WebAssembly Binary Toolkit.
+
+Vendored artifact
+-----------------
+Package : wabt@1.0.39 (npm)
+File    : vendor/wabt.js
+Source  : https://github.com/WebAssembly/wabt
+License : Apache-2.0 (see LICENSE-wabt.txt)
+
+libwabt.wasm is embedded inline in vendor/wabt.js, so there is no separate
+.wasm fetch at runtime. The Binaryen build was intentionally excluded from
+this release to keep the deploy bundle under the size cap.
