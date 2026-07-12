@@ -28,13 +28,24 @@
   .brand{font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:1.6px;font-size:13px}
   .brand .rp{color:var(--accent)}
   .count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
-  .toptease{display:flex;align-items:center;gap:11px;padding:16px 0 0}
+  .toptease{position:sticky;top:0;z-index:60;background:var(--bg);display:flex;align-items:center;gap:11px;
+    padding:12px 0;border-bottom:1px solid transparent;transition:border-color .2s ease}
+  .toptease.stuck{border-bottom-color:var(--line)}
   @keyframes dance{0%,100%{transform:rotate(-15deg) translateY(0)}50%{transform:rotate(15deg) translateY(-6px)}}
   .banana{font-size:30px;line-height:1;display:inline-block;transform-origin:50% 90%;
     animation:dance .62s ease-in-out infinite;filter:drop-shadow(0 3px 5px rgba(0,0,0,.14))}
   .epigraph{font-family:'IBM Plex Serif',serif;font-style:italic;font-size:13px;color:var(--muted);letter-spacing:.01em;line-height:1.4}
   .epigraph::before{content:'\201C'} .epigraph::after{content:'\201D'}
   @media(max-width:600px){ .toptease{padding:12px 0 0;gap:9px} .banana{font-size:26px} .epigraph{font-size:12px} }
+  .jim{font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  .toast{position:fixed;right:18px;bottom:18px;max-width:330px;background:var(--card);border:1px solid var(--accent);
+    border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.16);padding:13px 15px;z-index:120;cursor:pointer;
+    transform:translateY(14px);opacity:0;transition:transform .3s ease,opacity .3s ease}
+  .toast.show{transform:translateY(0);opacity:1}
+  .toast .th{display:flex;align-items:center;gap:8px;font:600 12.5px 'IBM Plex Sans';color:var(--fg)}
+  .toast .tb{margin-top:5px;font:400 11.5px 'IBM Plex Sans';color:var(--muted);line-height:1.5}
+  .toast .banana{font-size:18px;animation-duration:.5s;filter:none}
+  @media(max-width:600px){ .toast{left:14px;right:14px;max-width:none} }
   .hero{padding:34px 0 8px}
   .hero h1{margin:0 0 12px;font-size:32px;letter-spacing:-.015em;font-weight:600}
   .hero p{margin:0;max-width:640px;color:var(--muted);font-size:15px;line-height:1.65}
@@ -108,6 +119,11 @@
       <div class="brand"><span class="rp">ROCKET&nbsp;PUDDING</span>&nbsp;TOOLS</div>
       <div class="count" id="count"></div>
     </header>
+    <div class="toptease">
+      <span class="banana" title="Jim — the house banana" aria-label="Jim the dancing banana">🍌</span>
+      <span class="epigraph">Ba-ba-ba Ba-ba-baran</span>
+      <span class="jim">— Jim</span>
+    </div>
     <section class="hero">
       <h1>Tools</h1>
       <p><em>Original instruments,</em> designed here and built to be looked at — alongside a workbench
@@ -196,16 +212,39 @@
   // paint skeletons immediately so the page shows itself loading
   $('originals').innerHTML = '<div class="skel o"></div><div class="skel o"></div>';
   $('grid').innerHTML = Array.from({length:9}).map(()=>'<div class="skel"></div>').join('');
-  Promise.all([
-    fetch('registry.json').then(r=>r.json()).catch(()=>({tools:[]})),
-    fetch('building.json').then(r=>r.json()).catch(()=>({building:[]}))
-  ]).then(([d,b])=>{
-    TOOLS = d.tools||[];
-    const liveSlugs = new Set(TOOLS.map(t=>t.slug));
-    BUILDING = ((b&&b.building)||[]).filter(x => !liveSlugs.has(x.slug));  // never double-show a shipped tool
-    if(d.updated) $('updated').textContent = 'updated '+d.updated;
-    render(TOOLS, BUILDING);
-  }).catch(()=>{ $('empty').style.display=''; $('empty').textContent='Could not load registry.json.'; });
+
+  // sticky top bar gets a hairline once it sticks
+  const tease = document.querySelector('.toptease');
+  addEventListener('scroll', () => tease.classList.toggle('stuck', window.scrollY > 6), {passive:true});
+
+  let seen = null;   // Set of known live slugs after the first successful load
+  function toast(fresh){
+    const el = document.createElement('div'); el.className = 'toast';
+    const names = fresh.map(t=>t.name), more = names.length>4 ? ' +'+(names.length-4)+' more' : '';
+    el.innerHTML = '<div class="th"><span class="banana">🍌</span>'+fresh.length+' new tool'+(fresh.length>1?'s':'')+' live</div>'
+      + '<div class="tb">'+names.slice(0,4).join(', ')+more+'</div>';
+    el.onclick = () => el.remove();
+    document.body.appendChild(el);
+    requestAnimationFrame(()=>el.classList.add('show'));
+    setTimeout(()=>{ el.classList.remove('show'); setTimeout(()=>el.remove(),350); }, 9000);
+  }
+  function load(){
+    return Promise.all([
+      fetch('registry.json',{cache:'no-store'}).then(r=>r.json()).catch(()=>null),
+      fetch('building.json',{cache:'no-store'}).then(r=>r.json()).catch(()=>({building:[]}))
+    ]).then(([d,b])=>{
+      if(!d) throw 0;
+      TOOLS = d.tools||[];
+      const liveSlugs = new Set(TOOLS.map(t=>t.slug));
+      BUILDING = ((b&&b.building)||[]).filter(x=>!liveSlugs.has(x.slug));  // never double-show a shipped tool
+      if(d.updated) $('updated').textContent = 'updated '+d.updated;
+      render(TOOLS, BUILDING);
+      if(seen){ const fresh = TOOLS.filter(t=>!seen.has(t.slug)); if(fresh.length) toast(fresh); }
+      seen = liveSlugs;
+    }).catch(()=>{ if(!seen){ $('empty').style.display=''; $('empty').textContent='Could not load registry.json.'; } });
+  }
+  load();
+  setInterval(load, 20000);   // hot-load: newly-shipped tools appear + notify without a manual refresh
 </script>
 </body>
 </html>
