@@ -16,3 +16,11 @@ sqlite-workbench
 graphviz-studio
 esbuild-playground
 regex-lab
+hash-forge
+jsonpath-lab
+sql-formatter
+base-lab
+epoch-time
+id-forge
+diff-lab
+color-lab
