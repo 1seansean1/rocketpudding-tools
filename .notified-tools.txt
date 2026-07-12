@@ -27,3 +27,4 @@ color-lab
 bytecode-lab
 wasm-explorer
 compression-lab
+text-toolkit
