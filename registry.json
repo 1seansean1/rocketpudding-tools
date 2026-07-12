@@ -874,6 +874,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "passphrase-forge",
+      "name": "Passphrase Forge",
+      "tagline": "Diceware passphrases and random passwords with honest entropy math",
+      "description": "Zero-dependency, fully client-side secret generator. Builds Diceware passphrases from the complete EFF large wordlist (7,776 words) or random-character passwords with configurable sets, using crypto.getRandomValues and rejection sampling for unbiased selection. Shows exact entropy in bits, guess-space size, and an honest time-to-crack at 10^12 guesses/s. Batch up to 50. Nothing is transmitted, stored, or logged.",
+      "path": "tools/passphrase-forge/",
+      "tags": [
+        "password",
+        "passphrase",
+        "diceware",
+        "security",
+        "entropy"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2e9e5b",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "EFF large wordlist (CC-BY) + crypto.getRandomValues",
+        "license": "MIT / CC-BY",
+        "version": "",
+        "url": "https://www.eff.org/dice"
+      }
     }
   ]
 }
