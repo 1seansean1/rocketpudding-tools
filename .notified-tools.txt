@@ -31,3 +31,4 @@ text-toolkit
 unit-converter
 number-base
 url-inspector
+string-escaper
