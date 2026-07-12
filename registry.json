@@ -22,7 +22,14 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#b05a3c",
-      "origin": "original"
+      "origin": "original",
+      "provenance": {
+        "lib": "original",
+        "license": "MIT",
+        "version": "",
+        "url": "https://github.com/1seansean1/rocketpudding-tools",
+        "note": "designed in Claude Design; built here"
+      }
     },
     {
       "slug": "vizkit",
@@ -41,7 +48,14 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#5fd9a4",
-      "origin": "original"
+      "origin": "original",
+      "provenance": {
+        "lib": "vizkit (ours)",
+        "license": "MIT",
+        "version": "0.1",
+        "url": "https://github.com/1seansean1/vizkit",
+        "note": "original library"
+      }
     },
     {
       "slug": "mermaid-studio",
@@ -59,7 +73,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#7a6cff",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "mermaid",
+        "license": "MIT",
+        "version": "11",
+        "url": "https://github.com/mermaid-js/mermaid"
+      }
     },
     {
       "slug": "json-yaml",
@@ -77,7 +97,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#2e9e5b",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "js-yaml",
+        "license": "MIT",
+        "version": "4",
+        "url": "https://github.com/nodeca/js-yaml"
+      }
     },
     {
       "slug": "cron-explainer",
@@ -95,7 +121,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#c9a227",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "cronstrue + croner",
+        "license": "MIT",
+        "version": "2 / 8",
+        "url": "https://github.com/bradymholt/cRonstrue"
+      }
     },
     {
       "slug": "jwt-inspector",
@@ -113,7 +145,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#e0483d",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies (WebCrypto)",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     },
     {
       "slug": "csv-workbench",
@@ -131,7 +169,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#2f6fed",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "PapaParse",
+        "license": "MIT",
+        "version": "5",
+        "url": "https://github.com/mholt/PapaParse"
+      }
     },
     {
       "slug": "qr-forge",
@@ -149,7 +193,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#b05a3c",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "qrcode-generator",
+        "license": "MIT",
+        "version": "1",
+        "url": "https://github.com/kazuhikoarase/qrcode-generator"
+      }
     },
     {
       "slug": "markdown-studio",
@@ -167,7 +217,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#3f6f8f",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "marked",
+        "license": "MIT",
+        "version": "15",
+        "url": "https://github.com/markedjs/marked"
+      }
     },
     {
       "slug": "nomnoml-studio",
@@ -185,7 +241,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#8a5a44",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "nomnoml + graphre",
+        "license": "MIT",
+        "version": "1",
+        "url": "https://github.com/skanaar/nomnoml"
+      }
     },
     {
       "slug": "ast-explorer",
@@ -203,7 +265,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#d07a58",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "web-tree-sitter",
+        "license": "MIT",
+        "version": "0.25",
+        "url": "https://github.com/tree-sitter/tree-sitter"
+      }
     },
     {
       "slug": "pdg-viewer",
@@ -221,7 +289,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#2f6fed",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "acorn",
+        "license": "MIT",
+        "version": "8",
+        "url": "https://github.com/acornjs/acorn"
+      }
     },
     {
       "slug": "cpg-lite",
@@ -239,7 +313,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#8a5a44",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "acorn",
+        "license": "MIT",
+        "version": "8",
+        "url": "https://github.com/acornjs/acorn"
+      }
     },
     {
       "slug": "import-graph",
@@ -257,7 +337,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#2e9e5b",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "fflate",
+        "license": "MIT",
+        "version": "0.8",
+        "url": "https://github.com/101arrowz/fflate"
+      }
     },
     {
       "slug": "sqlite-workbench",
@@ -275,7 +361,14 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#c9a227",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "sql.js",
+        "license": "MIT",
+        "version": "1.13",
+        "url": "https://github.com/sql-js/sql.js",
+        "note": "SQLite itself is public domain"
+      }
     },
     {
       "slug": "graphviz-studio",
@@ -293,7 +386,14 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#b05a3c",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "@hpcc-js/wasm-graphviz",
+        "license": "Apache-2.0",
+        "version": "1",
+        "url": "https://github.com/hpcc-systems/hpcc-js-wasm",
+        "note": "Graphviz is EPL, compiled to WASM"
+      }
     },
     {
       "slug": "esbuild-playground",
@@ -311,7 +411,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#e0483d",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "esbuild-wasm",
+        "license": "MIT",
+        "version": "0.24",
+        "url": "https://github.com/evanw/esbuild"
+      }
     },
     {
       "slug": "regex-lab",
@@ -329,7 +435,13 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#3f6f8f",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     },
     {
       "slug": "hash-forge",
@@ -347,7 +459,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#5f6f52",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "blueimp-md5 + WebCrypto",
+        "license": "MIT",
+        "version": "2",
+        "url": "https://github.com/blueimp/JavaScript-MD5"
+      }
     },
     {
       "slug": "jsonpath-lab",
@@ -365,7 +483,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#7a6cff",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "jsonpath-plus",
+        "license": "MIT",
+        "version": "10",
+        "url": "https://github.com/JSONPath-Plus/JSONPath"
+      }
     },
     {
       "slug": "sql-formatter",
@@ -383,7 +507,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#c47a2c",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "sql-formatter",
+        "license": "MIT",
+        "version": "15",
+        "url": "https://github.com/sql-formatter-org/sql-formatter"
+      }
     },
     {
       "slug": "base-lab",
@@ -401,7 +531,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#c9a227",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     },
     {
       "slug": "epoch-time",
@@ -419,7 +555,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#3f6f8f",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies (native Intl)",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     },
     {
       "slug": "id-forge",
@@ -437,7 +579,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#7a6cff",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     },
     {
       "slug": "diff-lab",
@@ -455,7 +603,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#2e8b57",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     },
     {
       "slug": "color-lab",
@@ -473,7 +627,13 @@
       "added": "2026-07-12",
       "status": "live",
       "accent": "#2e9e5b",
-      "origin": "vendored"
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

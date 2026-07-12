@@ -10,16 +10,19 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box}
+  /* ===== PLASMA MAX — dark only ===== */
   :root{
-    --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --faint:#b8b4ac; --line:#dcd9d2; --line2:#e8e5df;
-    --card:#ffffff; --accent:#b05a3c; --accent-soft:#f3e7e0; --hero-wash:linear-gradient(160deg,#ffffff 0%,#faf6f1 100%);
-  }
-  @media (prefers-color-scheme: dark){
-    :root{ --bg:#16171a; --fg:#eceae4; --muted:#8a8d93; --faint:#5a5d63; --line:#2b2d31; --line2:#232529;
-      --card:#1e2024; --accent:#d07a58; --accent-soft:#2a211d; --hero-wash:linear-gradient(160deg,#1e2024 0%,#211f1c 100%); }
+    --bg:#08060f; --fg:#f4f1fc; --muted:#9c93c2; --faint:#5c5686; --line:#26203f; --line2:#181329;
+    --card:#120e20; --accent:#c24bff; --accent2:#22d3ee; --accent3:#ff2d95;
+    --accent-soft:#1f1636; --hero-wash:linear-gradient(150deg,#1a1030 0%,#0d0a1e 62%,#140a22 100%);
   }
   html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);
     font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{background-image:
+    radial-gradient(1100px 540px at 10% -10%, rgba(194,75,255,.22), transparent 60%),
+    radial-gradient(980px 500px at 104% -4%, rgba(34,211,238,.15), transparent 55%),
+    radial-gradient(900px 560px at 50% 120%, rgba(255,45,149,.15), transparent 62%);
+    background-attachment:fixed}
   a{color:inherit;text-decoration:none}
   ::selection{background:var(--accent);color:var(--bg)}
   .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
@@ -47,6 +50,30 @@
   .toast .banana{font-size:18px;animation-duration:.5s;filter:none}
   @media(max-width:600px){ .toast{left:14px;right:14px;max-width:none} }
   .hero{padding:34px 0 8px}
+  /* ===== PLASMA glow layer ===== */
+  .logo{box-shadow:0 0 14px var(--accent),0 0 4px var(--accent)}
+  .brand .rp{color:var(--accent);text-shadow:0 0 12px rgba(194,75,255,.55)}
+  .banana{filter:drop-shadow(0 0 9px rgba(194,75,255,.55)) drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+  .count .bld{color:var(--accent2);text-shadow:0 0 10px rgba(34,211,238,.5)}
+  .search{background:rgba(18,14,32,.72);backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(194,75,255,.06)}
+  .search:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 0 22px rgba(194,75,255,.28)}
+  .tier-label h2{color:var(--fg);text-shadow:0 0 10px rgba(194,75,255,.3)}
+  .tier-label .rule{background:linear-gradient(90deg,var(--accent),transparent)}
+  .ocard{background:var(--hero-wash);border-color:var(--line)}
+  .ocard:hover{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 18px 46px rgba(194,75,255,.22)}
+  .ocard .glow{background:radial-gradient(closest-side,rgba(194,75,255,.28),transparent)}
+  .ocard .orig-badge{color:var(--accent);border-color:var(--accent);box-shadow:0 0 12px rgba(194,75,255,.3)}
+  .ocard .sw{box-shadow:0 0 10px currentColor}
+  .card:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(194,75,255,.5),0 10px 30px rgba(194,75,255,.16)}
+  .card .swatch,.bcard .swatch{box-shadow:0 0 8px currentColor}
+  .open{color:var(--accent) !important;text-shadow:0 0 10px rgba(194,75,255,.4)}
+  .bdot{background:var(--accent);box-shadow:0 0 8px var(--accent)}
+  .bbadge{color:var(--accent2)}
+  .toast{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 12px 34px rgba(194,75,255,.3)}
+  /* banana-stamped provenance credit — every clone wears a banana */
+  .cred{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.03em;color:var(--faint)}
+  .cred .b{font-size:11px;filter:drop-shadow(0 0 5px rgba(194,75,255,.5))}
+  a.credlink{color:var(--accent);border-bottom:1px solid rgba(194,75,255,.5)}
   .hero h1{margin:0 0 12px;font-size:32px;letter-spacing:-.015em;font-weight:600}
   .hero p{margin:0;max-width:640px;color:var(--muted);font-size:15px;line-height:1.65}
   .hero p em{font-family:'IBM Plex Serif',serif;font-style:italic;color:var(--fg)}
@@ -126,8 +153,7 @@
     </div>
     <section class="hero">
       <h1>Tools</h1>
-      <p><em>Original instruments,</em> designed here and built to be looked at — alongside a workbench
-         of self-contained utilities, each one a single-purpose page that opens and just works.</p>
+      <p class="note"><em>Clone the world — but do it smartly.</em><br>Original instruments designed here, plus self-contained utilities that open and just work. <a class="credlink" href="credits.html">🍌 every clone is credited &rarr;</a></p>
       <div class="search">
         <span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:13px">/</span>
         <input id="q" placeholder="Search tools, tags, algorithms…" autocomplete="off" spellcheck="false">
@@ -147,7 +173,7 @@
     <div class="empty" id="empty" style="display:none">No tools match that search.</div>
 
     <footer>
-      <span>registry.json</span>
+      <a class="credlink" href="credits.html">🍌 credits &amp; licenses</a>
       <span id="updated"></span>
       <span>self-contained · no tracking</span>
     </footer>
@@ -172,7 +198,7 @@
       <div class="tag">${t.tagline||''}</div>
       <div class="desc">${t.description||''}</div>
       <div class="foot">
-        <div class="chips">${(t.tags||[]).slice(0,5).map(x=>`<span class="chip">${x}</span>`).join('')}</div>
+        <span class="cred"><span class="b">🍌</span>${t.provenance ? (t.provenance.lib+' · '+t.provenance.license) : 'MIT · built here'}</span>
         <span class="open">Open →</span>
       </div>
     </a>`;
@@ -184,7 +210,7 @@
       </div>
       <div class="tag">${t.tagline||''}</div>
       <div class="foot">
-        <span class="lic">${(t.tags||[])[0]||''}</span>
+        <span class="cred"><span class="b">🍌</span>${t.provenance ? (t.provenance.lib+' · '+t.provenance.license) : ((t.tags||[])[0]||'')}</span>
         <span class="open">Open →</span>
       </div>
     </a>`;

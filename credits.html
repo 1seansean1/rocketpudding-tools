@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Credits &amp; Provenance — Rocket Pudding Tools</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  :root{ --bg:#08060f; --fg:#f4f1fc; --muted:#9c93c2; --faint:#5c5686; --line:#26203f; --card:#120e20; --accent:#c24bff; --accent2:#22d3ee; }
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);font-family:'IBM Plex Sans',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  body{background-image:radial-gradient(1100px 540px at 10% -10%,rgba(194,75,255,.22),transparent 60%),radial-gradient(980px 500px at 104% -4%,rgba(34,211,238,.15),transparent 55%),radial-gradient(900px 560px at 50% 120%,rgba(255,45,149,.15),transparent 62%);background-attachment:fixed}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1000px;margin:0 auto;padding:0 28px}
+  header{display:flex;align-items:center;gap:12px;height:62px;border-bottom:1px solid var(--line)}
+  .logo{width:13px;height:13px;border-radius:3px;background:var(--accent);box-shadow:0 0 14px var(--accent)}
+  .brand{font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:1.6px;font-size:13px}
+  .brand .rp{color:var(--accent);text-shadow:0 0 12px rgba(194,75,255,.55)}
+  .back{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--accent)}
+  h1{font-size:30px;letter-spacing:-.015em;font-weight:600;margin:46px 0 6px}
+  .sub{color:var(--muted);font-size:14px;line-height:1.6;max-width:640px;margin:0 0 8px}
+  .sub em{font-family:'IBM Plex Serif',serif;font-style:italic;color:var(--fg)}
+  h2{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--fg);margin:38px 0 12px;text-shadow:0 0 10px rgba(194,75,255,.3)}
+  .row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,2fr) 90px 70px;gap:14px;align-items:center;
+    padding:13px 16px;border:1px solid var(--line);background:var(--card);border-radius:11px;margin-bottom:9px;font-size:13px}
+  .row:hover{border-color:var(--accent);box-shadow:0 0 0 1px rgba(194,75,255,.4)}
+  .row .name{display:flex;align-items:center;gap:9px;font-weight:600}
+  .row .banana{filter:drop-shadow(0 0 7px rgba(194,75,255,.6))}
+  .row .src a{color:var(--accent2);border-bottom:1px solid rgba(34,211,238,.4);font-family:'IBM Plex Mono',monospace;font-size:12px}
+  .row .src .z{color:var(--faint);font-family:'IBM Plex Mono',monospace;font-size:12px}
+  .row .lic{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted);justify-self:start}
+  .row .ver{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--faint);justify-self:end}
+  .note{color:var(--faint);font-size:11px;grid-column:1/-1;margin-top:-4px}
+  @media(max-width:680px){.row{grid-template-columns:1fr 1fr;gap:8px}.row .ver{display:none}}
+  footer{border-top:1px solid var(--line);margin-top:50px;padding:22px 0 44px;color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:11px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo"></div>
+      <div class="brand"><span class="rp">ROCKET&nbsp;PUDDING</span>&nbsp;TOOLS</div>
+      <a class="back" href="./">← tools</a>
+    </header>
+    <h1>Credits &amp; Provenance</h1>
+    <p class="sub"><em>Clone the world — but do it smartly.</em> Every vendored tool ships its upstream
+       LICENSE alongside its code and links back to source here. Nothing is hidden; everything wears a 🍌.</p>
+    <div id="originals"></div>
+    <div id="vendored"></div>
+    <footer>🍌 all provenance, stupidly organized · <a href="./" style="color:var(--accent)">back to tools</a></footer>
+  </div>
+<script>
+  const row = t => {
+    const p = t.provenance || {};
+    const src = p.url ? `<a href="${p.url}" target="_blank" rel="noopener">${p.lib}</a>` : `<span class="z">${p.lib||'—'}</span>`;
+    const note = p.note ? `<div class="note">${p.note}</div>` : '';
+    return `<div class="row">
+      <div class="name"><span class="banana">🍌</span><a href="${t.path}">${t.name}</a></div>
+      <div class="src">${src}</div>
+      <div class="lic">${p.license||''}</div>
+      <div class="ver">${p.version?('v'+p.version):''}</div>
+      ${note}
+    </div>`;
+  };
+  fetch('registry.json').then(r=>r.json()).then(d=>{
+    const tools = d.tools||[];
+    const orig = tools.filter(t=>t.origin==='original');
+    const vend = tools.filter(t=>t.origin!=='original');
+    document.getElementById('originals').innerHTML = '<h2>ORIGINALS · DESIGNED &amp; BUILT HERE</h2>' + orig.map(row).join('');
+    document.getElementById('vendored').innerHTML = '<h2>WORKBENCH · VENDORED OPEN SOURCE ('+vend.length+')</h2>' + vend.map(row).join('');
+  });
+</script>
+</body>
+</html>
