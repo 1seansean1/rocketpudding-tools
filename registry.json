@@ -7,13 +7,39 @@
       "slug": "dag-layout-lab",
       "name": "DAG Layout Lab",
       "tagline": "Prototype & benchmark DAG layout algorithms on an Excalidraw-style canvas.",
-      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms — layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress — with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export.",
+      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms \u2014 layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress \u2014 with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export.",
       "path": "tools/dag-layout-lab/",
       "entry": "tools/dag-layout-lab/index.html",
-      "tags": ["graph", "layout", "dag", "visualization", "canvas", "algorithm", "diagram"],
+      "tags": [
+        "graph",
+        "layout",
+        "dag",
+        "visualization",
+        "canvas",
+        "algorithm",
+        "diagram"
+      ],
       "added": "2026-07-11",
       "status": "live",
       "accent": "#b05a3c"
+    },
+    {
+      "slug": "vizkit",
+      "name": "VizKit Gallery",
+      "tagline": "Dependency-free Canvas2D chart widgets \u2014 one contract, 36-chart gallery.",
+      "description": "Performance-first, zero-dependency data-visualization primitives: 20 composable marks, a Canvas2D core, and framework-agnostic <viz-widget> custom elements. The gallery renders 36 chart types across 19 taxonomy categories on one shared contract, in the Slate Console theme. MIT.",
+      "path": "tools/vizkit/",
+      "tags": [
+        "charts",
+        "canvas",
+        "visualization",
+        "widgets",
+        "dependency-free",
+        "mit"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#5fd9a4"
     }
   ]
 }

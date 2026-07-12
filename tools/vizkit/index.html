@@ -1,0 +1,128 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vizkit Gallery — Slate Console</title>
+<style>
+  :root{ --page:#0e1116; --card:#161a22; --bd:#262c38; --bd2:#1a1e26; --ink:#eef1f6; --muted:#8b93a5; --faint:#6b7385; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page);color:var(--ink);font:14px ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1360px;margin:0 auto}
+  header{padding:34px 40px 10px;display:flex;align-items:flex-end;justify-content:space-between;gap:16px}
+  .brand{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--faint)}
+  h1{margin:4px 0 0;font-size:24px;font-weight:600;letter-spacing:-.01em}
+  header p.sub{margin:0;color:var(--muted);font-size:13px}
+  .tag{font-size:11px;color:var(--muted);border:1px solid var(--bd);border-radius:999px;padding:4px 11px;white-space:nowrap}
+  .kpis{display:flex;gap:14px;flex-wrap:wrap;padding:12px 40px 26px;border-bottom:1px solid var(--bd2)}
+  .kpi{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px 16px;flex:1 1 200px;min-width:190px}
+  .kpi .lab{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .kpi .val{font-size:26px;font-weight:600;margin-top:4px}
+  .kpi .dl{font-size:12px;margin-top:2px}
+  .up{color:#5fd9a4}.dn{color:#f2596b}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:20px;padding:26px 40px 60px}
+  .card{background:var(--card);border:1px solid var(--bd);border-radius:14px;overflow:hidden}
+  .hd{padding:18px 22px 2px}
+  .hd .eyebrow{margin:0;font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+  .hd h3{margin:2px 0 0;font-size:16px;font-weight:600;color:var(--ink)}
+  viz-widget{display:block;height:230px;padding:6px 14px 14px}
+  footer{padding:0 40px 60px;color:var(--faint);font-size:12px;line-height:1.6}
+  code{font-family:ui-monospace,Menlo,Consolas,monospace;background:#1c212b;border:1px solid var(--bd);border-radius:5px;padding:1px 5px;color:#c7cdd9}
+</style></head><body><div class="wrap">
+<header>
+  <div><div class="brand">Vizkit</div><h1>Slate Console</h1><p class="sub">Dependency-free Canvas2D widgets · one contract · Slate Console theme</p></div>
+  <div class="tag" id="tag">charts</div>
+</header>
+<div class="kpis" id="kpis"></div>
+<div class="grid" id="grid"></div>
+<footer id="foot"></footer>
+</div>
+<script type="module">
+import { CATEGORY_COLORS, ids } from "./vizkit.widget.js";
+const R=(a,b)=>a+Math.random()*(b-a), rr=(a,b)=>Math.round(R(a,b));
+const N=(n,f)=>Array.from({length:n},(_,i)=>f(i));
+const kpis=[["MRR","$128.4K","+4.2%",1],["ARR","$1.54M","+11.8%",1],["Net churn","1.8%","-0.3pt",1],["NPS","47","+3",1]];
+const kw=document.getElementById("kpis");
+for(const [lab,val,dl,up] of kpis){const d=document.createElement("div");d.className="kpi";d.innerHTML=`<div class="lab">${lab}</div><div class="val">${val}</div><div class="dl ${up?'up':'dn'}">${dl}</div>`;kw.appendChild(d);}
+// data
+const plans=["Free","Pro","Team","Business","Enterprise"];
+const revByPlan=plans.map((p,i)=>({plan:p,rev:rr(20,120)+i*18}));
+const nps=[{seg:"SMB",nps:rr(20,45)},{seg:"Mid-Market",nps:rr(35,60)},{seg:"Enterprise",nps:rr(45,72)}];
+const newRet=[]; for(const p of plans) for(const k of ["New","Returning"]) newRet.push({plan:p,kind:k,rev:rr(20,90)});
+const planMix=[]; for(const p of plans) for(const y of ["2024","2025"]) planMix.push({plan:p,year:y,share:rr(5,35)});
+const months=N(24,i=>Date.UTC(2024,0,1+i*30));
+const mrr=[]; for(const s of ["Direct","Partner"]) months.forEach((t,i)=>mrr.push({t,v:60+i*3+(s=="Partner"?12:0)+R(-4,4),src:s}));
+const arr=months.map((t,i)=>({t,v:400+i*i*1.6+R(-10,10)}));
+const mrrComp=[]; for(const s of ["Direct","Partner","Self-serve"]) months.forEach((t,i)=>mrrComp.push({t,v:20+i*1.2+R(0,8),src:s}));
+const deals=N(140,()=>{const seg=["SMB","Mid","Ent"][rr(0,3)];return{cycle:rr(5,90),size:rr(2,120),acv:rr(1,60),seg};});
+const dealDist=N(320,()=>({size:Math.round((Math.random()+Math.random()+Math.random())/3*140)}));
+const churn=N(300,()=>({seg:["SMB","Mid-Market","Enterprise"][rr(0,3)],pct:Math.max(0,(Math.random()**2)*7)}));
+const tickets=[{k:"Bug",v:45},{k:"Feature",v:28},{k:"Question",v:19},{k:"Other",v:8}];
+const channels=[{k:"Direct",v:38},{k:"Partner",v:18},{k:"Self-serve",v:26},{k:"Marketplace",v:10},{k:"Referral",v:8}];
+const modules=[{k:"Core",v:420},{k:"Analytics",v:180},{k:"Integrations",v:140},{k:"Reporting",v:90},{k:"Admin",v:60}];
+const hier=[]; for(const mo of ["Core","Analytics","Integrations"]) for(const f of ["A","B","C"]) hier.push({module:mo,feature:mo[0]+f,value:rr(10,90)});
+const cohort=[]; const ws=["D0","D7","D14","D30","D60","D90"]; for(const c of ["W1","W2","W3","W4","W5","W6"]) ws.forEach((w,wi)=>cohort.push({x:w,y:c,v:Math.max(4,100-wi*rr(9,18)-R(0,8))}));
+const deploys=N(84,i=>({date:new Date(Date.UTC(2025,0,1+i)).toISOString().slice(0,10),v:rr(0,12)}));
+const adoption=[{axis:"Dashboards",val:82},{axis:"Alerts",val:64},{axis:"API",val:88},{axis:"Exports",val:46},{axis:"SSO",val:73},{axis:"Mobile",val:55}];
+const weekday=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map(d=>({day:d,val:rr(20,100)}));
+const ohlc=N(20,i=>{const o=110+i*0.7+R(-3,3),c=o+R(-6,6);return{t:Date.UTC(2025,0,i+1),open:o,close:c,high:Math.max(o,c)+R(0,4),low:Math.min(o,c)-R(0,4)};});
+const bridge=[{step:"FY24",delta:1200},{step:"New",delta:340},{step:"Expansion",delta:180},{step:"Churn",delta:-160},{step:"Contraction",delta:-70}];
+const cacLtv=N(12,i=>({cac:rr(20,80)+i*3,ltv:rr(60,240)+i*10,q:"Q"+(i+1)}));
+const bands=N(60,i=>({t:Date.UTC(2025,0,1+i),close:120+8*Math.sin(i/7)+R(-3,3)}));
+const migration=[]; for(const s of ["Free","Pro","Team"]) for(const t of ["Pro","Team","Business","Enterprise"]) if(Math.random()>.35) migration.push({source:s,target:t,value:rr(5,40)});
+const depGraph=[]; const svc=["Auth","API","Billing","Search","Cache","DB","Queue","Web"]; for(let i=0;i<14;i++){const a=svc[rr(0,svc.length)],b=svc[rr(0,svc.length)]; if(a!==b) depGraph.push({source:a,target:b});}
+const confusion=[]; for(const a of ["Churn","Stay"]) for(const p of ["Churn","Stay"]) confusion.push({actual:a,predicted:p,count:(a===p?rr(60,120):rr(5,30))});
+const wind=["N","NE","E","SE","S","SW","W","NW"].map(d=>({dir:d,val:rr(5,40)}));
+const iris=N(90,()=>{const sp=["setosa","versicolor","virginica"][rr(0,3)];const b=sp==="setosa"?0:sp==="versicolor"?1.5:3;return{sepalL:R(4,8),sepalW:R(2,4.5),petalL:1+b+R(0,1.5),petalW:0.2+b*0.6+R(0,.5),species:sp};});
+const ridge=[]; for(const g of ["Jan","Feb","Mar","Apr","May","Jun"]) for(let i=0;i<80;i++) ridge.push({group:g,value:50+(["Jan","Feb","Mar","Apr","May","Jun"].indexOf(g))*4+(Math.random()+Math.random()-1)*20});
+const tableRows=plans.map((p,i)=>({Plan:p,MRR:rr(10,90)+i*8,Seats:rr(5,400),Churn:(R(0.5,4)).toFixed(1)+"%"}));
+// card list — kind, category, title, data, encoding, options
+const G=[
+ ["comparison","Revenue by plan","bar-chart",revByPlan,{x:{field:"plan"},y:{field:"rev"}}],
+ ["comparison","NPS by segment","bar-chart",nps,{x:{field:"seg"},y:{field:"nps"}}],
+ ["comparison","New vs. returning revenue","grouped-bar-chart",newRet,{x:{field:"plan"},y:{field:"rev"},color:{field:"kind"}}],
+ ["comparison","Plan mix shift, 2024 → 2025","slope-chart",planMix,{x:{field:"year"},y:{field:"share"},color:{field:"plan"}}],
+ ["time-series","MRR growth by source","line-chart",mrr,{x:{field:"t",type:"temporal"},y:{field:"v"},color:{field:"src"}}],
+ ["time-series","Cumulative ARR","area-chart",arr,{x:{field:"t",type:"temporal"},y:{field:"v"}}],
+ ["time-series","MRR composition by source","stacked-area-chart",mrrComp,{x:{field:"t",type:"temporal"},y:{field:"v"},color:{field:"src"}}],
+ ["relationship","Deal size vs. sales cycle","scatter-plot",deals,{x:{field:"cycle"},y:{field:"size"},color:{field:"seg"}}],
+ ["relationship","Deal size vs. cycle (bubble = ACV)","bubble-chart",deals,{x:{field:"cycle"},y:{field:"size"},size:{field:"acv"},color:{field:"seg"}}],
+ ["relationship","CAC vs. LTV trajectory","connected-scatter-plot",cacLtv,{x:{field:"cac"},y:{field:"ltv"}}],
+ ["relationship","Feature space (Iris, 4D)","parallel-coordinates",iris,{color:{field:"species"}},{dims:["sepalL","sepalW","petalL","petalW"]}],
+ ["distribution","Deal size distribution","histogram",dealDist,{x:{field:"size"}}],
+ ["distribution","Monthly churn by segment","box-plot",churn,{x:{field:"seg"},y:{field:"pct"}}],
+ ["distribution","Churn density by segment","violin-plot",churn,{x:{field:"seg"},y:{field:"pct"}}],
+ ["distribution","Deal size ridgeline by month","ridgeline-plot",ridge,{y:{field:"group"},x:{field:"value"}}],
+ ["part-to-whole","Support tickets by category","pie-chart",tickets,{color:{field:"k"},y:{field:"v"}}],
+ ["part-to-whole","Revenue mix by channel","donut-chart",channels,{color:{field:"k"},y:{field:"v"}}],
+ ["part-to-whole","ARR by product module","treemap",modules,{color:{field:"k"},y:{field:"v"}}],
+ ["part-to-whole","Session drilldown","sunburst",hier,{color:{field:"module"},y:{field:"value"}}],
+ ["heat-matrix","Net retention by cohort","heatmap",cohort,{x:{field:"x"},y:{field:"y"},color:{field:"v"}}],
+ ["heat-matrix","Daily deploys, last 12 weeks","calendar-heatmap",deploys,{x:{field:"date",type:"temporal"},y:{field:"v"}}],
+ ["heat-matrix","Churn model: predicted vs. actual","confusion-matrix",confusion,{}],
+ ["hierarchical","Feature usage by module","icicle-chart",hier,{}],
+ ["network","Plan migration flows","sankey-diagram",migration,{}],
+ ["network","Integration dependency graph","force-directed-graph",depGraph,{}],
+ ["polar","Feature adoption by plan","radar-chart",adoption,{}],
+ ["polar","Sessions by weekday","polar-bar",weekday,{x:{field:"day"},y:{field:"val"}}],
+ ["polar","Rooftop wind distribution","wind-rose",wind,{x:{field:"dir"},y:{field:"val"}}],
+ ["financial","Share price (20 sessions)","candlestick-chart",ohlc,{x:{type:"temporal"}}],
+ ["financial","Price with volatility bands","bollinger-bands",bands,{x:{field:"t",type:"temporal"},y:{field:"close"}}],
+ ["financial","ARR bridge, FY24 → FY25","waterfall-chart",bridge,{x:{field:"step"},y:{field:"delta"}}],
+ ["scientific","Server hall: thermal density","contour-plot",[],{}],
+ ["scientific","Server hall: airflow","streamplot",[],{}],
+ ["operational","NPS score","gauge",[{value:47,min:-100,max:100}],{}],
+ ["operational","Uptime SLA","bar-gauge",[{label:"API",value:99.98},{label:"Web",value:99.9},{label:"Jobs",value:99.5}],{}],
+ ["tables-text","Plan metrics","table",tableRows,{}],
+];
+const grid=document.getElementById("grid");
+let ok=0;
+for(const [cat,title,kind,data,encoding,options] of G){
+  const card=document.createElement("div"); card.className="card";
+  const col=CATEGORY_COLORS[cat]||"#8b93a5";
+  const hd=document.createElement("div"); hd.className="hd";
+  hd.innerHTML=`<p class="eyebrow" style="color:${col}">${cat.replace(/-/g," ")}</p><h3>${title}</h3>`;
+  card.appendChild(hd);
+  const w=document.createElement("viz-widget"); card.appendChild(w); grid.appendChild(card);
+  try{ w.spec={kind,data,encoding,options,config:{theme:"dark",legend:false}}; ok++; }catch(e){ hd.innerHTML+=`<div style="color:#f2596b;font-size:11px">${e.message}</div>`; }
+}
+document.getElementById("tag").textContent = `${G.length} charts · ${ids().length} kinds · 0 deps`;
+document.getElementById("foot").innerHTML = `Every card is a <code>&lt;viz-widget&gt;</code> fed <code>{ kind, data, encoding }</code> — ${G.length} of the 43 Slate Console cards. The remaining 6 (Slider2D, CircularSlider, Matrix transform, BezierCurve, CurveEditor, Tangle) are interactive input/authoring controls, a separate track from data charts.`;
+</script></body></html>
