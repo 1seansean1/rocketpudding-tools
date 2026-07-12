@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Inspector</title>
+<meta name="description" content="Zero-dependency in-browser image analysis: dimensions, aspect ratio, size, megapixels, R/G/B/luminance histogram, dominant color palette (median cut), average color, hover eyedropper, EXIF, and canvas resize/re-encode to PNG/JPEG/WebP. Nothing is uploaded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #ff2d95;
+  --accent-fg: #ffffff;
+  --hover: rgba(0,0,0,0.035);
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #ff2d95;
+    --accent-fg: #ffffff;
+    --hover: rgba(255,255,255,0.045);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+.sq { width: 13px; height: 13px; background: var(--accent); flex: none; border-radius: 2px; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.24em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: color .15s, background .15s;
+}
+.back:hover, .back:focus-visible { color: var(--fg); background: var(--hover); outline: none; }
+footer {
+  margin-top: auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+footer .sq { width: 8px; height: 8px; opacity: .8; }
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.card > h2, .subhead {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.subhead { margin: 4px 0 12px; }
+.icon { width: 15px; height: 15px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- dropzone ---------- */
+#drop {
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  padding: 46px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  background: var(--card);
+}
+#drop:hover, #drop.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--card)); }
+#drop .big-icon { width: 40px; height: 40px; color: var(--accent); margin: 0 auto 12px; display: block; }
+#drop h3 { font: 600 16px "IBM Plex Sans", sans-serif; margin-bottom: 6px; }
+#drop p { color: var(--muted); font-size: 13px; }
+#drop .kbd { font-family: "IBM Plex Mono", monospace; font-size: 11px; background: var(--hover); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+
+/* ---------- preview / eyedropper ---------- */
+.two-col { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 860px) { .two-col { grid-template-columns: 1fr; } }
+#canvasWrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background:
+    repeating-conic-gradient(var(--hover) 0% 25%, transparent 0% 50%) 0 0 / 18px 18px;
+}
+#viewCanvas { max-width: 100%; height: auto; display: block; cursor: crosshair; }
+#eyeReadout {
+  position: absolute;
+  pointer-events: none;
+  display: none;
+  transform: translate(12px, 12px);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: var(--shadow);
+  z-index: 5;
+  line-height: 1.4;
+}
+#eyeReadout .sw { width: 46px; height: 46px; border-radius: 6px; border: 1px solid var(--line); margin-bottom: 6px; }
+#eyeReadout .val { font: 500 12px "IBM Plex Mono", monospace; white-space: nowrap; }
+#eyeReadout .val.muted { color: var(--muted); font-size: 11px; }
+#eyeHint { font-size: 11px; color: var(--muted); margin-top: 8px; }
+#eyeHint .lock { color: var(--accent); }
+
+/* ---------- stats grid ---------- */
+.stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.stat { background: var(--card); padding: 12px 14px; }
+.stat .k { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.stat .v { font: 500 15px "IBM Plex Mono", monospace; margin-top: 3px; word-break: break-all; }
+.stat .v.sm { font-size: 13px; }
+
+/* ---------- histogram ---------- */
+#histCanvas { width: 100%; height: auto; display: block; border-radius: 6px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font: 500 11px "IBM Plex Mono", monospace; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+
+/* ---------- palette ---------- */
+.palette { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+.swatch { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer; transition: transform .1s; }
+.swatch:hover { transform: translateY(-2px); }
+.swatch .chip { height: 58px; }
+.swatch .meta { padding: 7px 9px; }
+.swatch .hex { font: 600 12px "IBM Plex Mono", monospace; }
+.swatch .pct { font: 500 11px "IBM Plex Mono", monospace; color: var(--muted); margin-top: 1px; }
+.avg-row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.avg-row .chip { width: 52px; height: 52px; border-radius: 8px; border: 1px solid var(--line); flex: none; }
+.avg-row .txt .hex { font: 600 15px "IBM Plex Mono", monospace; }
+.avg-row .txt .rgb { font: 500 12px "IBM Plex Mono", monospace; color: var(--muted); }
+.avg-row .txt { cursor: pointer; }
+
+/* ---------- exif ---------- */
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; font-size: 13px; }
+.kv dt { font: 500 11px "IBM Plex Mono", monospace; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); align-self: center; }
+.kv dd { font: 500 13px "IBM Plex Mono", monospace; word-break: break-all; }
+.empty { color: var(--muted); font-size: 13px; }
+
+/* ---------- export controls ---------- */
+.controls { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end; margin-bottom: 16px; }
+.field { display: flex; flex-direction: column; gap: 5px; }
+.field label { font: 500 10px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+input[type="number"], select {
+  font: 500 13px "IBM Plex Mono", monospace;
+  background: var(--card); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 7px 9px; width: 108px;
+}
+input[type="range"] { width: 130px; accent-color: var(--accent); }
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+.qval { font: 500 12px "IBM Plex Mono", monospace; color: var(--muted); }
+button {
+  font: 500 13px "IBM Plex Sans", sans-serif;
+  background: var(--accent); color: var(--accent-fg);
+  border: none; border-radius: 6px; padding: 8px 16px;
+  cursor: pointer; transition: filter .15s;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+button:hover { filter: brightness(1.06); }
+button.ghost { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+button.ghost:hover { background: var(--hover); filter: none; }
+.export-out { margin-top: 4px; display: none; }
+.export-out.show { display: block; }
+.export-out .stats { margin-bottom: 12px; }
+.delta { font: 600 12px "IBM Plex Mono", monospace; }
+.delta.down { color: #2e9e5b; }
+.delta.up { color: #cb4b3f; }
+@media (prefers-color-scheme: dark) { .delta.down { color: #38b46b; } .delta.up { color: #e2685c; } }
+
+.hidden { display: none !important; }
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+  background: var(--fg); color: var(--bg);
+  padding: 9px 16px; border-radius: 8px;
+  font: 500 13px "IBM Plex Sans", sans-serif;
+  display: flex; align-items: center; gap: 8px;
+  opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sq"></div>
+  <h1>IMAGE INSPECTOR</h1>
+  <a class="back mono" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <!-- ============ DROP ============ -->
+  <section id="drop" tabindex="0" role="button" aria-label="Drop, click, or paste an image">
+    <svg class="big-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+    <h3>Drop an image, click to pick, or paste</h3>
+    <p>Everything runs locally in your browser &mdash; <span class="kbd">Ctrl/&#8984; V</span> to paste from clipboard.</p>
+    <input id="file" type="file" accept="image/*" class="hidden">
+  </section>
+
+  <!-- ============ RESULTS ============ -->
+  <div id="results" class="hidden" style="display:flex; flex-direction:column; gap:20px;">
+
+    <section class="card">
+      <div class="two-col">
+        <div>
+          <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg> Preview &amp; eyedropper</div>
+          <div id="canvasWrap">
+            <canvas id="viewCanvas"></canvas>
+            <div id="eyeReadout">
+              <div class="sw" id="eyeSw"></div>
+              <div class="val" id="eyeHex">#000000</div>
+              <div class="val muted" id="eyeRgb">rgb(0, 0, 0)</div>
+            </div>
+          </div>
+          <div id="eyeHint">Hover to read a pixel &middot; click to <span class="lock">copy</span> its hex.</div>
+        </div>
+        <div>
+          <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/></svg> Properties</div>
+          <div class="stats" id="stats"></div>
+        </div>
+      </div>
+    </section>
+
+    <div class="two-col">
+      <section class="card">
+        <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l3-6 3 4 3-8 2 6"/></svg> Color histogram</div>
+        <canvas id="histCanvas" width="512" height="200"></canvas>
+        <div class="legend">
+          <span><i style="background:#e5484d"></i>Red</span>
+          <span><i style="background:#30a46c"></i>Green</span>
+          <span><i style="background:#3b82f6"></i>Blue</span>
+          <span><i style="background:var(--fg)"></i>Luminance</span>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21a4 4 0 004-4c0-1.5-2-2-2-3.5S15.5 12 17 12"/></svg> Dominant palette</div>
+        <div class="avg-row">
+          <div class="chip" id="avgChip"></div>
+          <div class="txt" id="avgCopy" title="Click to copy">
+            <div class="hex" id="avgHex">#000000</div>
+            <div class="rgb" id="avgRgb">average color</div>
+          </div>
+        </div>
+        <div class="palette" id="palette"></div>
+      </section>
+    </div>
+
+    <section class="card" id="exifCard">
+      <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M14 3v4a1 1 0 001 1h4"/><path d="M5 3h9l5 5v11a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/><path d="M8 13h8M8 17h5"/></svg> EXIF metadata</div>
+      <div id="exif"></div>
+    </section>
+
+    <section class="card">
+      <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/></svg> Resize &amp; re-encode</div>
+      <div class="controls">
+        <div class="field">
+          <label for="w">Width (px)</label>
+          <input id="w" type="number" min="1" step="1">
+        </div>
+        <div class="field">
+          <label for="fmt">Format</label>
+          <select id="fmt">
+            <option value="image/png">PNG</option>
+            <option value="image/jpeg" selected>JPEG</option>
+            <option value="image/webp">WebP</option>
+          </select>
+        </div>
+        <div class="field" id="qField">
+          <label for="q">Quality <span class="qval" id="qVal">0.85</span></label>
+          <input id="q" type="range" min="0.1" max="1" step="0.05" value="0.85">
+        </div>
+        <button id="exportBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Encode</button>
+      </div>
+      <div class="export-out" id="exportOut">
+        <div class="stats" id="exportStats"></div>
+        <a id="dlLink" download><button class="ghost"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> Download</button></a>
+      </div>
+    </section>
+
+    <div>
+      <button class="ghost" id="resetBtn"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9"/><path d="M3 4v5h5"/></svg> Load another image</button>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <div class="sq"></div>
+  <span class="mono">zero dependencies &middot; nothing leaves your browser</span>
+</footer>
+
+<div id="toast"><span id="toastMsg"></span></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+   * PURE FUNCTIONS (unit-testable in Node without a DOM)
+   * ============================================================ */
+
+  function clamp255(v) { v = Math.round(v); return v < 0 ? 0 : v > 255 ? 255 : v; }
+
+  function rgbToHex(r, g, b) {
+    return "#" + [r, g, b].map(function (x) {
+      return clamp255(x).toString(16).padStart(2, "0");
+    }).join("");
+  }
+
+  function averageColor(pixels) {
+    var n = pixels.length, r = 0, g = 0, b = 0;
+    if (!n) return [0, 0, 0];
+    for (var i = 0; i < n; i++) { r += pixels[i][0]; g += pixels[i][1]; b += pixels[i][2]; }
+    return [Math.round(r / n), Math.round(g / n), Math.round(b / n)];
+  }
+
+  // Build an axis-aligned box over a list of [r,g,b] pixels.
+  function makeBox(pixels) {
+    var min = [255, 255, 255], max = [0, 0, 0];
+    for (var i = 0; i < pixels.length; i++) {
+      for (var c = 0; c < 3; c++) {
+        var v = pixels[i][c];
+        if (v < min[c]) min[c] = v;
+        if (v > max[c]) max[c] = v;
+      }
+    }
+    var range = 0, ch = 0;
+    for (var c2 = 0; c2 < 3; c2++) {
+      var r = max[c2] - min[c2];
+      if (r > range) { range = r; ch = c2; }
+    }
+    return { pixels: pixels, range: range, channel: ch };
+  }
+
+  // Split a box at the median along its longest channel.
+  function splitBox(box) {
+    var ch = box.channel;
+    var sorted = box.pixels.slice().sort(function (a, b) { return a[ch] - b[ch]; });
+    var mid = sorted.length >> 1;
+    return [makeBox(sorted.slice(0, mid)), makeBox(sorted.slice(mid))];
+  }
+
+  // Median-cut color quantization -> up to `targetCount` swatches.
+  // pixels: array of [r,g,b]. Returns [{r,g,b,hex,pct}] sorted by pct desc.
+  function medianCut(pixels, targetCount) {
+    if (!pixels || !pixels.length) return [];
+    targetCount = Math.max(1, targetCount | 0);
+    var boxes = [makeBox(pixels)];
+    while (boxes.length < targetCount) {
+      var idx = -1, best = -1;
+      for (var i = 0; i < boxes.length; i++) {
+        if (boxes[i].pixels.length >= 2 && boxes[i].range > best) { best = boxes[i].range; idx = i; }
+      }
+      if (idx === -1 || best <= 0) break; // no splittable box left
+      var box = boxes.splice(idx, 1)[0];
+      var parts = splitBox(box);
+      boxes.push(parts[0], parts[1]);
+    }
+    var total = pixels.length;
+    return boxes.map(function (b) {
+      var a = averageColor(b.pixels);
+      return { r: a[0], g: a[1], b: a[2], hex: rgbToHex(a[0], a[1], a[2]), pct: b.pixels.length / total };
+    }).sort(function (x, y) { return y.pct - x.pct; });
+  }
+
+  // Histogram over a flat RGBA byte array. `step` = pixel stride (>=1).
+  function buildHistogram(data, step) {
+    var r = new Array(256).fill(0), g = new Array(256).fill(0),
+        b = new Array(256).fill(0), lum = new Array(256).fill(0);
+    step = Math.max(1, step | 0);
+    var stride = 4 * step;
+    for (var i = 0; i + 2 < data.length; i += stride) {
+      var R = data[i], G = data[i + 1], B = data[i + 2];
+      r[R]++; g[G]++; b[B]++;
+      lum[Math.round(0.2126 * R + 0.7152 * G + 0.0722 * B)]++;
+    }
+    return { r: r, g: g, b: b, lum: lum };
+  }
+
+  // Best-effort EXIF parse from a JPEG ArrayBuffer. Returns null if absent.
+  function parseExif(buffer) {
+    var view = new DataView(buffer);
+    if (view.byteLength < 4 || view.getUint16(0) !== 0xFFD8) return null; // not a JPEG
+    var offset = 2, len = view.byteLength;
+    while (offset + 4 <= len) {
+      var marker = view.getUint16(offset);
+      if (marker === 0xFFE1) { // APP1
+        if (offset + 10 <= len && view.getUint32(offset + 4) === 0x45786966) { // "Exif"
+          return readTiff(view, offset + 10);
+        }
+        offset += 2 + view.getUint16(offset + 2);
+      } else if ((marker & 0xFF00) === 0xFF00 && marker !== 0xFFDA) {
+        offset += 2 + view.getUint16(offset + 2);
+      } else {
+        break; // start of scan or garbage
+      }
+    }
+    return null;
+  }
+
+  function readTiff(view, tiffStart) {
+    var little = view.getUint16(tiffStart) === 0x4949;
+    function u16(o) { return view.getUint16(tiffStart + o, little); }
+    function u32(o) { return view.getUint32(tiffStart + o, little); }
+
+    function readValue(entryOff, type, count) {
+      var sizes = { 1: 1, 2: 1, 3: 2, 4: 4, 5: 8, 7: 1, 9: 4, 10: 8 };
+      var size = (sizes[type] || 1) * count;
+      var dataOff = entryOff + 8;
+      if (size > 4) dataOff = tiffStart + view.getUint32(entryOff + 8, little);
+      if (type === 2) { // ASCII
+        var s = "";
+        for (var i = 0; i < count; i++) {
+          var c = view.getUint8(dataOff + i);
+          if (c === 0) break;
+          s += String.fromCharCode(c);
+        }
+        return s.trim();
+      }
+      if (type === 3) return view.getUint16(dataOff, little);
+      if (type === 4) return view.getUint32(dataOff, little);
+      return null;
+    }
+
+    function readIfd(ifdOff) {
+      var out = {};
+      if (ifdOff + 2 > view.byteLength - tiffStart + tiffStart) return out;
+      var count = u16(ifdOff);
+      for (var i = 0; i < count; i++) {
+        var e = tiffStart + ifdOff + 2 + i * 12;
+        var tag = view.getUint16(e, little);
+        var type = view.getUint16(e + 2, little);
+        var cnt = view.getUint32(e + 4, little);
+        out[tag] = readValue(e, type, cnt);
+      }
+      return out;
+    }
+
+    var ifd0 = readIfd(u32(4));
+    var result = {};
+    if (ifd0[271]) result.make = ifd0[271];
+    if (ifd0[272]) result.model = ifd0[272];
+    if (ifd0[274] != null) result.orientation = ifd0[274];
+    if (ifd0[282] != null) result.xResolution = ifd0[282];
+    if (ifd0[306]) result.dateTime = ifd0[306];
+    if (ifd0[305]) result.software = ifd0[305];
+
+    if (ifd0[34665]) { // Exif sub-IFD pointer
+      var sub = readIfd(ifd0[34665]);
+      if (sub[36867]) result.dateTimeOriginal = sub[36867];
+      if (sub[33437]) result.fNumber = sub[33437];
+      if (sub[34855]) result.iso = sub[34855];
+      if (sub[37386]) result.focalLength = sub[37386];
+      if (sub[40962] != null) result.pixelXDim = sub[40962];
+      if (sub[40963] != null) result.pixelYDim = sub[40963];
+    }
+    return Object.keys(result).length ? result : null;
+  }
+
+  // Export for Node unit tests (harmless in the browser).
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { clamp255: clamp255, rgbToHex: rgbToHex, averageColor: averageColor,
+      makeBox: makeBox, splitBox: splitBox, medianCut: medianCut,
+      buildHistogram: buildHistogram, parseExif: parseExif };
+  }
+
+  /* ============================================================
+   * DOM WIRING (skipped entirely under Node)
+   * ============================================================ */
+  if (typeof document === "undefined") return;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var MAX_ANALYSIS = 1600; // cap analysis-canvas dimension for speed
+
+  var els = {
+    drop: $("drop"), file: $("file"), results: $("results"),
+    view: $("viewCanvas"), wrap: $("canvasWrap"),
+    eye: $("eyeReadout"), eyeSw: $("eyeSw"), eyeHex: $("eyeHex"), eyeRgb: $("eyeRgb"),
+    stats: $("stats"), hist: $("histCanvas"),
+    avgChip: $("avgChip"), avgHex: $("avgHex"), avgRgb: $("avgRgb"), avgCopy: $("avgCopy"),
+    palette: $("palette"), exif: $("exif"), exifCard: $("exifCard"),
+    w: $("w"), fmt: $("fmt"), q: $("q"), qVal: $("qVal"), qField: $("qField"),
+    exportBtn: $("exportBtn"), exportOut: $("exportOut"), exportStats: $("exportStats"),
+    dlLink: $("dlLink"), resetBtn: $("resetBtn"),
+    toast: $("toast"), toastMsg: $("toastMsg")
+  };
+
+  var state = { img: null, file: null, dataURL: null, imageData: null,
+                natW: 0, natH: 0, anaW: 0, anaH: 0, dlURL: null };
+
+  /* ---------- helpers ---------- */
+  function formatBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    return (n / 1048576).toFixed(2) + " MB";
+  }
+  function gcd(a, b) { return b === 0 ? a : gcd(b, a % b); }
+  function aspectRatio(w, h) {
+    var g = gcd(w, h) || 1;
+    var rw = w / g, rh = h / g;
+    if (rw > 60 || rh > 60) return (w / h).toFixed(3) + ":1";
+    return rw + ":" + rh;
+  }
+  var toastTimer;
+  function toast(msg) {
+    els.toastMsg.textContent = msg;
+    els.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { els.toast.classList.remove("show"); }, 1500);
+  }
+  function copy(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("Copied " + text); },
+        function () { fallbackCopy(text); });
+    } else { fallbackCopy(text); }
+  }
+  function fallbackCopy(text) {
+    var t = document.createElement("textarea");
+    t.value = text; t.style.position = "fixed"; t.style.opacity = "0";
+    document.body.appendChild(t); t.select();
+    try { document.execCommand("copy"); toast("Copied " + text); } catch (e) { toast("Copy failed"); }
+    document.body.removeChild(t);
+  }
+
+  /* ---------- load pipeline ---------- */
+  function handleFile(file) {
+    if (!file || !/^image\//.test(file.type)) { toast("Not an image file"); return; }
+    state.file = file;
+    var rd = new FileReader();
+    rd.onload = function () {
+      state.dataURL = rd.result;
+      var img = new Image();
+      img.onload = function () {
+        state.img = img;
+        state.natW = img.naturalWidth; state.natH = img.naturalHeight;
+        analyze();
+      };
+      img.onerror = function () { toast("Could not decode image"); };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(file);
+
+    // Parallel byte read for EXIF (JPEG only).
+    if (/jpe?g/i.test(file.type)) {
+      var er = new FileReader();
+      er.onload = function () {
+        try { renderExif(parseExif(er.result)); } catch (e) { renderExif(null); }
+      };
+      er.readAsArrayBuffer(file);
+    } else {
+      renderExif(null, true);
+    }
+  }
+
+  function analyze() {
+    // Scale analysis canvas down if huge.
+    var scale = Math.min(1, MAX_ANALYSIS / Math.max(state.natW, state.natH));
+    var w = Math.max(1, Math.round(state.natW * scale));
+    var h = Math.max(1, Math.round(state.natH * scale));
+    state.anaW = w; state.anaH = h;
+
+    var c = els.view;
+    c.width = w; c.height = h;
+    var ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(state.img, 0, 0, w, h);
+    state.imageData = ctx.getImageData(0, 0, w, h);
+    var data = state.imageData.data;
+
+    renderStats();
+    renderHistogram(buildHistogram(data, 1));
+    renderPalette(data);
+
+    // default export width = natural width
+    els.w.value = state.natW;
+    els.exportOut.classList.remove("show");
+
+    els.results.classList.remove("hidden");
+    els.drop.classList.add("hidden");
+  }
+
+  function renderStats() {
+    var f = state.file;
+    var mp = (state.natW * state.natH) / 1e6;
+    var b64 = state.dataURL ? state.dataURL.length : 0;
+    var rows = [
+      ["Dimensions", state.natW + " × " + state.natH + " px", ""],
+      ["Aspect ratio", aspectRatio(state.natW, state.natH), ""],
+      ["Megapixels", mp.toFixed(2) + " MP", ""],
+      ["File size", formatBytes(f.size), ""],
+      ["Type", f.type || "unknown", "sm"],
+      ["Name", f.name || "(pasted)", "sm"],
+      ["Data URL length", b64.toLocaleString() + " chars", "sm"],
+      ["Analyzed at", state.anaW + " × " + state.anaH + " px", "sm"]
+    ];
+    els.stats.innerHTML = rows.map(function (r) {
+      return '<div class="stat"><div class="k">' + r[0] + '</div><div class="v ' + r[2] + '">' + escapeHtml(r[1]) + "</div></div>";
+    }).join("");
+  }
+
+  function renderHistogram(h) {
+    var c = els.hist, ctx = c.getContext("2d");
+    var W = c.width, H = c.height, pad = 2;
+    ctx.clearRect(0, 0, W, H);
+    var max = 1;
+    ["r", "g", "b", "lum"].forEach(function (k) {
+      for (var i = 0; i < 256; i++) if (h[k][i] > max) max = h[k][i];
+    });
+    var channels = [
+      { k: "r", color: "rgba(229,72,77,0.85)" },
+      { k: "g", color: "rgba(48,164,108,0.85)" },
+      { k: "b", color: "rgba(59,130,246,0.85)" }
+    ];
+    var fg = getComputedStyle(document.body).getPropertyValue("color").trim() || "#888";
+    ctx.globalCompositeOperation = "source-over";
+    // RGB channels drawn additively as filled areas.
+    ctx.globalCompositeOperation = "lighten";
+    channels.forEach(function (ch) { drawCurve(ctx, h[ch.k], max, W, H, pad, ch.color, true); });
+    // Luminance as a foreground stroke on top.
+    ctx.globalCompositeOperation = "source-over";
+    drawCurve(ctx, h.lum, max, W, H, pad, fg, false);
+  }
+
+  function drawCurve(ctx, arr, max, W, H, pad, color, fill) {
+    var bw = W / 256;
+    ctx.beginPath();
+    ctx.moveTo(0, H - pad);
+    for (var i = 0; i < 256; i++) {
+      var x = i * bw;
+      var y = H - pad - (Math.log(1 + arr[i]) / Math.log(1 + max)) * (H - pad * 2);
+      ctx.lineTo(x, y);
+    }
+    ctx.lineTo(W, H - pad);
+    if (fill) {
+      ctx.closePath();
+      ctx.fillStyle = color; ctx.fill();
+    } else {
+      ctx.strokeStyle = color; ctx.lineWidth = 1.4; ctx.stroke();
+    }
+  }
+
+  function samplePixels(data, maxSamples) {
+    var totalPx = data.length / 4;
+    var step = Math.max(1, Math.floor(totalPx / maxSamples));
+    var out = [];
+    for (var i = 0; i < data.length; i += 4 * step) {
+      if (data[i + 3] < 8) continue; // skip fully transparent
+      out.push([data[i], data[i + 1], data[i + 2]]);
+    }
+    return out;
+  }
+
+  function renderPalette(data) {
+    var pixels = samplePixels(data, 12000);
+    var avg = averageColor(pixels);
+    els.avgChip.style.background = rgbToHex(avg[0], avg[1], avg[2]);
+    els.avgHex.textContent = rgbToHex(avg[0], avg[1], avg[2]);
+    els.avgRgb.textContent = "rgb(" + avg[0] + ", " + avg[1] + ", " + avg[2] + ")";
+    els.avgCopy.onclick = function () { copy(rgbToHex(avg[0], avg[1], avg[2])); };
+
+    var swatches = medianCut(pixels, 6);
+    els.palette.innerHTML = "";
+    swatches.forEach(function (s) {
+      var el = document.createElement("div");
+      el.className = "swatch";
+      el.title = "Click to copy " + s.hex;
+      el.innerHTML =
+        '<div class="chip" style="background:' + s.hex + '"></div>' +
+        '<div class="meta"><div class="hex">' + s.hex + '</div>' +
+        '<div class="pct">' + (s.pct * 100).toFixed(1) + "%</div></div>";
+      el.onclick = function () { copy(s.hex); };
+      els.palette.appendChild(el);
+    });
+  }
+
+  function renderExif(exif, notJpeg) {
+    if (!exif) {
+      els.exif.innerHTML = '<div class="empty">' +
+        (notJpeg ? "EXIF metadata is read from JPEG files; this image is a different format."
+                 : "No EXIF metadata found in this JPEG.") + "</div>";
+      return;
+    }
+    var orientMap = { 1: "Normal", 2: "Mirror horizontal", 3: "Rotate 180°",
+      4: "Mirror vertical", 5: "Mirror + 90° CW", 6: "Rotate 90° CW",
+      7: "Mirror + 90° CCW", 8: "Rotate 90° CCW" };
+    var rows = [];
+    function add(label, val) { if (val != null && val !== "") rows.push([label, String(val)]); }
+    add("Make", exif.make);
+    add("Model", exif.model);
+    add("Software", exif.software);
+    if (exif.orientation != null)
+      add("Orientation", (orientMap[exif.orientation] || "?") + " (" + exif.orientation + ")");
+    add("Date/Time", exif.dateTime);
+    add("Date taken", exif.dateTimeOriginal);
+    add("ISO", exif.iso);
+    if (exif.pixelXDim != null && exif.pixelYDim != null)
+      add("EXIF dimensions", exif.pixelXDim + " × " + exif.pixelYDim + " px");
+    els.exif.innerHTML = "<dl class=\"kv\">" + rows.map(function (r) {
+      return "<dt>" + escapeHtml(r[0]) + "</dt><dd>" + escapeHtml(r[1]) + "</dd>";
+    }).join("") + "</dl>";
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (m) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m];
+    });
+  }
+
+  /* ---------- eyedropper ---------- */
+  function pixelAt(clientX, clientY) {
+    var rect = els.view.getBoundingClientRect();
+    var x = Math.floor((clientX - rect.left) / rect.width * state.anaW);
+    var y = Math.floor((clientY - rect.top) / rect.height * state.anaH);
+    x = Math.max(0, Math.min(state.anaW - 1, x));
+    y = Math.max(0, Math.min(state.anaH - 1, y));
+    var d = state.imageData.data;
+    var i = (y * state.anaW + x) * 4;
+    return [d[i], d[i + 1], d[i + 2]];
+  }
+  els.view.addEventListener("mousemove", function (e) {
+    if (!state.imageData) return;
+    var p = pixelAt(e.clientX, e.clientY);
+    var hex = rgbToHex(p[0], p[1], p[2]);
+    els.eyeSw.style.background = hex;
+    els.eyeHex.textContent = hex;
+    els.eyeRgb.textContent = "rgb(" + p[0] + ", " + p[1] + ", " + p[2] + ")";
+    var rect = els.wrap.getBoundingClientRect();
+    var lx = e.clientX - rect.left, ly = e.clientY - rect.top;
+    // flip readout if near right/bottom edge
+    var flipX = lx > rect.width - 120, flipY = ly > rect.height - 90;
+    els.eye.style.left = lx + "px";
+    els.eye.style.top = ly + "px";
+    els.eye.style.transform = "translate(" + (flipX ? "-108%" : "12px") + "," + (flipY ? "-108%" : "12px") + ")";
+    els.eye.style.display = "block";
+  });
+  els.view.addEventListener("mouseleave", function () { els.eye.style.display = "none"; });
+  els.view.addEventListener("click", function (e) {
+    if (!state.imageData) return;
+    var p = pixelAt(e.clientX, e.clientY);
+    copy(rgbToHex(p[0], p[1], p[2]));
+  });
+
+  /* ---------- export ---------- */
+  function updateQField() {
+    var isPng = els.fmt.value === "image/png";
+    els.qField.style.visibility = isPng ? "hidden" : "visible";
+  }
+  els.fmt.addEventListener("change", updateQField);
+  els.q.addEventListener("input", function () { els.qVal.textContent = (+els.q.value).toFixed(2); });
+
+  els.exportBtn.addEventListener("click", function () {
+    if (!state.img) return;
+    var targetW = Math.max(1, parseInt(els.w.value, 10) || state.natW);
+    var scale = targetW / state.natW;
+    var targetH = Math.max(1, Math.round(state.natH * scale));
+    var mime = els.fmt.value;
+    var quality = mime === "image/png" ? undefined : +els.q.value;
+
+    var oc = document.createElement("canvas");
+    oc.width = targetW; oc.height = targetH;
+    var octx = oc.getContext("2d");
+    octx.imageSmoothingEnabled = true; octx.imageSmoothingQuality = "high";
+    octx.drawImage(state.img, 0, 0, targetW, targetH);
+
+    oc.toBlob(function (blob) {
+      if (!blob) { toast("Encoding not supported for that format"); return; }
+      if (state.dlURL) URL.revokeObjectURL(state.dlURL);
+      state.dlURL = URL.createObjectURL(blob);
+
+      var orig = state.file.size;
+      var deltaPct = ((blob.size - orig) / orig) * 100;
+      var down = blob.size <= orig;
+      var deltaTxt = (down ? "−" : "+") + Math.abs(deltaPct).toFixed(1) + "%";
+      var ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+      var base = (state.file.name || "image").replace(/\.[^.]+$/, "");
+
+      els.exportStats.innerHTML = [
+        ["New dimensions", targetW + " × " + targetH + " px", ""],
+        ["Format", ext.toUpperCase() + (quality != null ? " q" + quality : ""), ""],
+        ["New size", formatBytes(blob.size), ""],
+        ["Original", formatBytes(orig), "sm"],
+        ["Change", '<span class="delta ' + (down ? "down" : "up") + '">' + deltaTxt + "</span>", ""]
+      ].map(function (r) {
+        return '<div class="stat"><div class="k">' + r[0] + '</div><div class="v ' + r[2] + '">' + r[1] + "</div></div>";
+      }).join("");
+
+      els.dlLink.href = state.dlURL;
+      els.dlLink.download = base + "-" + targetW + "w." + ext;
+      els.exportOut.classList.add("show");
+      toast("Encoded " + formatBytes(blob.size));
+    }, mime, quality);
+  });
+
+  /* ---------- input wiring ---------- */
+  els.drop.addEventListener("click", function () { els.file.click(); });
+  els.drop.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.file.click(); }
+  });
+  els.file.addEventListener("change", function () { if (els.file.files[0]) handleFile(els.file.files[0]); });
+
+  ["dragenter", "dragover"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.add("drag"); });
+  });
+  ["dragleave", "drop"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.remove("drag"); });
+  });
+  els.drop.addEventListener("drop", function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (f) handleFile(f);
+  });
+
+  document.addEventListener("paste", function (e) {
+    var items = e.clipboardData && e.clipboardData.items;
+    if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf("image") === 0) {
+        var f = items[i].getAsFile();
+        if (f) { handleFile(f); e.preventDefault(); return; }
+      }
+    }
+  });
+
+  els.resetBtn.addEventListener("click", function () {
+    state.img = null; state.imageData = null; state.file = null; state.dataURL = null;
+    if (state.dlURL) { URL.revokeObjectURL(state.dlURL); state.dlURL = null; }
+    els.file.value = "";
+    els.results.classList.add("hidden");
+    els.exportOut.classList.remove("show");
+    els.drop.classList.remove("hidden");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+
+  updateQField();
+})();
+</script>
+</body>
+</html>
