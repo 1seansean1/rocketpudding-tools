@@ -30,3 +30,4 @@ compression-lab
 text-toolkit
 unit-converter
 number-base
+url-inspector
