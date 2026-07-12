@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CSV Workbench</title>
+<meta name="description" content="Paste or drop a CSV, explore it, convert it. Sortable preview, per-column stats, JSON / NDJSON / Markdown export.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #2f6fed;
+    --accent-soft: rgba(47, 111, 237, 0.10);
+    --ok: #1a7f4b;
+    --err: #c0392b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent-soft: rgba(47, 111, 237, 0.16);
+      --ok: #4cc38a;
+      --err: #e5786d;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  header.site {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .brand-sq {
+    width: 14px; height: 14px;
+    background: var(--accent);
+    flex: 0 0 auto;
+  }
+  .brand-title {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    color: var(--fg);
+  }
+  .back-link {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .back-link:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .card h2 {
+    margin: 0 0 12px 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 svg { flex: 0 0 auto; }
+
+  /* ---- Input area ---- */
+  .input-grid {
+    display: grid;
+    grid-template-columns: 1fr 260px;
+    gap: 16px;
+  }
+  @media (max-width: 760px) {
+    .input-grid { grid-template-columns: 1fr; }
+  }
+  textarea#csvInput {
+    width: 100%;
+    min-height: 170px;
+    resize: vertical;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  textarea#csvInput:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  .dropzone {
+    border: 1.5px dashed var(--line);
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 18px 14px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms;
+    min-height: 170px;
+  }
+  .dropzone:hover, .dropzone.drag {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--fg);
+  }
+  .dropzone svg { color: var(--accent); }
+  .dropzone .dz-file {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--fg);
+    word-break: break-all;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+  }
+  .controls label.ctl {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  select {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 13px;
+  }
+  .badge {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 9px;
+    color: var(--muted);
+    background: var(--bg);
+  }
+  .badge b { color: var(--fg); font-weight: 500; }
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 13px;
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 120ms, background 120ms;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+  }
+  button.primary:hover:not(:disabled) { color: #ffffff; filter: brightness(1.08); }
+  button svg { flex: 0 0 auto; }
+  .spacer { flex: 1; }
+
+  /* ---- Meta strip ---- */
+  .meta-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .meta-strip .badge.err { color: var(--err); border-color: var(--err); }
+  .meta-strip .badge.ok b { color: var(--ok); }
+
+  /* ---- Stats strip ---- */
+  .stats-scroll { overflow-x: auto; padding-bottom: 4px; }
+  .stats-row { display: flex; gap: 10px; min-width: min-content; }
+  .stat-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px 12px;
+    min-width: 168px;
+    flex: 0 0 auto;
+    font-size: 12px;
+  }
+  .stat-card .sc-name {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 12px;
+    margin-bottom: 6px;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 220px;
+  }
+  .stat-card .sc-type {
+    display: inline-block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 4px;
+    padding: 1px 6px;
+    margin-bottom: 7px;
+  }
+  .stat-card .sc-line { display: flex; justify-content: space-between; gap: 12px; color: var(--muted); }
+  .stat-card .sc-line b { color: var(--fg); font-weight: 500; font-family: "IBM Plex Mono", monospace; font-size: 11.5px; }
+
+  /* ---- Table ---- */
+  .table-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .filter-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 380px;
+  }
+  .filter-wrap svg {
+    position: absolute;
+    left: 10px; top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+  input#filterBox {
+    width: 100%;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 7px 10px 7px 32px;
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 13px;
+  }
+  input#filterBox:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .cap-note { font-size: 12px; color: var(--muted); }
+
+  .table-scroll {
+    overflow: auto;
+    max-height: 520px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  table.data {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 12.5px;
+  }
+  table.data th {
+    position: sticky;
+    top: 0;
+    background: var(--card);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    text-align: left;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+  }
+  table.data th:hover { color: var(--accent); }
+  table.data th .sort-ic { vertical-align: -2px; margin-left: 5px; color: var(--accent); }
+  table.data td {
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    white-space: nowrap;
+    max-width: 340px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  table.data tr:last-child td { border-bottom: none; }
+  table.data td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  table.data td.null { color: var(--muted); font-style: italic; }
+  table.data tbody tr:hover td { background: var(--accent-soft); }
+
+  .empty-state {
+    padding: 40px 20px;
+    text-align: center;
+    color: var(--muted);
+    font-size: 13.5px;
+  }
+
+  /* ---- Errors ---- */
+  .error-list { margin: 0; padding: 0; list-style: none; font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .error-list li { padding: 5px 0; border-bottom: 1px solid var(--line); color: var(--err); }
+  .error-list li:last-child { border-bottom: none; }
+  .error-list .er-row { color: var(--muted); margin-right: 8px; }
+
+  /* ---- Export ---- */
+  .export-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 12px;
+  }
+  .export-card {
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+  }
+  .export-card .xc-name {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 12.5px;
+  }
+  .export-card .xc-desc { font-size: 12px; color: var(--muted); }
+  .export-card .xc-btns { display: flex; gap: 8px; margin-top: auto; }
+
+  footer.site {
+    border-top: 1px solid var(--line);
+    padding: 16px 24px;
+    text-align: center;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+  }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<header class="site">
+  <span class="brand-sq" aria-hidden="true"></span>
+  <span class="brand-title">CSV WORKBENCH</span>
+  <a class="back-link" href="../../">&larr; tools</a>
+</header>
+
+<main>
+
+  <!-- INPUT -->
+  <section class="card">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+      Input
+    </h2>
+    <div class="input-grid">
+      <textarea id="csvInput" spellcheck="false" placeholder="Paste CSV (or TSV) here&#10;&#10;name,value&#10;alpha,1&#10;beta,2"></textarea>
+      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Drop a CSV file or click to browse">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M12 18v-6"/><path d="m9 15 3 3 3-3"/></svg>
+        <span>Drop a CSV file here<br>or click to browse</span>
+        <span class="dz-file" id="dzFile"></span>
+        <input type="file" id="filePicker" accept=".csv,.tsv,.txt,text/csv,text/plain" class="hidden">
+      </div>
+    </div>
+    <div class="controls">
+      <label class="ctl" for="headerMode">Header row
+        <select id="headerMode">
+          <option value="auto" selected>Auto-detect</option>
+          <option value="yes">First row is header</option>
+          <option value="no">No header</option>
+        </select>
+      </label>
+      <span class="badge" id="delimBadge">delimiter: <b>&mdash;</b></span>
+      <span class="badge" id="headerBadge">header: <b>&mdash;</b></span>
+      <span class="spacer"></span>
+      <button id="sampleBtn" class="primary" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+        Load sample CSV
+      </button>
+      <button id="clearBtn" type="button">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        Clear
+      </button>
+    </div>
+  </section>
+
+  <!-- META -->
+  <section class="card" id="metaCard">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15v3"/><path d="M12 9v9"/><path d="M17 5v13"/></svg>
+      Summary
+    </h2>
+    <div class="meta-strip" id="metaStrip">
+      <span class="badge">rows: <b id="rowCount">0</b></span>
+      <span class="badge">columns: <b id="colCount">0</b></span>
+      <span class="badge">filtered: <b id="filteredCount">0</b></span>
+      <span class="badge" id="errBadge">parse errors: <b>0</b></span>
+    </div>
+  </section>
+
+  <!-- PARSE ERRORS -->
+  <section class="card hidden" id="errorCard">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+      Parse errors
+    </h2>
+    <ul class="error-list" id="errorList"></ul>
+  </section>
+
+  <!-- COLUMN STATS -->
+  <section class="card hidden" id="statsCard">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="12" width="4" height="9" rx="1"/><rect x="10" y="6" width="4" height="15" rx="1"/><rect x="17" y="3" width="4" height="18" rx="1"/></svg>
+      Column stats
+    </h2>
+    <div class="stats-scroll">
+      <div class="stats-row" id="statsRow"></div>
+    </div>
+  </section>
+
+  <!-- TABLE -->
+  <section class="card">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/></svg>
+      Preview
+    </h2>
+    <div class="table-toolbar">
+      <div class="filter-wrap">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+        <input id="filterBox" type="text" placeholder="Filter all columns..." autocomplete="off">
+      </div>
+      <span class="cap-note" id="capNote"></span>
+    </div>
+    <div class="table-scroll" id="tableScroll">
+      <div class="empty-state" id="emptyState">No data yet &mdash; paste CSV above, drop a file, or load the sample.</div>
+      <table class="data hidden" id="dataTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- EXPORT -->
+  <section class="card">
+    <h2>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg>
+      Export <span style="text-transform:none;letter-spacing:0;font-weight:400">(respects current filter &amp; sort)</span>
+    </h2>
+    <div class="export-grid">
+      <div class="export-card">
+        <span class="xc-name">JSON</span>
+        <span class="xc-desc">Array of objects, typed values (numbers, booleans, nulls).</span>
+        <div class="xc-btns">
+          <button type="button" data-fmt="json" data-act="copy" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+          <button type="button" data-fmt="json" data-act="download" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download
+          </button>
+        </div>
+      </div>
+      <div class="export-card">
+        <span class="xc-name">NDJSON</span>
+        <span class="xc-desc">One JSON object per line &mdash; stream-friendly.</span>
+        <div class="xc-btns">
+          <button type="button" data-fmt="ndjson" data-act="copy" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+          <button type="button" data-fmt="ndjson" data-act="download" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download
+          </button>
+        </div>
+      </div>
+      <div class="export-card">
+        <span class="xc-name">Markdown table</span>
+        <span class="xc-desc">Pipe table ready for docs, READMEs, and PRs.</span>
+        <div class="xc-btns">
+          <button type="button" data-fmt="markdown" data-act="copy" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+          <button type="button" data-fmt="markdown" data-act="download" disabled>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+            Download
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">PapaParse v5 &middot; MIT</footer>
+
+<script src="papaparse.min.js"></script>
+<script>
+'use strict';
+
+/* ================= state ================= */
+
+var state = {
+  grid: [],          // raw parse result: array of arrays of strings
+  fields: [],        // column names in use
+  rows: [],          // data rows (array of arrays)
+  colTypes: [],      // per-column type guess
+  colStats: [],      // per-column stats objects
+  headerUsed: false, // whether a header row was applied
+  delimiter: '',
+  errors: [],
+  sortCol: -1,
+  sortDir: 0,        // 1 asc, -1 desc, 0 none
+  filter: '',
+  view: []           // row indices after filter + sort
+};
+
+var RENDER_CAP = 500;
+var NUM_RE = /^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/;
+var BOOL_RE = /^(true|false)$/i;
+var DATE_ISO_RE = /^\d{4}-\d{2}-\d{2}([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/;
+var DATE_SLASH_RE = /^\d{1,2}[\/\-.]\d{1,2}[\/\-.]\d{2,4}$/;
+
+var DELIM_NAMES = { ',': 'comma', '\t': 'tab', ';': 'semicolon', '|': 'pipe' };
+
+var SAMPLE_CSV = [
+  'mission,agency,launch_date,crewed,payload_kg,orbit,cost_musd',
+  'Aurora-1,NovaLift,2024-03-14,false,1240,LEO,12.5',
+  'Aurora-2,NovaLift,2024-06-02,false,1310,LEO,12.9',
+  'Kestrel-9,Orbex,2024-07-19,true,820,LEO,44.0',
+  'Halcyon,AstraPort,2024-11-05,false,2210,SSO,18.75',
+  'Kestrel-10,Orbex,2025-01-23,true,860,LEO,45.2',
+  'Meridian,AstraPort,2025-02-11,false,,GTO,31.0',
+  'Aurora-3,NovaLift,2025-04-08,false,1355,LEO,13.4',
+  'Halcyon-B,AstraPort,2025-06-30,false,2305,SSO,',
+  'Kestrel-11,Orbex,2025-09-17,true,905,LEO,46.1',
+  'Polaris,NovaLift,2025-12-03,true,1500,TLI,88.0'
+].join('\n');
+
+/* ================= helpers ================= */
+
+function $(id) { return document.getElementById(id); }
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function isNullish(v) {
+  return v === null || v === undefined || String(v).trim() === '';
+}
+
+function classify(v) {
+  if (isNullish(v)) return 'null';
+  var s = String(v).trim();
+  if (NUM_RE.test(s)) return 'number';
+  if (BOOL_RE.test(s)) return 'bool';
+  if (DATE_ISO_RE.test(s)) return 'date';
+  if (DATE_SLASH_RE.test(s) && !isNaN(Date.parse(s))) return 'date';
+  return 'string';
+}
+
+function fmtNum(n) {
+  if (!isFinite(n)) return String(n);
+  if (Number.isInteger(n)) return String(n);
+  var r = Math.round(n * 10000) / 10000;
+  return String(r);
+}
+
+/* ================= parsing ================= */
+
+function parseText(text) {
+  var results = Papa.parse(text, { header: false, skipEmptyLines: true });
+  onParsed(results);
+}
+
+function parseFile(file) {
+  Papa.parse(file, {
+    header: false,
+    skipEmptyLines: true,
+    complete: onParsed
+  });
+}
+
+function onParsed(results) {
+  state.grid = results.data || [];
+  state.delimiter = (results.meta && results.meta.delimiter) || '';
+  state.errors = results.errors || [];
+  state.sortCol = -1;
+  state.sortDir = 0;
+  state.filter = '';
+  $('filterBox').value = '';
+  applyHeader();
+  render();
+}
+
+function detectHeader(grid) {
+  if (grid.length < 2) return false;
+  var first = grid[0];
+  if (first.length === 0) return false;
+  var seen = Object.create(null);
+  for (var i = 0; i < first.length; i++) {
+    var cell = String(first[i] === null || first[i] === undefined ? '' : first[i]).trim();
+    if (cell === '') return false;           // header cells should be non-empty
+    if (seen[cell.toLowerCase()]) return false; // and unique
+    seen[cell.toLowerCase()] = true;
+    var t = classify(cell);
+    if (t === 'number' || t === 'date' || t === 'bool') return false; // headers are usually plain strings
+  }
+  return true;
+}
+
+function applyHeader() {
+  var mode = $('headerMode').value;
+  var grid = state.grid;
+  var has = mode === 'auto' ? detectHeader(grid) : (mode === 'yes');
+  state.headerUsed = has && grid.length > 0;
+
+  var width = 0;
+  for (var i = 0; i < grid.length; i++) {
+    if (grid[i].length > width) width = grid[i].length;
+  }
+
+  var fields = [];
+  if (state.headerUsed) {
+    var headerRow = grid[0];
+    for (var c = 0; c < width; c++) {
+      var name = c < headerRow.length && !isNullish(headerRow[c])
+        ? String(headerRow[c]).trim()
+        : 'col_' + (c + 1);
+      fields.push(name);
+    }
+    state.rows = grid.slice(1);
+  } else {
+    for (var c2 = 0; c2 < width; c2++) fields.push('col_' + (c2 + 1));
+    state.rows = grid.slice();
+  }
+
+  // de-duplicate field names so JSON objects keep every column
+  var used = Object.create(null);
+  state.fields = fields.map(function (f) {
+    var name = f, n = 2;
+    while (used[name]) { name = f + '_' + n; n++; }
+    used[name] = true;
+    return name;
+  });
+
+  computeStats();
+}
+
+/* ================= stats ================= */
+
+function computeStats() {
+  var fields = state.fields, rows = state.rows;
+  state.colTypes = [];
+  state.colStats = [];
+
+  for (var c = 0; c < fields.length; c++) {
+    var nulls = 0, nonNull = 0;
+    var counts = { number: 0, bool: 0, date: 0, string: 0 };
+    var distinct = Object.create(null), distinctCount = 0;
+    var sum = 0, min = Infinity, max = -Infinity, numCount = 0;
+
+    for (var r = 0; r < rows.length; r++) {
+      var v = rows[r][c];
+      if (isNullish(v)) { nulls++; continue; }
+      nonNull++;
+      var t = classify(v);
+      counts[t]++;
+      var key = String(v).trim();
+      if (!(('k' + key) in distinct)) { distinct['k' + key] = 1; distinctCount++; }
+      if (t === 'number') {
+        var n = parseFloat(key);
+        numCount++;
+        sum += n;
+        if (n < min) min = n;
+        if (n > max) max = n;
+      }
+    }
+
+    var type = 'string';
+    if (nonNull > 0) {
+      var best = 'string', bestCount = counts.string;
+      ['number', 'bool', 'date'].forEach(function (t2) {
+        if (counts[t2] > bestCount) { best = t2; bestCount = counts[t2]; }
+      });
+      if (best !== 'string' && bestCount >= nonNull * 0.8) type = best;
+    }
+
+    state.colTypes.push(type);
+    state.colStats.push({
+      type: type,
+      distinct: distinctCount,
+      nulls: nulls,
+      min: type === 'number' && numCount ? min : null,
+      max: type === 'number' && numCount ? max : null,
+      mean: type === 'number' && numCount ? sum / numCount : null
+    });
+  }
+}
+
+/* ================= view (filter + sort) ================= */
+
+function computeView() {
+  var rows = state.rows;
+  var f = state.filter.trim().toLowerCase();
+  var idx = [];
+
+  for (var r = 0; r < rows.length; r++) {
+    if (!f) { idx.push(r); continue; }
+    var row = rows[r];
+    for (var c = 0; c < row.length; c++) {
+      if (!isNullish(row[c]) && String(row[c]).toLowerCase().indexOf(f) !== -1) {
+        idx.push(r);
+        break;
+      }
+    }
+  }
+
+  if (state.sortCol >= 0 && state.sortDir !== 0) {
+    var col = state.sortCol, dir = state.sortDir, t = state.colTypes[col];
+    idx.sort(function (a, b) {
+      var va = rows[a][col], vb = rows[b][col];
+      var na = isNullish(va), nb = isNullish(vb);
+      if (na && nb) return a - b;
+      if (na) return 1;  // nulls last, either direction
+      if (nb) return -1;
+      var r2 = 0;
+      if (t === 'number') {
+        r2 = parseFloat(va) - parseFloat(vb);
+        if (isNaN(r2)) r2 = String(va).localeCompare(String(vb));
+      } else if (t === 'date') {
+        r2 = Date.parse(va) - Date.parse(vb);
+        if (isNaN(r2)) r2 = String(va).localeCompare(String(vb));
+      } else {
+        r2 = String(va).localeCompare(String(vb), undefined, { numeric: true });
+      }
+      if (r2 === 0) return a - b;
+      return r2 * dir;
+    });
+  }
+
+  state.view = idx;
+}
+
+/* ================= rendering ================= */
+
+function render() {
+  computeView();
+  renderMeta();
+  renderErrors();
+  renderStats();
+  renderTable();
+  updateExportButtons();
+}
+
+function renderMeta() {
+  $('rowCount').textContent = String(state.rows.length);
+  $('colCount').textContent = String(state.fields.length);
+  $('filteredCount').textContent = String(state.view.length);
+
+  var dn = state.delimiter
+    ? (DELIM_NAMES[state.delimiter] || JSON.stringify(state.delimiter))
+    : '—';
+  $('delimBadge').innerHTML = 'delimiter: <b>' + esc(dn) + (state.delimiter ? ' (auto)' : '') + '</b>';
+
+  var mode = $('headerMode').value;
+  var hLabel = state.grid.length === 0 ? '—'
+    : (state.headerUsed ? 'yes' : 'no') + (mode === 'auto' ? ' (auto)' : '');
+  $('headerBadge').innerHTML = 'header: <b>' + esc(hLabel) + '</b>';
+
+  var eb = $('errBadge');
+  eb.innerHTML = 'parse errors: <b>' + state.errors.length + '</b>';
+  eb.className = 'badge' + (state.errors.length ? ' err' : '');
+}
+
+function renderErrors() {
+  var card = $('errorCard'), list = $('errorList');
+  if (!state.errors.length) {
+    card.classList.add('hidden');
+    list.innerHTML = '';
+    return;
+  }
+  card.classList.remove('hidden');
+  var CAP = 50;
+  var html = '';
+  state.errors.slice(0, CAP).forEach(function (e) {
+    var rowLabel = (e.row === undefined || e.row === null) ? '' : 'row ' + (e.row + 1) + ':';
+    html += '<li><span class="er-row">' + esc(rowLabel) + '</span>' +
+      esc((e.code ? e.code + ' — ' : '') + (e.message || 'unknown error')) + '</li>';
+  });
+  if (state.errors.length > CAP) {
+    html += '<li><span class="er-row">…</span>' + (state.errors.length - CAP) + ' more not shown</li>';
+  }
+  list.innerHTML = html;
+}
+
+function renderStats() {
+  var card = $('statsCard'), rowEl = $('statsRow');
+  if (!state.fields.length) {
+    card.classList.add('hidden');
+    rowEl.innerHTML = '';
+    return;
+  }
+  card.classList.remove('hidden');
+  var html = '';
+  state.fields.forEach(function (f, c) {
+    var s = state.colStats[c];
+    html += '<div class="stat-card">' +
+      '<div class="sc-name" title="' + esc(f) + '">' + esc(f) + '</div>' +
+      '<span class="sc-type">' + esc(s.type) + '</span>' +
+      '<div class="sc-line"><span>distinct</span><b>' + s.distinct + '</b></div>' +
+      '<div class="sc-line"><span>nulls</span><b>' + s.nulls + '</b></div>';
+    if (s.type === 'number' && s.mean !== null) {
+      html += '<div class="sc-line"><span>min</span><b>' + fmtNum(s.min) + '</b></div>' +
+        '<div class="sc-line"><span>max</span><b>' + fmtNum(s.max) + '</b></div>' +
+        '<div class="sc-line"><span>mean</span><b>' + fmtNum(s.mean) + '</b></div>';
+    }
+    html += '</div>';
+  });
+  rowEl.innerHTML = html;
+}
+
+function sortIconSvg(dir) {
+  if (dir === 1) {
+    return '<svg class="sort-ic" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 15 6-6 6 6"/></svg>';
+  }
+  return '<svg class="sort-ic" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
+}
+
+function renderTable() {
+  var hasData = state.rows.length > 0 && state.fields.length > 0;
+  $('emptyState').classList.toggle('hidden', hasData);
+  $('dataTable').classList.toggle('hidden', !hasData);
+
+  if (!hasData) {
+    $('tableHead').innerHTML = '';
+    $('tableBody').innerHTML = '';
+    $('capNote').textContent = '';
+    return;
+  }
+
+  var thead = '<tr>';
+  state.fields.forEach(function (f, c) {
+    var ic = (state.sortCol === c && state.sortDir !== 0) ? sortIconSvg(state.sortDir) : '';
+    thead += '<th data-col="' + c + '" title="Click to sort">' + esc(f) + ic + '</th>';
+  });
+  thead += '</tr>';
+  $('tableHead').innerHTML = thead;
+
+  var shown = Math.min(state.view.length, RENDER_CAP);
+  var tbody = '';
+  for (var i = 0; i < shown; i++) {
+    var row = state.rows[state.view[i]];
+    tbody += '<tr>';
+    for (var c2 = 0; c2 < state.fields.length; c2++) {
+      var v = c2 < row.length ? row[c2] : '';
+      if (isNullish(v)) {
+        tbody += '<td class="null">null</td>';
+      } else {
+        var cls = state.colTypes[c2] === 'number' ? ' class="num"' : '';
+        tbody += '<td' + cls + ' title="' + esc(v) + '">' + esc(v) + '</td>';
+      }
+    }
+    tbody += '</tr>';
+  }
+  $('tableBody').innerHTML = tbody;
+
+  if (state.view.length > RENDER_CAP) {
+    $('capNote').textContent = 'Showing first ' + RENDER_CAP + ' of ' + state.view.length +
+      ' matching rows (preview cap) — exports include all matching rows.';
+  } else {
+    $('capNote').textContent = 'Showing all ' + state.view.length + ' matching rows.';
+  }
+}
+
+function updateExportButtons() {
+  var enabled = state.view.length > 0 && state.fields.length > 0;
+  document.querySelectorAll('button[data-fmt]').forEach(function (b) {
+    b.disabled = !enabled;
+  });
+}
+
+/* ================= export ================= */
+
+function typedValue(v, t) {
+  if (isNullish(v)) return null;
+  var s = String(v).trim();
+  if (t === 'number' && NUM_RE.test(s)) return parseFloat(s);
+  if (t === 'bool' && BOOL_RE.test(s)) return s.toLowerCase() === 'true';
+  return String(v);
+}
+
+function buildObjects() {
+  var fields = state.fields, rows = state.rows, types = state.colTypes;
+  return state.view.map(function (i) {
+    var row = rows[i], o = {};
+    for (var c = 0; c < fields.length; c++) {
+      o[fields[c]] = typedValue(c < row.length ? row[c] : null, types[c]);
+    }
+    return o;
+  });
+}
+
+function mdEscape(s) {
+  return String(s).replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+}
+
+function buildExport(fmt) {
+  if (fmt === 'json') {
+    return JSON.stringify(buildObjects(), null, 2);
+  }
+  if (fmt === 'ndjson') {
+    return buildObjects().map(function (o) { return JSON.stringify(o); }).join('\n');
+  }
+  // markdown
+  var fields = state.fields, rows = state.rows;
+  var lines = [];
+  lines.push('| ' + fields.map(mdEscape).join(' | ') + ' |');
+  lines.push('| ' + fields.map(function () { return '---'; }).join(' | ') + ' |');
+  state.view.forEach(function (i) {
+    var row = rows[i];
+    var cells = fields.map(function (f, c) {
+      var v = c < row.length ? row[c] : '';
+      return isNullish(v) ? '' : mdEscape(v);
+    });
+    lines.push('| ' + cells.join(' | ') + ' |');
+  });
+  return lines.join('\n');
+}
+
+var EXPORT_META = {
+  json: { file: 'data.json', mime: 'application/json' },
+  ndjson: { file: 'data.ndjson', mime: 'application/x-ndjson' },
+  markdown: { file: 'data.md', mime: 'text/markdown' }
+};
+
+function downloadText(text, filename, mime) {
+  var blob = new Blob([text], { type: mime + ';charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+}
+
+function copyText(text, done) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(done, function () { legacyCopy(text); done(); });
+  } else {
+    legacyCopy(text);
+    done();
+  }
+}
+
+function legacyCopy(text) {
+  var ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try { document.execCommand('copy'); } catch (e) { /* best effort */ }
+  document.body.removeChild(ta);
+}
+
+function flashButton(btn, label) {
+  var orig = btn.innerHTML;
+  btn.innerHTML = label;
+  btn.disabled = true;
+  setTimeout(function () {
+    btn.innerHTML = orig;
+    updateExportButtons();
+  }, 1100);
+}
+
+/* ================= events ================= */
+
+var debounceTimer = null;
+
+function reparse() {
+  var text = $('csvInput').value;
+  $('dzFile').textContent = '';
+  if (text.trim() === '') {
+    state.grid = [];
+    state.errors = [];
+    state.delimiter = '';
+    applyHeader();
+    render();
+    return;
+  }
+  parseText(text);
+}
+
+$('csvInput').addEventListener('input', function () {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(reparse, 300);
+});
+
+$('headerMode').addEventListener('change', function () {
+  state.sortCol = -1;
+  state.sortDir = 0;
+  applyHeader();
+  render();
+});
+
+$('filterBox').addEventListener('input', function () {
+  state.filter = this.value;
+  render();
+});
+
+$('sampleBtn').addEventListener('click', function () {
+  $('csvInput').value = SAMPLE_CSV;
+  $('dzFile').textContent = '';
+  parseText(SAMPLE_CSV);
+});
+
+$('clearBtn').addEventListener('click', function () {
+  $('csvInput').value = '';
+  $('filePicker').value = '';
+  $('dzFile').textContent = '';
+  state.grid = [];
+  state.errors = [];
+  state.delimiter = '';
+  state.filter = '';
+  $('filterBox').value = '';
+  state.sortCol = -1;
+  state.sortDir = 0;
+  applyHeader();
+  render();
+});
+
+/* table header sorting (delegated) */
+$('tableHead').addEventListener('click', function (ev) {
+  var th = ev.target.closest('th');
+  if (!th) return;
+  var col = parseInt(th.getAttribute('data-col'), 10);
+  if (isNaN(col)) return;
+  if (state.sortCol !== col) {
+    state.sortCol = col;
+    state.sortDir = 1;
+  } else if (state.sortDir === 1) {
+    state.sortDir = -1;
+  } else {
+    state.sortCol = -1;
+    state.sortDir = 0;
+  }
+  render();
+});
+
+/* export buttons (delegated) */
+document.addEventListener('click', function (ev) {
+  var btn = ev.target.closest('button[data-fmt]');
+  if (!btn || btn.disabled) return;
+  var fmt = btn.getAttribute('data-fmt');
+  var act = btn.getAttribute('data-act');
+  var text = buildExport(fmt);
+  var meta = EXPORT_META[fmt];
+  if (act === 'copy') {
+    copyText(text, function () { flashButton(btn, 'Copied'); });
+  } else {
+    downloadText(text, meta.file, meta.mime);
+    flashButton(btn, 'Saved');
+  }
+});
+
+/* file picker + drop zone */
+var dz = $('dropzone');
+
+$('filePicker').addEventListener('change', function () {
+  if (this.files && this.files[0]) loadFile(this.files[0]);
+});
+
+dz.addEventListener('click', function (ev) {
+  if (ev.target === $('filePicker')) return;
+  $('filePicker').click();
+});
+
+dz.addEventListener('keydown', function (ev) {
+  if (ev.key === 'Enter' || ev.key === ' ') {
+    ev.preventDefault();
+    $('filePicker').click();
+  }
+});
+
+dz.addEventListener('dragover', function (ev) {
+  ev.preventDefault();
+  dz.classList.add('drag');
+});
+
+dz.addEventListener('dragleave', function () {
+  dz.classList.remove('drag');
+});
+
+dz.addEventListener('drop', function (ev) {
+  ev.preventDefault();
+  dz.classList.remove('drag');
+  if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0]) {
+    loadFile(ev.dataTransfer.files[0]);
+  }
+});
+
+function loadFile(file) {
+  $('csvInput').value = '';
+  $('dzFile').textContent = file.name + ' (' + formatBytes(file.size) + ')';
+  parseFile(file);
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + ' KB';
+  return (b / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+/* keep the browser from navigating away on stray drops */
+window.addEventListener('dragover', function (ev) { ev.preventDefault(); });
+window.addEventListener('drop', function (ev) { ev.preventDefault(); });
+
+/* initial render (empty state) */
+render();
+</script>
+</body>
+</html>

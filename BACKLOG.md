@@ -20,14 +20,14 @@ node lib-sanity) → orchestrator merges registry.json, browser-sweeps, ONE comm
 | slug | lib (license) | status |
 |---|---|---|
 | vizkit | vizkit (MIT, ours) | DONE — registered, verified 36/36 charts |
-| mermaid-studio | mermaid@11 (MIT) | agent building |
-| json-yaml | js-yaml@4 (MIT) | agent building |
-| cron-explainer | cronstrue@2 + croner@8 (MIT) | agent building |
-| jwt-inspector | zero-dep (ours) | agent building |
-| csv-workbench | papaparse@5 (MIT) | agent building |
-| qr-forge | qrcode-generator@1 (MIT) | agent building |
-| markdown-studio | marked@15 (MIT) | agent building |
-| nomnoml-studio | nomnoml@1 + graphre (MIT) | agent building |
+| mermaid-studio | mermaid@11 (MIT) | DONE — verified |
+| json-yaml | js-yaml@4 (MIT) | DONE — verified |
+| cron-explainer | cronstrue@2 + croner@8 (MIT) | DONE — verified |
+| jwt-inspector | zero-dep (ours) | DONE — verified |
+| csv-workbench | papaparse@5 (MIT) | DONE — verified |
+| qr-forge | qrcode-generator@1 (MIT) | DONE — verified |
+| markdown-studio | marked@15 (MIT) | DONE — verified |
+| nomnoml-studio | nomnoml@1 + graphre (MIT) | DONE — verified |
 On agent completion: merge entries → sweep → deploy via scripts/deploy-rp2.sh → verify live.
 
 ## WAVE 2 — CODE-ANALYSIS SUITE (user directive: "AST, PDG, CPG, DPG")

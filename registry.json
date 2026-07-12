@@ -7,7 +7,7 @@
       "slug": "dag-layout-lab",
       "name": "DAG Layout Lab",
       "tagline": "Prototype & benchmark DAG layout algorithms on an Excalidraw-style canvas.",
-      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms \u2014 layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress \u2014 with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export.",
+      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms — layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress — with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export.",
       "path": "tools/dag-layout-lab/",
       "entry": "tools/dag-layout-lab/index.html",
       "tags": [
@@ -26,7 +26,7 @@
     {
       "slug": "vizkit",
       "name": "VizKit Gallery",
-      "tagline": "Dependency-free Canvas2D chart widgets \u2014 one contract, 36-chart gallery.",
+      "tagline": "Dependency-free Canvas2D chart widgets — one contract, 36-chart gallery.",
       "description": "Performance-first, zero-dependency data-visualization primitives: 20 composable marks, a Canvas2D core, and framework-agnostic <viz-widget> custom elements. The gallery renders 36 chart types across 19 taxonomy categories on one shared contract, in the Slate Console theme. MIT.",
       "path": "tools/vizkit/",
       "tags": [
@@ -40,6 +40,142 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#5fd9a4"
+    },
+    {
+      "slug": "mermaid-studio",
+      "name": "Mermaid Studio",
+      "tagline": "Live Mermaid diagram editor with SVG/PNG export",
+      "description": "Type Mermaid source on the left and watch the diagram render live on the right (debounced, parse errors shown inline while the last good render stays put). Ships seven example diagrams — flowchart, sequence, class, state, gantt, pie, mindmap — plus copy-source, zoom/fit controls, a resizable split, dark mode, and one-click SVG or PNG export. Mermaid v11.16.0 vendored locally; everything renders in-browser and nothing leaves the page.",
+      "path": "tools/mermaid-studio/",
+      "tags": [
+        "diagram",
+        "mermaid",
+        "flowchart",
+        "editor",
+        "svg"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#7a6cff"
+    },
+    {
+      "slug": "json-yaml",
+      "name": "JSON ⇄ YAML",
+      "tagline": "Two-pane JSON/YAML converter with live validation",
+      "description": "Bidirectional JSON ⇄ YAML converter and validator. Type or paste in either pane and the other converts live (debounced); parse errors show precise line/column under the offending pane without clobbering the other side. Per-pane Copy, Pretty (2-space), Minify (JSON), and Clear, plus pane swap, a sample loader, and byte/line counts. Powered by a locally vendored js-yaml v4 — everything runs in the browser, nothing is uploaded.",
+      "path": "tools/json-yaml/",
+      "tags": [
+        "json",
+        "yaml",
+        "converter",
+        "validator",
+        "format"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2e9e5b"
+    },
+    {
+      "slug": "cron-explainer",
+      "name": "Cron Explainer",
+      "tagline": "Cron expressions in plain English with next 10 runs",
+      "description": "Paste a 5- or 6-field cron expression and get a live plain-English sentence (cronstrue), a per-field breakdown chip row with parsed meanings, and the next 10 run times in both local time (Mountain Time labeled by zone) and UTC (croner). Includes preset buttons for common schedules and inline parse errors. Fully self-contained: both MIT libraries vendored locally, only external load is Google Fonts.",
+      "path": "tools/cron-explainer/",
+      "tags": [
+        "cron",
+        "schedule",
+        "devops",
+        "time",
+        "explainer"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#c9a227"
+    },
+    {
+      "slug": "jwt-inspector",
+      "name": "JWT Inspector",
+      "tagline": "Decode, humanize, and time-check JSON Web Tokens — entirely in your browser.",
+      "description": "Paste a JWT to see color-coded header, payload, and signature sections with syntax-highlighted JSON, a registered-claims table that renders exp/iat/nbf as absolute local time plus live-ticking relative countdowns, and a big VALID WINDOW / EXPIRED / NOT YET VALID status pill. Optionally verify HS256 signatures with WebCrypto by pasting the shared secret. Hand-rolled base64url decoding, graceful per-segment error handling, built-in sample token — nothing ever leaves your browser.",
+      "path": "tools/jwt-inspector/",
+      "tags": [
+        "jwt",
+        "token",
+        "auth",
+        "decoder",
+        "security"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#e0483d"
+    },
+    {
+      "slug": "csv-workbench",
+      "name": "CSV Workbench",
+      "tagline": "Paste or drop a CSV — explore, filter, sort, convert.",
+      "description": "Self-contained CSV explorer: paste, drop, or pick a file and PapaParse handles parsing with delimiter auto-detect and a header-row auto-detect toggle. Sortable 500-row preview with a global filter, per-column stats (type guess, distinct, nulls, min/max/mean), parse-error list, and copy/download export to JSON, NDJSON, or Markdown table respecting the current filter and sort. Sample CSV loader included; runs entirely offline except Google Fonts.",
+      "path": "tools/csv-workbench/",
+      "tags": [
+        "csv",
+        "data",
+        "table",
+        "converter",
+        "json"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2f6fed"
+    },
+    {
+      "slug": "qr-forge",
+      "name": "QR Forge",
+      "tagline": "Text and URLs to QR codes with real controls",
+      "description": "Live QR code generator: type text, a URL, Wi-Fi credentials, or a vCard and watch the code render as you type. Full control over error-correction level (L/M/Q/H), module size, quiet zone, type number, and dark/light module colors. Shows module count, version, and byte length. Export as PNG or matrix-built SVG, or copy the PNG straight to the clipboard. Powered by a locally vendored qrcode-generator v1.5.2 (MIT, Kazuhiko Arase) — no CDN calls at runtime.",
+      "path": "tools/qr-forge/",
+      "tags": [
+        "qr",
+        "barcode",
+        "generator",
+        "wifi",
+        "vcard"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#b05a3c"
+    },
+    {
+      "slug": "markdown-studio",
+      "name": "Markdown Studio",
+      "tagline": "Split-pane live markdown editor with sandboxed GFM preview.",
+      "description": "Write GitHub-Flavored Markdown on the left and watch it render instantly on the right — inside a fully sandboxed iframe so pasted HTML and scripts stay inert. Insert-at-cursor formatting toolbar with undo support, proportional synced scrolling, word/char/reading-time stats, localStorage draft autosave, and one-click export to .md, standalone styled .html, or clipboard HTML. Powered by a locally vendored marked v15.",
+      "path": "tools/markdown-studio/",
+      "tags": [
+        "markdown",
+        "editor",
+        "preview",
+        "gfm",
+        "writing"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#3f6f8f"
+    },
+    {
+      "slug": "nomnoml-studio",
+      "name": "Nomnoml Studio",
+      "tagline": "Live UML and box-diagram editor with crisp PNG/SVG export",
+      "description": "Type nomnoml source on the left and watch a devicePixelRatio-crisp canvas render live on the right, with inline parse errors that keep the last good drawing. Ships five starter examples (class, flow, state machine, components, mind map), a precise directives cheat sheet, copy-source, and one-click PNG/SVG downloads. Fully self-contained: nomnoml 1.7.0 and its graphre layout engine vendored locally under MIT.",
+      "path": "tools/nomnoml-studio/",
+      "tags": [
+        "uml",
+        "diagram",
+        "nomnoml",
+        "architecture",
+        "svg"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#8a5a44"
     }
   ]
 }

@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cron Explainer</title>
+<meta name="description" content="Paste a cron expression, get plain English and the next 10 run times in local and UTC.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #c9a227;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square {
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    flex: none;
+  }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 32px 24px 48px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 24px;
+  }
+  label[for="cron-input"] {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  #cron-input {
+    width: 100%;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 28px;
+    font-weight: 500;
+    padding: 14px 16px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    outline: none;
+    letter-spacing: 0.04em;
+  }
+  #cron-input:focus { border-color: var(--accent); }
+  #cron-input::placeholder { color: var(--muted); opacity: 0.7; }
+  .presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .presets button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+  }
+  .presets button:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  #error {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--err);
+    background: var(--err-bg);
+    color: var(--err);
+    border-radius: 6px;
+    font-size: 14px;
+    font-family: "IBM Plex Mono", monospace;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  #error.show { display: flex; }
+  #error svg { flex: none; margin-top: 2px; }
+  section { margin-top: 28px; }
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); }
+  #english {
+    font-size: 30px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.01em;
+  }
+  #english.muted-state {
+    color: var(--muted);
+    font-weight: 400;
+    font-size: 20px;
+  }
+  #chips {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  #chips.six { grid-template-columns: repeat(6, 1fr); }
+  .chip {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    min-width: 0;
+  }
+  .chip .f-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .chip .f-token {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--accent);
+    margin: 4px 0 2px;
+    word-break: break-all;
+  }
+  .chip .f-meaning {
+    font-size: 12.5px;
+    color: var(--fg);
+    line-height: 1.35;
+  }
+  .runs-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+  tr:last-child td { border-bottom: none; }
+  th {
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    background: var(--bg);
+  }
+  td.idx { color: var(--muted); width: 44px; }
+  td.rel { color: var(--muted); font-size: 12.5px; }
+  .zone-note {
+    font-size: 12.5px;
+    color: var(--muted);
+    margin-top: 8px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 16px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  footer a { color: var(--muted); text-decoration: underline; }
+  footer a:hover { color: var(--accent); }
+  @media (max-width: 720px) {
+    #chips, #chips.six { grid-template-columns: repeat(2, 1fr); }
+    #cron-input { font-size: 20px; }
+    #english { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Cron Explainer</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <div class="card">
+    <label for="cron-input">Cron expression (5 or 6 fields)</label>
+    <input id="cron-input" type="text" spellcheck="false" autocomplete="off"
+           autocapitalize="off" placeholder="*/15 * * * *" value="*/15 * * * *">
+    <div class="presets" id="presets"></div>
+    <div id="error" role="alert">
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.5"></circle>
+        <line x1="8" y1="4.5" x2="8" y2="8.8"></line>
+        <circle cx="8" cy="11.4" r="0.8" fill="currentColor" stroke="none"></circle>
+      </svg>
+      <span id="error-text"></span>
+    </div>
+  </div>
+
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M2 4h9M2 8h12M2 12h7"></path>
+      </svg>
+      In plain English
+    </div>
+    <div id="english" class="muted-state">Type a cron expression above.</div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="1.5" y="3" width="13" height="11" rx="1.5"></rect>
+        <path d="M1.5 6.5h13M5 1.5v3M11 1.5v3"></path>
+      </svg>
+      Field breakdown
+    </div>
+    <div id="chips"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.5"></circle>
+        <path d="M8 4.5V8l2.5 1.8"></path>
+      </svg>
+      Next 10 runs
+    </div>
+    <div class="runs-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th id="local-head">Local</th>
+            <th>UTC</th>
+            <th>From now</th>
+          </tr>
+        </thead>
+        <tbody id="runs-body"></tbody>
+      </table>
+    </div>
+    <div class="zone-note" id="zone-note"></div>
+  </section>
+</main>
+
+<footer>
+  <span>cronstrue v2 + croner v8 &#183; MIT</span>
+  <span>&#183;</span>
+  <a href="LICENSE-cronstrue.txt">cronstrue license</a>
+  <span>&#183;</span>
+  <a href="LICENSE-croner.txt">croner license</a>
+</footer>
+
+<script src="./cronstrue.min.js"></script>
+<script src="./croner.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var input = document.getElementById("cron-input");
+  var englishEl = document.getElementById("english");
+  var chipsEl = document.getElementById("chips");
+  var runsBody = document.getElementById("runs-body");
+  var errorEl = document.getElementById("error");
+  var errorText = document.getElementById("error-text");
+  var localHead = document.getElementById("local-head");
+  var zoneNote = document.getElementById("zone-note");
+  var presetsEl = document.getElementById("presets");
+
+  var PRESETS = [
+    { label: "every minute", expr: "* * * * *" },
+    { label: "hourly", expr: "0 * * * *" },
+    { label: "daily 09:00", expr: "0 9 * * *" },
+    { label: "weekdays 08:30", expr: "30 8 * * 1-5" },
+    { label: "monthly 1st", expr: "0 0 1 * *" },
+    { label: "every 15 min", expr: "*/15 * * * *" },
+    { label: "Sun 03:00", expr: "0 3 * * 0" }
+  ];
+
+  var MONTH_NAMES = ["January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+  var DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+  var MONTH_ALIASES = { JAN: 1, FEB: 2, MAR: 3, APR: 4, MAY: 5, JUN: 6,
+    JUL: 7, AUG: 8, SEP: 9, OCT: 10, NOV: 11, DEC: 12 };
+  var DOW_ALIASES = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+
+  var localZone = "local";
+  try {
+    localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "local";
+  } catch (e) { /* keep fallback */ }
+
+  var localFmt = new Intl.DateTimeFormat("en-US", {
+    weekday: "short", year: "numeric", month: "short", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    timeZoneName: "short"
+  });
+  var utcFmt = new Intl.DateTimeFormat("en-US", {
+    weekday: "short", year: "numeric", month: "short", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    timeZone: "UTC"
+  });
+
+  localHead.textContent = "Local (" + localZone + ")";
+  zoneNote.textContent = "Local column is your browser time zone: " + localZone +
+    (localZone === "America/Denver" ? " (Mountain Time)" : "") + ". UTC column is Coordinated Universal Time.";
+
+  function ordinal(n) {
+    var s = ["th", "st", "nd", "rd"];
+    var v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+  }
+
+  function valueName(v, kind) {
+    var n = parseInt(v, 10);
+    if (kind === "month") {
+      if (isNaN(n) && MONTH_ALIASES[v.toUpperCase()]) n = MONTH_ALIASES[v.toUpperCase()];
+      if (n >= 1 && n <= 12) return MONTH_NAMES[n - 1];
+    }
+    if (kind === "dow") {
+      if (isNaN(n) && DOW_ALIASES[v.toUpperCase()] !== undefined) n = DOW_ALIASES[v.toUpperCase()];
+      if (n === 7) n = 0;
+      if (n >= 0 && n <= 6) return DOW_NAMES[n];
+    }
+    return v;
+  }
+
+  function describePart(part, unit, kind) {
+    if (part === "*") return "every " + unit;
+    if (part === "?") return "any " + unit;
+
+    var m;
+    // */n or a/n or a-b/n
+    m = part.match(/^(\*|\d+|\w{3})(?:-(\d+|\w{3}))?\/(\d+)$/);
+    if (m) {
+      var step = "every " + m[3] + " " + unit + "s";
+      if (m[1] === "*") return step;
+      if (m[2] !== undefined) {
+        return step + ", " + valueName(m[1], kind) + " through " + valueName(m[2], kind);
+      }
+      return step + ", starting at " + valueName(m[1], kind);
+    }
+    // a-b range
+    m = part.match(/^(\d+|\w{3})-(\d+|\w{3})$/);
+    if (m) return valueName(m[1], kind) + " through " + valueName(m[2], kind);
+    // dow nth: 5#3
+    m = part.match(/^(\d+|\w{3})#(\d)$/);
+    if (m) return "the " + ordinal(parseInt(m[2], 10)) + " " + valueName(m[1], kind) + " of the month";
+    // dow last: 5L
+    m = part.match(/^(\d+|\w{3})L$/i);
+    if (m) return "the last " + valueName(m[1], kind) + " of the month";
+    if (/^L$/i.test(part)) return "the last day of the month";
+    // plain value
+    if (/^(\d+|\w{3})$/.test(part)) {
+      var name = valueName(part, kind);
+      if (kind === "month") return "in " + name;
+      if (kind === "dow") return "on " + name;
+      if (kind === "dom") return "on day " + name;
+      return "at " + unit + " " + name;
+    }
+    return part;
+  }
+
+  function describeField(token, unit, kind) {
+    var parts = token.split(",");
+    var out = [];
+    for (var i = 0; i < parts.length; i++) {
+      out.push(describePart(parts[i], unit, kind));
+    }
+    return out.join("; ");
+  }
+
+  function fieldDefs(hasSeconds) {
+    var defs = [
+      { label: "Minute", unit: "minute", kind: "num" },
+      { label: "Hour", unit: "hour", kind: "num" },
+      { label: "Day (month)", unit: "day", kind: "dom" },
+      { label: "Month", unit: "month", kind: "month" },
+      { label: "Day (week)", unit: "day", kind: "dow" }
+    ];
+    if (hasSeconds) defs.unshift({ label: "Second", unit: "second", kind: "num" });
+    return defs;
+  }
+
+  function renderChips(tokens, hasSeconds) {
+    var defs = fieldDefs(hasSeconds);
+    chipsEl.classList.toggle("six", hasSeconds);
+    chipsEl.innerHTML = "";
+    for (var i = 0; i < defs.length; i++) {
+      var chip = document.createElement("div");
+      chip.className = "chip";
+      var lab = document.createElement("div");
+      lab.className = "f-label";
+      lab.textContent = defs[i].label;
+      var tok = document.createElement("div");
+      tok.className = "f-token";
+      tok.textContent = tokens[i];
+      var mean = document.createElement("div");
+      mean.className = "f-meaning";
+      mean.textContent = describeField(tokens[i], defs[i].unit, defs[i].kind);
+      chip.appendChild(lab);
+      chip.appendChild(tok);
+      chip.appendChild(mean);
+      chipsEl.appendChild(chip);
+    }
+  }
+
+  function relative(ms) {
+    var s = Math.round(ms / 1000);
+    if (s < 60) return "in " + s + "s";
+    var mnt = Math.round(s / 60);
+    if (mnt < 60) return "in " + mnt + "m";
+    var h = Math.floor(mnt / 60);
+    var rm = mnt % 60;
+    if (h < 48) return "in " + h + "h" + (rm ? " " + rm + "m" : "");
+    var d = Math.floor(h / 24);
+    var rh = h % 24;
+    return "in " + d + "d" + (rh ? " " + rh + "h" : "");
+  }
+
+  function renderRuns(dates) {
+    runsBody.innerHTML = "";
+    var now = Date.now();
+    for (var i = 0; i < dates.length; i++) {
+      var tr = document.createElement("tr");
+      var idx = document.createElement("td");
+      idx.className = "idx";
+      idx.textContent = String(i + 1);
+      var loc = document.createElement("td");
+      loc.textContent = localFmt.format(dates[i]);
+      var utc = document.createElement("td");
+      utc.textContent = utcFmt.format(dates[i]) + " UTC";
+      var rel = document.createElement("td");
+      rel.className = "rel";
+      rel.textContent = relative(dates[i].getTime() - now);
+      tr.appendChild(idx);
+      tr.appendChild(loc);
+      tr.appendChild(utc);
+      tr.appendChild(rel);
+      runsBody.appendChild(tr);
+    }
+    if (dates.length === 0) {
+      var tr0 = document.createElement("tr");
+      var td0 = document.createElement("td");
+      td0.colSpan = 4;
+      td0.className = "rel";
+      td0.textContent = "No upcoming runs for this expression.";
+      tr0.appendChild(td0);
+      runsBody.appendChild(tr0);
+    }
+  }
+
+  function showError(msg) {
+    errorText.textContent = msg;
+    errorEl.classList.add("show");
+  }
+
+  function clearError() {
+    errorEl.classList.remove("show");
+  }
+
+  function update() {
+    var raw = input.value.trim().replace(/\s+/g, " ");
+    clearError();
+
+    if (raw === "") {
+      englishEl.textContent = "Type a cron expression above.";
+      englishEl.classList.add("muted-state");
+      chipsEl.innerHTML = "";
+      runsBody.innerHTML = "";
+      return;
+    }
+
+    var tokens = raw.split(" ");
+    if (tokens.length !== 5 && tokens.length !== 6) {
+      englishEl.textContent = "Waiting for a complete expression (" + tokens.length + " of 5 fields)...";
+      englishEl.classList.add("muted-state");
+      chipsEl.innerHTML = "";
+      runsBody.innerHTML = "";
+      if (tokens.length > 6) {
+        showError("Expected 5 fields (minute hour day-of-month month day-of-week) or 6 (with leading seconds); got " + tokens.length + ".");
+      }
+      return;
+    }
+    var hasSeconds = tokens.length === 6;
+
+    var englishOk = false;
+    var errs = [];
+
+    try {
+      var sentence = cronstrue.toString(raw, { verbose: true, use24HourTimeFormat: true });
+      englishEl.textContent = sentence;
+      englishEl.classList.remove("muted-state");
+      englishOk = true;
+    } catch (e) {
+      errs.push("cronstrue: " + String(e).replace(/^Error:\s*/, ""));
+    }
+
+    renderChips(tokens, hasSeconds);
+
+    try {
+      var job = new Cron(raw);
+      var runs = job.nextRuns(10);
+      renderRuns(runs);
+    } catch (e2) {
+      runsBody.innerHTML = "";
+      errs.push("croner: " + (e2 && e2.message ? e2.message : String(e2)));
+    }
+
+    if (errs.length) {
+      if (!englishOk) {
+        englishEl.textContent = "Could not parse this expression.";
+        englishEl.classList.add("muted-state");
+      }
+      showError(errs.join(" | "));
+    }
+  }
+
+  for (var p = 0; p < PRESETS.length; p++) {
+    (function (preset) {
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = preset.label;
+      btn.addEventListener("click", function () {
+        input.value = preset.expr;
+        update();
+        input.focus();
+      });
+      presetsEl.appendChild(btn);
+    })(PRESETS[p]);
+  }
+
+  input.addEventListener("input", update);
+  update();
+})();
+</script>
+</body>
+</html>

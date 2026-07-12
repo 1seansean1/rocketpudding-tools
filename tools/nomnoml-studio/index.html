@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nomnoml Studio</title>
+<meta name="description" content="Live UML and box-diagram editor powered by nomnoml. Edit source on the left, see a crisp canvas render on the right, export PNG or SVG.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --line:#dcd9d2; --card:#ffffff;
+  --accent:#8a5a44; --accent-soft:rgba(138,90,68,.12);
+  --err:#b3403a; --err-bg:#f7e9e7;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a; --fg:#eceae4; --line:#2b2d31; --card:#1e2024;
+    --accent-soft:rgba(138,90,68,.28);
+    --err:#e07b72; --err-bg:#2a1e1d;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:var(--accent);color:#f4f3ef}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ---------- chrome ---------- */
+header{flex:none;height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;
+  background:var(--card);border-bottom:1px solid var(--line)}
+.brand-sq{width:11px;height:11px;border-radius:2px;background:var(--accent);
+  box-shadow:0 0 8px rgba(138,90,68,.55);flex:none}
+.brand{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:1.5px;white-space:nowrap}
+.back{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.5px;
+  color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--line);
+  border-radius:12px;background:var(--card);white-space:nowrap}
+.back:hover{color:var(--accent);border-color:var(--accent)}
+footer{flex:none;height:32px;display:flex;align-items:center;justify-content:center;gap:6px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.4px;color:var(--muted);
+  background:var(--card);border-top:1px solid var(--line)}
+footer a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line)}
+footer a:hover{color:var(--accent)}
+
+/* ---------- main split ---------- */
+main{flex:1;min-height:0;display:flex}
+.pane-editor{flex:0 0 42%;min-width:300px;display:flex;flex-direction:column;
+  border-right:1px solid var(--line);background:var(--card)}
+.pane-canvas{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* ---------- toolbar ---------- */
+.toolbar{flex:none;display:flex;align-items:center;gap:6px;padding:8px 10px;
+  border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tb-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted)}
+select{font-family:var(--mono);font-size:11px;color:var(--fg);background:var(--card);
+  border:1px solid var(--line);border-radius:12px;height:26px;padding:0 8px;cursor:pointer;max-width:150px}
+select:focus{outline:none;border-color:var(--accent)}
+button{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 10px;
+  border:1px solid var(--line);border-radius:13px;background:var(--card);color:var(--fg);
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;cursor:pointer;white-space:nowrap}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+button svg{flex:none;display:block}
+.spacer{flex:1}
+
+/* ---------- editor ---------- */
+#src{flex:1;min-height:0;width:100%;resize:none;border:0;margin:0;padding:12px 14px;
+  background:var(--card);color:var(--fg);font-family:var(--mono);font-size:13px;line-height:1.55;
+  white-space:pre;overflow:auto;tab-size:2}
+#src:focus{outline:none}
+#error{flex:none;display:flex;gap:8px;align-items:baseline;padding:8px 12px;
+  border-top:1px solid var(--err);background:var(--err-bg);color:var(--err);
+  font-family:var(--mono);font-size:11px;line-height:1.5;max-height:90px;overflow:auto}
+#error .loc{flex:none;font-weight:700;letter-spacing:.5px}
+#error[hidden]{display:none}
+
+/* ---------- cheat sheet ---------- */
+#cheat{flex:0 0 320px;min-width:0;overflow:auto;background:var(--card);
+  border-right:1px solid var(--line);padding:14px 16px 24px;font-size:12px;line-height:1.55}
+#cheat[hidden]{display:none}
+#cheat h2{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:1.2px;
+  color:var(--accent);margin:18px 0 8px}
+#cheat h2:first-child{margin-top:0}
+#cheat table{width:100%;border-collapse:collapse}
+#cheat td{padding:4px 8px 4px 0;vertical-align:top;border-bottom:1px solid var(--line)}
+#cheat tr:last-child td{border-bottom:0}
+#cheat code{font-family:var(--mono);font-size:11px;color:var(--fg);white-space:nowrap}
+#cheat .d{color:var(--muted);font-size:11.5px}
+#cheat .def{font-family:var(--mono);font-size:10px;color:var(--muted);white-space:nowrap}
+#cheat p{margin:6px 0;color:var(--muted);font-size:11.5px}
+#cheat p code{color:var(--fg)}
+
+/* ---------- canvas stage ---------- */
+#stage{flex:1;min-height:0;overflow:auto;display:flex;padding:24px}
+#sheet{margin:auto;background:#ffffff;border:1px solid var(--line);border-radius:6px;
+  padding:14px;box-shadow:0 2px 14px rgba(0,0,0,.07)}
+#canvas{display:block}
+.statusbar{flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;height:30px;
+  border-top:1px solid var(--line);background:var(--card);
+  font-family:var(--mono);font-size:10px;letter-spacing:.4px;color:var(--muted)}
+.statusbar .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.statusbar .dot.bad{background:var(--err)}
+
+@media (max-width: 860px){
+  body{overflow:auto}
+  main{flex-direction:column}
+  .pane-editor{flex:none;min-width:0;height:44vh;border-right:0;border-bottom:1px solid var(--line)}
+  #cheat{flex:none;max-height:40vh;border-right:0;border-bottom:1px solid var(--line)}
+  .pane-canvas{flex:none;height:52vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-sq"></div>
+  <span class="brand">NOMNOML STUDIO</span>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <section class="pane-editor">
+    <div class="toolbar">
+      <span class="tb-label">EXAMPLE</span>
+      <select id="exampleSel" title="Load an example diagram">
+        <option value="class">Class diagram</option>
+        <option value="flow">Sequence flow</option>
+        <option value="state">State machine</option>
+        <option value="components">Component boxes</option>
+        <option value="mindmap">Mind map</option>
+      </select>
+      <button id="cheatBtn" title="Toggle the directives cheat sheet">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+        DIRECTIVES
+      </button>
+      <div class="spacer"></div>
+      <button id="copyBtn" title="Copy nomnoml source to clipboard">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+        <span id="copyLbl">COPY</span>
+      </button>
+      <button id="pngBtn" title="Download rendering as PNG">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="M21 15l-5-5-9 9"/></svg>
+        PNG
+      </button>
+      <button id="svgBtn" title="Download rendering as SVG">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>
+        SVG
+      </button>
+    </div>
+    <textarea id="src" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-label="nomnoml source"></textarea>
+    <div id="error" hidden><span class="loc" id="errorLoc"></span><span id="errorMsg"></span></div>
+  </section>
+
+  <aside id="cheat" hidden>
+    <h2>DIRECTIVES</h2>
+    <p>One per line, before the diagram. Syntax: <code>#name: value</code>. Defaults shown are nomnoml 1.7 built-ins.</p>
+    <table>
+      <tr><td><code>#direction</code><div class="d">Layout flow: <code>down</code> or <code>right</code>.</div><div class="def">default: down</div></td></tr>
+      <tr><td><code>#spacing</code><div class="d">Distance between nodes and ranks, in px.</div><div class="def">default: 40</div></td></tr>
+      <tr><td><code>#padding</code><div class="d">Space between a node's border and its content, in px.</div><div class="def">default: 8</div></td></tr>
+      <tr><td><code>#fill</code><div class="d">Node fill colors, semicolon-separated, cycled by nesting depth: <code>#fill: #eee8d5; #fdf6e3</code>.</div><div class="def">default: #eee8d5; #fdf6e3</div></td></tr>
+      <tr><td><code>#stroke</code><div class="d">Color of borders, edges, arrowheads, and text.</div><div class="def">default: #33322E</div></td></tr>
+      <tr><td><code>#font</code><div class="d">Font family for all diagram text. Use <code>#font: IBM Plex Sans</code> to match this site.</div><div class="def">default: Helvetica</div></td></tr>
+      <tr><td><code>#fontSize</code><div class="d">Text size in px.</div><div class="def">default: 12</div></td></tr>
+      <tr><td><code>#lineWidth</code><div class="d">Stroke width of borders and edges.</div><div class="def">default: 3</div></td></tr>
+      <tr><td><code>#background</code><div class="d">Canvas background color.</div><div class="def">default: transparent</div></td></tr>
+      <tr><td><code>#edges</code><div class="d">Edge corner style: <code>rounded</code> or <code>hard</code>.</div><div class="def">default: rounded</div></td></tr>
+      <tr><td><code>#arrowSize</code><div class="d">Arrowhead scale factor.</div><div class="def">default: 1</div></td></tr>
+      <tr><td><code>#bendSize</code><div class="d">Corner radius factor for rounded edges.</div><div class="def">default: 0.3</div></td></tr>
+      <tr><td><code>#gutter</code><div class="d">Margin around the whole diagram, in px.</div><div class="def">default: 20</div></td></tr>
+      <tr><td><code>#edgeMargin</code><div class="d">Gap between node border and edge endpoint, in px.</div><div class="def">default: 0</div></td></tr>
+      <tr><td><code>#leading</code><div class="d">Line-height multiplier for node text.</div><div class="def">default: 1.35</div></td></tr>
+      <tr><td><code>#zoom</code><div class="d">Render scale factor.</div><div class="def">default: 1</div></td></tr>
+      <tr><td><code>#title</code><div class="d">Diagram title; this app also uses it as the download filename.</div><div class="def">default: (empty)</div></td></tr>
+      <tr><td><code>#ranker</code><div class="d">Layering algorithm: <code>network-simplex</code>, <code>tight-tree</code>, or <code>longest-path</code>.</div><div class="def">default: network-simplex</div></td></tr>
+      <tr><td><code>#acyclicer</code><div class="d">Set to <code>greedy</code> to reverse some edges so cyclic graphs lay out cleanly.</div><div class="def">default: (off)</div></td></tr>
+      <tr><td><code>#gravity</code><div class="d">Cluster gravity (experimental).</div><div class="def">default: 1</div></td></tr>
+    </table>
+
+    <h2>CUSTOM STYLES</h2>
+    <p><code>#.warn: fill=#f7e9e7 stroke=#b3403a dashed</code> defines a classifier, used as <code>[&lt;warn&gt;Node]</code>. Modifiers: <code>fill=</code>, <code>stroke=</code>, <code>align=center</code>, <code>direction=</code>, <code>visual=</code> (class, note, database, actor, ...), <code>dashed</code>, <code>bold</code>, <code>italic</code>, <code>underline</code>.</p>
+
+    <h2>NODES</h2>
+    <p><code>[name]</code> box. <code>[name|attributes|methods]</code> compartments; <code>;</code> is a line break inside a compartment. Nesting: <code>[outer|[inner]-&gt;[inner2]]</code>.</p>
+    <p>Built-in classifiers: <code>&lt;abstract&gt;</code> <code>&lt;instance&gt;</code> <code>&lt;reference&gt;</code> <code>&lt;note&gt;</code> <code>&lt;package&gt;</code> <code>&lt;frame&gt;</code> <code>&lt;database&gt;</code> <code>&lt;actor&gt;</code> <code>&lt;usecase&gt;</code> <code>&lt;start&gt;</code> <code>&lt;end&gt;</code> <code>&lt;state&gt;</code> <code>&lt;choice&gt;</code> <code>&lt;sync&gt;</code> <code>&lt;input&gt;</code> <code>&lt;table&gt;</code> <code>&lt;label&gt;</code> <code>&lt;hidden&gt;</code></p>
+
+    <h2>EDGES</h2>
+    <p><code>-</code> line &#183; <code>-&gt;</code> arrow &#183; <code>&lt;-&gt;</code> both ways &#183; <code>--&gt;</code> dashed arrow &#183; <code>-:&gt;</code> generalization &#183; <code>--:&gt;</code> dashed generalization &#183; <code>o-&gt;</code> aggregation &#183; <code>+-&gt;</code> composition &#183; <code>-/-</code> hidden.</p>
+    <p>Edge labels and cardinality: <code>[A] label -&gt; [B]</code>, <code>[A] 1 - 0..* [B]</code>.</p>
+  </aside>
+
+  <section class="pane-canvas">
+    <div id="stage"><div id="sheet"><canvas id="canvas" width="0" height="0"></canvas></div></div>
+    <div class="statusbar"><span class="dot" id="statusDot"></span><span id="status">ready</span></div>
+  </section>
+</main>
+
+<footer>nomnoml v1 + graphre &#183; <a href="LICENSE-nomnoml.txt">MIT</a></footer>
+
+<script src="vendor/graphre.js"></script>
+<script src="vendor/nomnoml.js"></script>
+
+<script id="examples-data">
+var EXAMPLES = {
+  "class": [
+    "#title: shapes",
+    "#font: IBM Plex Sans",
+    "#direction: down",
+    "#spacing: 48",
+    "#fill: #f4f0e8; #eae4d6",
+    "#stroke: #46413a",
+    "",
+    "[<abstract>Shape|",
+    "  kind: string|",
+    "  +area(): number;",
+    "  +perimeter(): number",
+    "]",
+    "[Circle| radius: number | +area(): number]",
+    "[Rectangle| w: number; h: number | +area(): number]",
+    "[Canvas| shapes: Shape 0..* | +add(s: Shape); +render()]",
+    "",
+    "[Shape]<:--[Circle]",
+    "[Shape]<:--[Rectangle]",
+    "[Canvas]o->[Shape]",
+    "[<note>area() is implemented;per concrete shape]-->[Shape]"
+  ].join("\n"),
+
+  "flow": [
+    "#title: request-flow",
+    "#font: IBM Plex Sans",
+    "#direction: right",
+    "#edges: rounded",
+    "#spacing: 44",
+    "",
+    "[<actor>User] clicks -> [Browser]",
+    "[Browser] HTTPS -> [Edge cache]",
+    "[Edge cache] miss -> [API gateway]",
+    "[API gateway] verify -> [Auth service]",
+    "[API gateway] fetch -> [Orders service]",
+    "[Orders service] SQL -> [<database>Postgres]",
+    "[Orders service] emit --> [<frame>events|[Billing];[Analytics]]"
+  ].join("\n"),
+
+  "state": [
+    "#title: job-lifecycle",
+    "#font: IBM Plex Sans",
+    "#direction: right",
+    "#fill: #f4f0e8",
+    "",
+    "[<start>st]->[Queued]",
+    "[Queued] worker free -> [Running]",
+    "[Running] pause -> [Paused]",
+    "[Paused] resume -> [Running]",
+    "[Running] error -> [Failed]",
+    "[Failed] retry, max 3 -> [Queued]",
+    "[Running]->[<choice>done?]",
+    "[<choice>done?] yes -> [<end>en]",
+    "[done?] no -> [Running]"
+  ].join("\n"),
+
+  "components": [
+    "#title: system-components",
+    "#font: IBM Plex Sans",
+    "#direction: down",
+    "#spacing: 50",
+    "",
+    "[<package>Frontend|",
+    "  [UI components]->[State store]",
+    "  [State store]->[API client]",
+    "]",
+    "[<package>Backend|",
+    "  [Router]->[Handlers]",
+    "  [Handlers]->[Domain core]",
+    "]",
+    "[<database>Postgres]",
+    "[<frame>observability|[Logs];[Metrics]]",
+    "",
+    "[Frontend] JSON/HTTPS -> [Backend]",
+    "[Backend]->[Postgres]",
+    "[Backend]-->[observability]"
+  ].join("\n"),
+
+  "mindmap": [
+    "#title: product-map",
+    "#font: IBM Plex Sans",
+    "#direction: right",
+    "#edges: rounded",
+    "#spacing: 34",
+    "#ranker: longest-path",
+    "",
+    "[Product idea]-[Audience]",
+    "[Product idea]-[Features]",
+    "[Product idea]-[Risks]",
+    "[Audience]-[Indie devs]",
+    "[Audience]-[Students]",
+    "[Features]-[Offline first]",
+    "[Features]-[One-file export]",
+    "[Features]-[Shareable links]",
+    "[Risks]-[Scope creep]",
+    "[Risks]-[No distribution]"
+  ].join("\n")
+};
+if (typeof module === "object" && module.exports) { module.exports = EXAMPLES; }
+</script>
+
+<script id="app">
+(function () {
+  "use strict";
+
+  var srcEl = document.getElementById("src");
+  var canvas = document.getElementById("canvas");
+  var errorEl = document.getElementById("error");
+  var errorLoc = document.getElementById("errorLoc");
+  var errorMsg = document.getElementById("errorMsg");
+  var statusEl = document.getElementById("status");
+  var statusDot = document.getElementById("statusDot");
+  var exampleSel = document.getElementById("exampleSel");
+  var cheatBtn = document.getElementById("cheatBtn");
+  var cheatEl = document.getElementById("cheat");
+  var copyBtn = document.getElementById("copyBtn");
+  var copyLbl = document.getElementById("copyLbl");
+  var pngBtn = document.getElementById("pngBtn");
+  var svgBtn = document.getElementById("svgBtn");
+
+  var STORE_KEY = "nomnoml-studio.src";
+  var timer = null;
+
+  /* ---------- render (debounced, DPR-aware, keeps last good) ---------- */
+
+  function render() {
+    var code = srcEl.value;
+    var dpr = Math.max(1, window.devicePixelRatio || 1);
+    var t0 = performance.now();
+    try {
+      // nomnoml sizes the canvas backing store to layout * zoom * scale;
+      // passing dpr as scale and shrinking via CSS keeps the bitmap crisp.
+      nomnoml.draw(canvas, code, dpr);
+      canvas.style.width = (canvas.width / dpr) + "px";
+      canvas.style.height = (canvas.height / dpr) + "px";
+      var ms = Math.max(1, Math.round(performance.now() - t0));
+      hideError();
+      statusDot.className = "dot";
+      statusEl.textContent = Math.round(canvas.width / dpr) + " × " +
+        Math.round(canvas.height / dpr) + " px · " + ms + " ms · nomnoml " + nomnoml.version;
+    } catch (e) {
+      // parse/layout errors throw before the canvas is touched,
+      // so the previous good render stays visible.
+      showError(e);
+    }
+  }
+
+  function scheduleRender() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      render();
+      try { localStorage.setItem(STORE_KEY, srcEl.value); } catch (e) { /* private mode */ }
+    }, 200);
+  }
+
+  function showError(e) {
+    var hasLoc = e && typeof e.line === "number";
+    errorLoc.textContent = hasLoc ? ("line " + e.line + ":" + e.column) : "error";
+    errorMsg.textContent = (e && e.message) ? e.message : String(e);
+    errorEl.hidden = false;
+    statusDot.className = "dot bad";
+    statusEl.textContent = "parse failed — showing last good render";
+  }
+
+  function hideError() {
+    errorEl.hidden = true;
+  }
+
+  /* ---------- exports ---------- */
+
+  function diagramName() {
+    var m = srcEl.value.match(/^\s*#title:\s*(.+?)\s*$/m);
+    var name = m ? m[1] : "diagram";
+    return name.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "diagram";
+  }
+
+  function download(filename, blob) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function downloadPng() {
+    try {
+      var off = document.createElement("canvas");
+      var scale = Math.max(2, window.devicePixelRatio || 1); // 2x minimum for crisp export
+      nomnoml.draw(off, srcEl.value, scale);
+      off.toBlob(function (blob) {
+        if (blob) download(diagramName() + ".png", blob);
+      }, "image/png");
+    } catch (e) { showError(e); }
+  }
+
+  function downloadSvg() {
+    try {
+      var svg = nomnoml.renderSvg(srcEl.value);
+      download(diagramName() + ".svg", new Blob([svg], { type: "image/svg+xml;charset=utf-8" }));
+    } catch (e) { showError(e); }
+  }
+
+  function copySource() {
+    var done = function () {
+      copyLbl.textContent = "COPIED";
+      copyBtn.classList.add("active");
+      setTimeout(function () {
+        copyLbl.textContent = "COPY";
+        copyBtn.classList.remove("active");
+      }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(srcEl.value).then(done, function () { legacyCopy(); done(); });
+    } else {
+      legacyCopy(); done();
+    }
+  }
+
+  function legacyCopy() {
+    srcEl.select();
+    try { document.execCommand("copy"); } catch (e) { /* best effort */ }
+    srcEl.setSelectionRange(srcEl.value.length, srcEl.value.length);
+  }
+
+  /* ---------- wiring ---------- */
+
+  srcEl.addEventListener("input", scheduleRender);
+
+  srcEl.addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      var s = srcEl.selectionStart, t = srcEl.selectionEnd;
+      srcEl.value = srcEl.value.slice(0, s) + "  " + srcEl.value.slice(t);
+      srcEl.selectionStart = srcEl.selectionEnd = s + 2;
+      scheduleRender();
+    }
+  });
+
+  exampleSel.addEventListener("change", function () {
+    srcEl.value = EXAMPLES[exampleSel.value];
+    render();
+    try { localStorage.setItem(STORE_KEY, srcEl.value); } catch (e) { /* ignore */ }
+  });
+
+  cheatBtn.addEventListener("click", function () {
+    cheatEl.hidden = !cheatEl.hidden;
+    cheatBtn.classList.toggle("active", !cheatEl.hidden);
+  });
+
+  copyBtn.addEventListener("click", copySource);
+  pngBtn.addEventListener("click", downloadPng);
+  svgBtn.addEventListener("click", downloadSvg);
+
+  // re-render when the monitor's devicePixelRatio changes (browser zoom, monitor move)
+  function watchDpr() {
+    try {
+      var mq = window.matchMedia("(resolution: " + window.devicePixelRatio + "dppx)");
+      mq.addEventListener("change", function () { render(); watchDpr(); }, { once: true });
+    } catch (e) { /* older browsers */ }
+  }
+  watchDpr();
+
+  /* ---------- boot ---------- */
+
+  var saved = null;
+  try { saved = localStorage.getItem(STORE_KEY); } catch (e) { /* ignore */ }
+  srcEl.value = (saved && saved.trim()) ? saved : EXAMPLES["class"];
+  render();
+
+  // re-render once web fonts are in, so IBM Plex Sans metrics apply
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(render);
+  }
+})();
+</script>
+</body>
+</html>

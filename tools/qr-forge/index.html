@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>QR Forge</title>
+<meta name="description" content="Text and URLs to QR codes with real controls: error correction, module size, quiet zone, colors, PNG and SVG export, Wi-Fi and vCard presets.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #191b1e;
+  --accent-contrast: #f4f3ef;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #191b1e;
+    --fg: #f4f3ef;
+    --muted: #8a8d93;
+    --line: #33363b;
+    --card: #212428;
+    --accent: #b05a3c;
+    --accent-contrast: #ffffff;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.sq { width: 12px; height: 12px; background: var(--accent); flex: none; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.18em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+}
+.back:hover, .back:focus-visible { color: var(--accent); }
+footer {
+  margin-top: auto;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+}
+.col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.col-right { position: sticky; top: 24px; }
+@media (max-width: 860px) { .col-right { position: static; } }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 18px;
+}
+.card h2 {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+label, .lbl {
+  display: block;
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* ---------- inputs ---------- */
+textarea, input[type="text"], input[type="url"], input[type="tel"],
+input[type="email"], input[type="password"], select {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  font: 400 13px "IBM Plex Mono", monospace;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8d93' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+textarea { resize: vertical; min-height: 96px; }
+textarea:focus, input:focus, select:focus, button:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+input[type="range"] { accent-color: var(--accent); width: 100%; }
+input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; }
+input[type="color"] {
+  width: 40px; height: 30px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  padding: 2px;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+/* ---------- segmented controls ---------- */
+.seg { display: flex; border: 1px solid var(--line); }
+.seg button {
+  flex: 1;
+  padding: 7px 4px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+}
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--accent); }
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* ---------- control rows ---------- */
+.row { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.row:last-child { margin-bottom: 0; }
+.row .grow { flex: 1; min-width: 0; }
+.field { margin-bottom: 12px; }
+.field:last-child { margin-bottom: 0; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.val {
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  min-width: 44px;
+  text-align: right;
+}
+.check-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check-row span {
+  font: 400 13px "IBM Plex Sans", sans-serif;
+  color: var(--fg);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ---------- preset panels ---------- */
+.panel { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.panel.active { display: block; }
+#payload-wrap { margin-top: 14px; }
+
+/* ---------- preview ---------- */
+.qr-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 16px;
+  min-height: 260px;
+}
+#qr-canvas {
+  max-width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  display: block;
+}
+#qr-canvas.empty { display: none; }
+.placeholder { color: var(--muted); font: 400 12px "IBM Plex Mono", monospace; }
+.error-msg {
+  display: none;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font: 400 12px "IBM Plex Mono", monospace;
+}
+.error-msg.show { display: block; }
+#stats {
+  margin-top: 12px;
+  font: 400 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+
+/* ---------- action buttons ---------- */
+.actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn svg { flex: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sq" aria-hidden="true"></div>
+  <h1>QR&nbsp;FORGE</h1>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <div class="col col-left">
+
+    <div class="card">
+      <h2>Data</h2>
+      <div class="seg" role="tablist" aria-label="Data preset">
+        <button type="button" data-mode="text" aria-pressed="true">TEXT</button>
+        <button type="button" data-mode="url" aria-pressed="false">URL</button>
+        <button type="button" data-mode="wifi" aria-pressed="false">WI-FI</button>
+        <button type="button" data-mode="vcard" aria-pressed="false">VCARD</button>
+      </div>
+
+      <div class="panel" id="panel-url">
+        <div class="field">
+          <label for="url-input">Address</label>
+          <input type="url" id="url-input" value="https://" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="panel" id="panel-wifi">
+        <div class="grid2">
+          <div class="field">
+            <label for="wifi-ssid">SSID</label>
+            <input type="text" id="wifi-ssid" spellcheck="false" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="wifi-sec">Security</label>
+            <select id="wifi-sec">
+              <option value="WPA" selected>WPA / WPA2</option>
+              <option value="WEP">WEP</option>
+              <option value="nopass">Open (no password)</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="wifi-pass">Password</label>
+          <input type="text" id="wifi-pass" spellcheck="false" autocomplete="off">
+        </div>
+        <label class="check-row"><input type="checkbox" id="wifi-hidden"><span>Hidden network</span></label>
+      </div>
+
+      <div class="panel" id="panel-vcard">
+        <div class="grid2">
+          <div class="field">
+            <label for="vc-first">First name</label>
+            <input type="text" id="vc-first" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="vc-last">Last name</label>
+            <input type="text" id="vc-last" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="vc-org">Organization</label>
+            <input type="text" id="vc-org" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="vc-phone">Phone</label>
+            <input type="tel" id="vc-phone" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="vc-email">Email</label>
+            <input type="email" id="vc-email" autocomplete="off" spellcheck="false">
+          </div>
+          <div class="field">
+            <label for="vc-url">Website</label>
+            <input type="url" id="vc-url" autocomplete="off" spellcheck="false">
+          </div>
+        </div>
+      </div>
+
+      <div id="payload-wrap">
+        <label for="data-input">Payload</label>
+        <textarea id="data-input" rows="5" spellcheck="false"
+          placeholder="Type text or a URL&hellip;">https://tools.rocketpudding.ai</textarea>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Controls</h2>
+
+      <div class="row">
+        <div class="grow">
+          <span class="lbl" id="ec-label">Error correction</span>
+          <div class="seg" role="group" aria-labelledby="ec-label">
+            <button type="button" data-ec="L" aria-pressed="false" title="~7% recovery">L</button>
+            <button type="button" data-ec="M" aria-pressed="true" title="~15% recovery">M</button>
+            <button type="button" data-ec="Q" aria-pressed="false" title="~25% recovery">Q</button>
+            <button type="button" data-ec="H" aria-pressed="false" title="~30% recovery">H</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <label for="size-input">Module size</label>
+          <input type="range" id="size-input" min="2" max="16" step="1" value="8">
+        </div>
+        <span class="val" id="size-val">8&nbsp;px</span>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <label for="type-input">Type number</label>
+          <select id="type-input"></select>
+        </div>
+        <div class="grow">
+          <span class="lbl">Quiet zone</span>
+          <label class="check-row"><input type="checkbox" id="quiet-input" checked><span>4-module margin</span></label>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="grow">
+          <label for="dark-color">Dark modules</label>
+          <input type="color" id="dark-color" value="#191b1e">
+        </div>
+        <div class="grow">
+          <label for="light-color">Light modules</label>
+          <input type="color" id="light-color" value="#ffffff">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col col-right">
+    <div class="card">
+      <h2>Preview</h2>
+      <div class="qr-stage">
+        <canvas id="qr-canvas" width="0" height="0"></canvas>
+        <span class="placeholder" id="qr-placeholder" hidden>no data</span>
+      </div>
+      <div class="error-msg" id="error-msg" role="alert"></div>
+      <div id="stats" aria-live="polite"></div>
+      <div class="actions">
+        <button type="button" class="btn" id="dl-png">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2v8m0 0l-3-3m3 3l3-3M2.5 13.5h11"/></svg>
+          PNG
+        </button>
+        <button type="button" class="btn" id="dl-svg">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2v8m0 0l-3-3m3 3l3-3M2.5 13.5h11"/></svg>
+          SVG
+        </button>
+        <button type="button" class="btn" id="copy-png">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8"/><path d="M10.5 5.5v-3h-8v8h3"/></svg>
+          <span id="copy-label">Copy PNG</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>qrcode-generator v1 &middot; MIT &copy; Kazuhiko Arase</footer>
+
+<script src="qrcode.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  // Encode payload as UTF-8 bytes (library default is Latin-1-ish charcode & 0xff).
+  if (qrcode.stringToBytesFuncs && qrcode.stringToBytesFuncs['UTF-8']) {
+    qrcode.stringToBytes = qrcode.stringToBytesFuncs['UTF-8'];
+  }
+
+  var els = {
+    data: document.getElementById('data-input'),
+    canvas: document.getElementById('qr-canvas'),
+    placeholder: document.getElementById('qr-placeholder'),
+    error: document.getElementById('error-msg'),
+    stats: document.getElementById('stats'),
+    size: document.getElementById('size-input'),
+    sizeVal: document.getElementById('size-val'),
+    type: document.getElementById('type-input'),
+    quiet: document.getElementById('quiet-input'),
+    dark: document.getElementById('dark-color'),
+    light: document.getElementById('light-color'),
+    dlPng: document.getElementById('dl-png'),
+    dlSvg: document.getElementById('dl-svg'),
+    copyPng: document.getElementById('copy-png'),
+    copyLabel: document.getElementById('copy-label')
+  };
+
+  var state = { ec: 'M', mode: 'text' };
+  var lastQr = null; // last successfully built qr object
+
+  // Type-number select: 0 = auto, 1..40 fixed.
+  (function fillTypes() {
+    var opt = document.createElement('option');
+    opt.value = '0';
+    opt.textContent = 'Auto';
+    els.type.appendChild(opt);
+    for (var i = 1; i <= 40; i += 1) {
+      opt = document.createElement('option');
+      opt.value = String(i);
+      opt.textContent = String(i) + ' (' + (i * 4 + 17) + '×' + (i * 4 + 17) + ')';
+      els.type.appendChild(opt);
+    }
+    els.type.value = '0';
+  })();
+
+  function utf8Length(s) {
+    if (typeof TextEncoder !== 'undefined') return new TextEncoder().encode(s).length;
+    return unescape(encodeURIComponent(s)).length;
+  }
+
+  function setError(msg) {
+    if (msg) {
+      els.error.textContent = msg;
+      els.error.classList.add('show');
+    } else {
+      els.error.textContent = '';
+      els.error.classList.remove('show');
+    }
+  }
+
+  function setActionsEnabled(on) {
+    els.dlPng.disabled = !on;
+    els.dlSvg.disabled = !on;
+    els.copyPng.disabled = !on || !clipboardSupported;
+  }
+
+  function render() {
+    var text = els.data.value;
+    var moduleSize = parseInt(els.size.value, 10);
+    var typeNumber = parseInt(els.type.value, 10);
+    var margin = els.quiet.checked ? 4 : 0;
+    var darkColor = els.dark.value;
+    var lightColor = els.light.value;
+
+    els.sizeVal.textContent = moduleSize + ' px';
+
+    if (!text) {
+      lastQr = null;
+      els.canvas.classList.add('empty');
+      els.placeholder.hidden = false;
+      els.stats.textContent = '';
+      setError(null);
+      setActionsEnabled(false);
+      return;
+    }
+
+    var qr;
+    try {
+      qr = qrcode(typeNumber, state.ec);
+      qr.addData(text);
+      qr.make();
+    } catch (e) {
+      lastQr = null;
+      els.canvas.classList.add('empty');
+      els.placeholder.hidden = true;
+      els.stats.textContent = '';
+      setError(typeNumber === 0
+        ? 'Data too long for a QR code at level ' + state.ec + ' — shorten it or lower error correction.'
+        : 'Data does not fit type ' + typeNumber + ' at level ' + state.ec + ' — raise the type number, lower error correction, or use Auto.');
+      setActionsEnabled(false);
+      return;
+    }
+
+    lastQr = qr;
+    setError(null);
+    els.canvas.classList.remove('empty');
+    els.placeholder.hidden = true;
+
+    var count = qr.getModuleCount();
+    var total = count + margin * 2;
+    var px = total * moduleSize;
+
+    els.canvas.width = px;
+    els.canvas.height = px;
+    var ctx = els.canvas.getContext('2d');
+    ctx.fillStyle = lightColor;
+    ctx.fillRect(0, 0, px, px);
+    ctx.fillStyle = darkColor;
+    for (var r = 0; r < count; r += 1) {
+      for (var c = 0; c < count; c += 1) {
+        if (qr.isDark(r, c)) {
+          ctx.fillRect((c + margin) * moduleSize, (r + margin) * moduleSize, moduleSize, moduleSize);
+        }
+      }
+    }
+
+    var version = (count - 17) / 4;
+    els.stats.textContent = count + '×' + count + ' modules · version ' + version +
+      ' · EC ' + state.ec + ' · ' + utf8Length(text) + ' bytes · ' + px + '×' + px + ' px';
+    setActionsEnabled(true);
+  }
+
+  // ---------- SVG built from the module matrix ----------
+  function buildSvg() {
+    if (!lastQr) return null;
+    var count = lastQr.getModuleCount();
+    var margin = els.quiet.checked ? 4 : 0;
+    var total = count + margin * 2;
+    var px = total * parseInt(els.size.value, 10);
+    var d = '';
+    for (var r = 0; r < count; r += 1) {
+      for (var c = 0; c < count; c += 1) {
+        if (lastQr.isDark(r, c)) {
+          d += 'M' + (c + margin) + ' ' + (r + margin) + 'h1v1h-1z';
+        }
+      }
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + total + ' ' + total + '"' +
+      ' width="' + px + '" height="' + px + '" shape-rendering="crispEdges">' +
+      '<rect width="' + total + '" height="' + total + '" fill="' + els.light.value + '"/>' +
+      '<path d="' + d + '" fill="' + els.dark.value + '"/></svg>';
+  }
+
+  function download(filename, blob) {
+    var a = document.createElement('a');
+    var url = URL.createObjectURL(blob);
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+  }
+
+  els.dlPng.addEventListener('click', function () {
+    if (!lastQr) return;
+    els.canvas.toBlob(function (blob) {
+      if (blob) download('qr-forge.png', blob);
+    }, 'image/png');
+  });
+
+  els.dlSvg.addEventListener('click', function () {
+    var svg = buildSvg();
+    if (svg) download('qr-forge.svg', new Blob([svg], { type: 'image/svg+xml' }));
+  });
+
+  // ---------- clipboard ----------
+  var clipboardSupported = !!(navigator.clipboard && navigator.clipboard.write && window.ClipboardItem);
+  if (!clipboardSupported) {
+    els.copyPng.disabled = true;
+    els.copyPng.title = 'Image clipboard not supported in this browser';
+  }
+  els.copyPng.addEventListener('click', function () {
+    if (!lastQr || !clipboardSupported) return;
+    els.canvas.toBlob(function (blob) {
+      if (!blob) return;
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]).then(function () {
+        els.copyLabel.textContent = 'Copied';
+        setTimeout(function () { els.copyLabel.textContent = 'Copy PNG'; }, 1400);
+      }, function () {
+        els.copyLabel.textContent = 'Copy failed';
+        setTimeout(function () { els.copyLabel.textContent = 'Copy PNG'; }, 1400);
+      });
+    }, 'image/png');
+  });
+
+  // ---------- error-correction segmented control ----------
+  var ecButtons = document.querySelectorAll('[data-ec]');
+  ecButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.ec = btn.getAttribute('data-ec');
+      ecButtons.forEach(function (b) {
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      render();
+    });
+  });
+
+  // ---------- preset modes ----------
+  var modeButtons = document.querySelectorAll('[data-mode]');
+  var panels = {
+    url: document.getElementById('panel-url'),
+    wifi: document.getElementById('panel-wifi'),
+    vcard: document.getElementById('panel-vcard')
+  };
+
+  modeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      state.mode = btn.getAttribute('data-mode');
+      modeButtons.forEach(function (b) {
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      Object.keys(panels).forEach(function (k) {
+        panels[k].classList.toggle('active', k === state.mode);
+      });
+      if (state.mode === 'url') buildUrl();
+      else if (state.mode === 'wifi') buildWifi();
+      else if (state.mode === 'vcard') buildVcard();
+    });
+  });
+
+  function setPayload(text) {
+    els.data.value = text;
+    render();
+  }
+
+  // URL preset
+  function buildUrl() {
+    setPayload(document.getElementById('url-input').value);
+  }
+  document.getElementById('url-input').addEventListener('input', buildUrl);
+
+  // Wi-Fi preset -> WIFI:T:WPA;S:mynet;P:secret;;
+  function wifiEscape(s) {
+    return s.replace(/([\\;,:"])/g, '\\$1');
+  }
+  function buildWifi() {
+    var sec = document.getElementById('wifi-sec').value;
+    var ssid = document.getElementById('wifi-ssid').value;
+    var pass = document.getElementById('wifi-pass').value;
+    var hidden = document.getElementById('wifi-hidden').checked;
+    var out = 'WIFI:T:' + sec + ';S:' + wifiEscape(ssid) + ';';
+    if (sec !== 'nopass') out += 'P:' + wifiEscape(pass) + ';';
+    if (hidden) out += 'H:true;';
+    out += ';';
+    setPayload(out);
+  }
+  ['wifi-sec', 'wifi-ssid', 'wifi-pass', 'wifi-hidden'].forEach(function (id) {
+    var el = document.getElementById(id);
+    el.addEventListener('input', buildWifi);
+    el.addEventListener('change', buildWifi);
+  });
+
+  // vCard 3.0 preset
+  function vcEscape(s) {
+    return s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
+  }
+  function buildVcard() {
+    var first = document.getElementById('vc-first').value.trim();
+    var last = document.getElementById('vc-last').value.trim();
+    var org = document.getElementById('vc-org').value.trim();
+    var phone = document.getElementById('vc-phone').value.trim();
+    var email = document.getElementById('vc-email').value.trim();
+    var url = document.getElementById('vc-url').value.trim();
+    var lines = ['BEGIN:VCARD', 'VERSION:3.0'];
+    lines.push('N:' + vcEscape(last) + ';' + vcEscape(first) + ';;;');
+    lines.push('FN:' + vcEscape((first + ' ' + last).trim()));
+    if (org) lines.push('ORG:' + vcEscape(org));
+    if (phone) lines.push('TEL;TYPE=CELL:' + vcEscape(phone));
+    if (email) lines.push('EMAIL:' + vcEscape(email));
+    if (url) lines.push('URL:' + vcEscape(url));
+    lines.push('END:VCARD');
+    setPayload(lines.join('\r\n'));
+  }
+  ['vc-first', 'vc-last', 'vc-org', 'vc-phone', 'vc-email', 'vc-url'].forEach(function (id) {
+    document.getElementById(id).addEventListener('input', buildVcard);
+  });
+
+  // ---------- direct control wiring ----------
+  els.data.addEventListener('input', render);
+  els.size.addEventListener('input', render);
+  els.type.addEventListener('change', render);
+  els.quiet.addEventListener('change', render);
+  els.dark.addEventListener('input', render);
+  els.light.addEventListener('input', render);
+
+  render();
+})();
+</script>
+</body>
+</html>

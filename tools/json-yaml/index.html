@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Two-pane JSON to YAML converter and validator. Live bidirectional conversion, precise parse errors, pretty-print, minify, copy. Runs entirely in your browser.">
+<title>JSON &#x21C4; YAML &middot; tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232e9e5b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef;
+  --fg:#191b1e;
+  --muted:#8a8d93;
+  --line:#dcd9d2;
+  --card:#ffffff;
+  --accent:#2e9e5b;
+  --error:#b3382e;
+  --accent-soft:rgba(46,158,91,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a;
+    --fg:#eceae4;
+    --line:#2b2d31;
+    --card:#1e2024;
+    --error:#e2705d;
+    --accent-soft:rgba(46,158,91,.18);
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:14px;
+  display:flex;
+  flex-direction:column;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent);color:#ffffff}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 20px;
+  border-bottom:1px solid var(--line);
+  flex:none;
+}
+.accent-sq{width:11px;height:11px;border-radius:2px;background:var(--accent);flex:none}
+h1{
+  margin:0;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-weight:700;
+  font-size:14px;
+  letter-spacing:.14em;
+}
+.back{
+  margin-left:auto;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  color:var(--muted);
+  text-decoration:none;
+}
+.back:hover{color:var(--accent)}
+
+main{
+  flex:1;
+  min-height:0;
+  display:grid;
+  grid-template-columns:1fr auto 1fr;
+  gap:14px;
+  padding:16px 20px;
+}
+.pane{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  min-height:0;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+}
+.pane.err{border-color:var(--error)}
+#pane-json{order:1}
+.gutter{order:2}
+#pane-yaml{order:3}
+main.swapped #pane-json{order:3}
+main.swapped #pane-yaml{order:1}
+
+.pane-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px 8px 14px;
+  border-bottom:1px solid var(--line);
+  flex:none;
+  flex-wrap:wrap;
+}
+.pane-title{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-weight:700;
+  font-size:12px;
+  letter-spacing:.12em;
+}
+.pane-stats{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;
+  color:var(--muted);
+  margin-left:auto;
+  white-space:nowrap;
+}
+.pane-actions{display:flex;gap:5px;flex-wrap:wrap}
+button{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:4px 9px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:transparent;
+  color:var(--fg);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  transition:border-color .12s,color .12s,background .12s;
+}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.flash{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+button svg{flex:none;display:block}
+
+textarea{
+  flex:1;
+  min-height:0;
+  width:100%;
+  border:0;
+  resize:none;
+  padding:12px 14px;
+  background:transparent;
+  color:var(--fg);
+  font-family:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  font-size:13px;
+  line-height:1.55;
+  tab-size:2;
+}
+textarea:focus{outline:none}
+textarea::placeholder{color:var(--muted);opacity:.7}
+
+.pane-error{
+  flex:none;
+  padding:8px 14px;
+  border-top:1px solid var(--line);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  line-height:1.45;
+  color:var(--error);
+  white-space:pre-wrap;
+  word-break:break-word;
+}
+.pane-error[hidden]{display:none}
+
+.gutter{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+}
+.gutter button{
+  flex-direction:column;
+  padding:8px;
+  gap:3px;
+  font-size:10px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  letter-spacing:.08em;
+  color:var(--muted);
+  background:var(--card);
+}
+.gutter button:hover{color:var(--accent)}
+
+footer{
+  flex:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 20px;
+  border-top:1px solid var(--line);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;
+  color:var(--muted);
+}
+footer a{color:var(--muted);text-decoration:underline}
+footer a:hover{color:var(--accent)}
+.foot-right{margin-left:auto}
+
+@media (max-width:820px){
+  main{grid-template-columns:1fr;grid-template-rows:1fr auto 1fr}
+  .gutter{flex-direction:row}
+  .pane{min-height:38vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="accent-sq" aria-hidden="true"></div>
+  <h1>JSON &#x21C4; YAML</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main id="workspace">
+  <section class="pane" id="pane-json" aria-label="JSON pane">
+    <div class="pane-head">
+      <span class="pane-title">JSON</span>
+      <span class="pane-stats" id="stats-json">0 B &middot; 0 lines</span>
+      <div class="pane-actions">
+        <button id="copy-json" type="button" title="Copy JSON to clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span>Copy</span>
+        </button>
+        <button id="pretty-json" type="button" title="Reformat JSON with 2-space indent">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+          <span>Pretty</span>
+        </button>
+        <button id="minify-json" type="button" title="Minify JSON to a single line">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+          <span>Minify</span>
+        </button>
+        <button id="clear-json" type="button" title="Clear the JSON pane">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <span>Clear</span>
+        </button>
+      </div>
+    </div>
+    <textarea id="input-json" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste or type JSON here&hellip;" aria-label="JSON input"></textarea>
+    <div class="pane-error" id="error-json" hidden role="alert"></div>
+  </section>
+
+  <div class="gutter">
+    <button id="swap" type="button" title="Swap pane positions">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4 3 8l4 4"/><path d="M3 8h13"/><path d="m17 20 4-4-4-4"/><path d="M21 16H8"/></svg>
+      <span>Swap</span>
+    </button>
+    <button id="sample" type="button" title="Load a sample document">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><path d="M8 13h8M8 17h5"/></svg>
+      <span>Sample</span>
+    </button>
+  </div>
+
+  <section class="pane" id="pane-yaml" aria-label="YAML pane">
+    <div class="pane-head">
+      <span class="pane-title">YAML</span>
+      <span class="pane-stats" id="stats-yaml">0 B &middot; 0 lines</span>
+      <div class="pane-actions">
+        <button id="copy-yaml" type="button" title="Copy YAML to clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+          <span>Copy</span>
+        </button>
+        <button id="pretty-yaml" type="button" title="Reformat YAML with 2-space indent">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h10M4 18h14"/></svg>
+          <span>Pretty</span>
+        </button>
+        <button id="clear-yaml" type="button" title="Clear the YAML pane">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+          <span>Clear</span>
+        </button>
+      </div>
+    </div>
+    <textarea id="input-yaml" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="Paste or type YAML here&hellip;" aria-label="YAML input"></textarea>
+    <div class="pane-error" id="error-yaml" hidden role="alert"></div>
+  </section>
+</main>
+
+<footer>
+  <span>Everything runs locally in your browser &mdash; nothing is uploaded.</span>
+  <span class="foot-right">js-yaml v4 &middot; MIT &middot; <a href="LICENSE-js-yaml.txt">license</a></span>
+</footer>
+
+<script src="js-yaml.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var jsonEl = document.getElementById('input-json');
+  var yamlEl = document.getElementById('input-yaml');
+  var el = {
+    json: { input: jsonEl, error: document.getElementById('error-json'), stats: document.getElementById('stats-json'), pane: document.getElementById('pane-json') },
+    yaml: { input: yamlEl, error: document.getElementById('error-yaml'), stats: document.getElementById('stats-yaml'), pane: document.getElementById('pane-yaml') }
+  };
+  var DEBOUNCE_MS = 250;
+  var timers = { json: null, yaml: null };
+  var encoder = new TextEncoder();
+
+  var SAMPLE = {
+    service: 'launch-telemetry',
+    version: '2.4.1',
+    active: true,
+    retries: 3,
+    threshold: 0.85,
+    regions: ['us-east-2', 'eu-west-1'],
+    endpoints: {
+      ingest: { path: '/v1/ingest', method: 'POST', auth: true },
+      health: { path: '/healthz', method: 'GET', auth: false }
+    },
+    window: { start: '2026-07-11T06:00:00Z', end: null },
+    tags: ['telemetry', 'correlator', 'converter']
+  };
+
+  /* ---------- stats ---------- */
+
+  function formatBytes(n) {
+    if (n < 1024) return n + ' B';
+    if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+    return (n / (1024 * 1024)).toFixed(2) + ' MB';
+  }
+
+  function updateStats() {
+    ['json', 'yaml'].forEach(function (k) {
+      var text = el[k].input.value;
+      var bytes = encoder.encode(text).length;
+      var lines = text.length ? text.split('\n').length : 0;
+      el[k].stats.textContent = formatBytes(bytes) + ' · ' + lines + (lines === 1 ? ' line' : ' lines');
+    });
+  }
+
+  /* ---------- errors ---------- */
+
+  function setError(which, message) {
+    el[which].error.textContent = message;
+    el[which].error.hidden = false;
+    el[which].pane.classList.add('err');
+  }
+
+  function clearError(which) {
+    el[which].error.hidden = true;
+    el[which].error.textContent = '';
+    el[which].pane.classList.remove('err');
+  }
+
+  function describeJsonError(e, text) {
+    var msg = e && e.message ? e.message : String(e);
+    if (/line \d+ column \d+/i.test(msg)) return 'Invalid JSON — ' + msg;
+    var m = msg.match(/position (\d+)/i);
+    if (m) {
+      var pos = Math.min(parseInt(m[1], 10), text.length);
+      var before = text.slice(0, pos);
+      var line = before.split('\n').length;
+      var col = pos - before.lastIndexOf('\n');
+      return 'Invalid JSON — line ' + line + ', column ' + col + ': ' + msg;
+    }
+    return 'Invalid JSON — ' + msg;
+  }
+
+  function describeYamlError(e) {
+    if (e && e.mark && typeof e.mark.line === 'number') {
+      return 'Invalid YAML — line ' + (e.mark.line + 1) + ', column ' + (e.mark.column + 1) + ': ' + (e.reason || e.message);
+    }
+    return 'Invalid YAML — ' + (e && e.message ? e.message : String(e));
+  }
+
+  /* ---------- conversion ---------- */
+
+  function toYaml(obj) {
+    return jsyaml.dump(obj, { indent: 2, lineWidth: 100, noRefs: true });
+  }
+
+  function convertFromJson() {
+    var text = jsonEl.value;
+    if (!text.trim()) {
+      clearError('json');
+      yamlEl.value = '';
+      clearError('yaml');
+      updateStats();
+      return;
+    }
+    try {
+      var obj = JSON.parse(text);
+      clearError('json');
+      yamlEl.value = toYaml(obj);
+      clearError('yaml');
+      updateStats();
+    } catch (e) {
+      setError('json', describeJsonError(e, text));
+    }
+  }
+
+  function convertFromYaml() {
+    var text = yamlEl.value;
+    if (!text.trim()) {
+      clearError('yaml');
+      jsonEl.value = '';
+      clearError('json');
+      updateStats();
+      return;
+    }
+    try {
+      var obj = jsyaml.load(text);
+      clearError('yaml');
+      jsonEl.value = obj === undefined ? '' : JSON.stringify(obj, null, 2);
+      clearError('json');
+      updateStats();
+    } catch (e) {
+      setError('yaml', describeYamlError(e));
+    }
+  }
+
+  /* ---------- debounced input ---------- */
+
+  jsonEl.addEventListener('input', function () {
+    updateStats();
+    clearTimeout(timers.json);
+    timers.json = setTimeout(convertFromJson, DEBOUNCE_MS);
+  });
+
+  yamlEl.addEventListener('input', function () {
+    updateStats();
+    clearTimeout(timers.yaml);
+    timers.yaml = setTimeout(convertFromYaml, DEBOUNCE_MS);
+  });
+
+  /* ---------- buttons ---------- */
+
+  function flash(btn, label) {
+    var span = btn.querySelector('span');
+    var original = span.textContent;
+    span.textContent = label;
+    btn.classList.add('flash');
+    setTimeout(function () {
+      span.textContent = original;
+      btn.classList.remove('flash');
+    }, 1200);
+  }
+
+  function legacyCopy(input) {
+    var ok = false;
+    input.select();
+    try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+    var sel = window.getSelection();
+    if (sel) sel.removeAllRanges();
+    return ok;
+  }
+
+  function copyPane(which, btn) {
+    var input = el[which].input;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(input.value).then(
+        function () { flash(btn, 'Copied'); },
+        function () { flash(btn, legacyCopy(input) ? 'Copied' : 'Failed'); }
+      );
+    } else {
+      flash(btn, legacyCopy(input) ? 'Copied' : 'Failed');
+    }
+  }
+
+  document.getElementById('copy-json').addEventListener('click', function () { copyPane('json', this); });
+  document.getElementById('copy-yaml').addEventListener('click', function () { copyPane('yaml', this); });
+
+  document.getElementById('pretty-json').addEventListener('click', function () {
+    var text = jsonEl.value;
+    if (!text.trim()) return;
+    try {
+      jsonEl.value = JSON.stringify(JSON.parse(text), null, 2);
+      convertFromJson();
+    } catch (e) {
+      setError('json', describeJsonError(e, text));
+    }
+  });
+
+  document.getElementById('minify-json').addEventListener('click', function () {
+    var text = jsonEl.value;
+    if (!text.trim()) return;
+    try {
+      jsonEl.value = JSON.stringify(JSON.parse(text));
+      convertFromJson();
+    } catch (e) {
+      setError('json', describeJsonError(e, text));
+    }
+  });
+
+  document.getElementById('pretty-yaml').addEventListener('click', function () {
+    var text = yamlEl.value;
+    if (!text.trim()) return;
+    try {
+      var obj = jsyaml.load(text);
+      yamlEl.value = obj === undefined ? '' : toYaml(obj);
+      convertFromYaml();
+    } catch (e) {
+      setError('yaml', describeYamlError(e));
+    }
+  });
+
+  document.getElementById('clear-json').addEventListener('click', function () {
+    clearTimeout(timers.json);
+    jsonEl.value = '';
+    clearError('json');
+    updateStats();
+    jsonEl.focus();
+  });
+
+  document.getElementById('clear-yaml').addEventListener('click', function () {
+    clearTimeout(timers.yaml);
+    yamlEl.value = '';
+    clearError('yaml');
+    updateStats();
+    yamlEl.focus();
+  });
+
+  document.getElementById('swap').addEventListener('click', function () {
+    document.getElementById('workspace').classList.toggle('swapped');
+  });
+
+  document.getElementById('sample').addEventListener('click', function () {
+    jsonEl.value = JSON.stringify(SAMPLE, null, 2);
+    convertFromJson();
+  });
+
+  /* ---------- init ---------- */
+
+  if (typeof jsyaml === 'undefined') {
+    setError('json', 'js-yaml failed to load — conversion is unavailable.');
+    setError('yaml', 'js-yaml failed to load — conversion is unavailable.');
+    updateStats();
+  } else {
+    jsonEl.value = JSON.stringify(SAMPLE, null, 2);
+    convertFromJson();
+  }
+})();
+</script>
+</body>
+</html>
