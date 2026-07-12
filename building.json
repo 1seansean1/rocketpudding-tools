@@ -1,0 +1,12 @@
+{
+  "building": [
+    { "slug": "diff-lab", "name": "Diff Lab", "accent": "#b05a3c", "origin": "vendored", "tagline": "Side-by-side and unified text diff" },
+    { "slug": "epoch-time", "name": "Epoch & Time", "accent": "#3f6f8f", "origin": "vendored", "tagline": "Unix / ISO / timezone converter" },
+    { "slug": "hash-forge", "name": "Hash Forge", "accent": "#e0483d", "origin": "vendored", "tagline": "SHA, MD5, HMAC — text and files" },
+    { "slug": "id-forge", "name": "ID Forge", "accent": "#7a6cff", "origin": "vendored", "tagline": "UUID, ULID, nanoid generator + decoder" },
+    { "slug": "color-lab", "name": "Color Lab", "accent": "#2e9e5b", "origin": "vendored", "tagline": "OKLCH converter, palettes, WCAG contrast" },
+    { "slug": "base-lab", "name": "Base Lab", "accent": "#c9a227", "origin": "vendored", "tagline": "Base64 / hex / URL / base32 encoder" },
+    { "slug": "sql-formatter", "name": "SQL Formatter", "accent": "#2f6fed", "origin": "vendored", "tagline": "Pretty-print SQL across dialects" },
+    { "slug": "jsonpath-lab", "name": "JSONPath Lab", "accent": "#8a5a44", "origin": "vendored", "tagline": "Query JSON with JSONPath, live" }
+  ]
+}

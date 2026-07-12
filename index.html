@@ -76,6 +76,20 @@
   .card .open{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:var(--accent);opacity:0;transition:opacity .15s ease}
   .card:hover .open{opacity:1}
   .empty{padding:40px 0;color:var(--muted);font-size:14px}
+  /* loading skeletons */
+  @keyframes shimmer{0%{background-position:-420px 0}100%{background-position:420px 0}}
+  .skel{border:1px solid var(--line2);border-radius:12px;height:104px;
+    background:linear-gradient(90deg,var(--card) 0,var(--line2) 130px,var(--card) 260px);
+    background-size:640px 100%;animation:shimmer 1.15s linear infinite}
+  .skel.o{height:214px;border-radius:18px}
+  .loadbar{position:fixed;top:0;left:0;height:2px;background:var(--accent);width:0;
+    box-shadow:0 0 8px var(--accent);transition:width .3s ease;z-index:99}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.42}}
+  .bcard{display:flex;flex-direction:column;border:1px dashed var(--line);background:var(--card);border-radius:12px;padding:15px 16px 13px;opacity:.85}
+  .bcard h3{color:var(--muted)}
+  .bbadge{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.12em;color:var(--accent)}
+  .bdot{width:7px;height:7px;border-radius:50%;background:var(--accent);animation:pulse 1.2s ease-in-out infinite}
+  .count .bld{color:var(--accent);animation:pulse 1.6s ease-in-out infinite}
   footer{border-top:1px solid var(--line);margin-top:56px;padding:22px 0 44px;color:var(--muted);
     font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;gap:14px;flex-wrap:wrap}
 </style>
@@ -117,7 +131,13 @@
   </div>
 <script>
   const $ = id => document.getElementById(id);
-  let TOOLS = [];
+  let TOOLS = [], BUILDING = [];
+  const bcard = b => `<div class="bcard" title="building now">
+      <div class="row"><span class="swatch" style="background:${b.accent||'#b05a3c'};opacity:.6"></span><h3>${b.name}</h3></div>
+      <div class="tag">${b.tagline||''}</div>
+      <div class="foot"><span class="bbadge"><span class="bdot"></span>BUILDING</span></div>
+    </div>`;
+  const matches = (t,s) => (t.name+' '+(t.tagline||'')+' '+(t.description||'')+' '+(t.tags||[]).join(' ')).toLowerCase().includes(s);
 
   const ocard = t => `<a class="ocard" href="${t.path}">
       <div class="glow"></div>
@@ -146,28 +166,36 @@
       </div>
     </a>`;
 
-  function render(list){
-    const orig = list.filter(t => t.origin === 'original');
+  function render(list, blist){
+    blist = blist || [];
+    const orig = list.filter(t => t.origin === 'original')
+      .sort((a,b) => (b.slug==='dag-layout-lab') - (a.slug==='dag-layout-lab'));  // DAG Layout Lab always first
     const vend = list.filter(t => t.origin !== 'original');
     $('originals').innerHTML = orig.map(ocard).join('');
-    $('grid').innerHTML = vend.map(card).join('');
+    $('grid').innerHTML = vend.map(card).join('') + blist.map(bcard).join('');
     $('tier-originals').style.display = orig.length ? '' : 'none';
-    $('tier-workbench').style.display = vend.length ? '' : 'none';
-    $('empty').style.display = list.length ? 'none' : '';
-    $('count').textContent = TOOLS.length + (TOOLS.length===1?' tool':' tools');
+    $('tier-workbench').style.display = (vend.length || blist.length) ? '' : 'none';
+    $('empty').style.display = (list.length || blist.length) ? 'none' : '';
+    $('count').innerHTML = '<span>'+TOOLS.length+' live</span>' + (BUILDING.length ? ' &middot; <span class="bld">'+BUILDING.length+' building</span>' : '');
   }
   function filter(){
     const s = $('q').value.trim().toLowerCase();
-    if(!s) return render(TOOLS);
-    render(TOOLS.filter(t => (t.name+' '+(t.tagline||'')+' '+(t.description||'')+' '+(t.tags||[]).join(' ')).toLowerCase().includes(s)));
+    if(!s) return render(TOOLS, BUILDING);
+    render(TOOLS.filter(t=>matches(t,s)), BUILDING.filter(b=>matches(b,s)));
   }
   $('q').addEventListener('input', filter);
   $('q').addEventListener('keydown', e => { if(e.key==='Escape'){ $('q').value=''; filter(); } });
   document.addEventListener('keydown', e => { if(e.key==='/' && document.activeElement !== $('q')){ e.preventDefault(); $('q').focus(); } });
-  fetch('registry.json').then(r=>r.json()).then(d=>{
-    TOOLS = d.tools||[];
+  // paint skeletons immediately so the page shows itself loading
+  $('originals').innerHTML = '<div class="skel o"></div><div class="skel o"></div>';
+  $('grid').innerHTML = Array.from({length:9}).map(()=>'<div class="skel"></div>').join('');
+  Promise.all([
+    fetch('registry.json').then(r=>r.json()).catch(()=>({tools:[]})),
+    fetch('building.json').then(r=>r.json()).catch(()=>({building:[]}))
+  ]).then(([d,b])=>{
+    TOOLS = d.tools||[]; BUILDING = (b&&b.building)||[];
     if(d.updated) $('updated').textContent = 'updated '+d.updated;
-    render(TOOLS);
+    render(TOOLS, BUILDING);
   }).catch(()=>{ $('empty').style.display=''; $('empty').textContent='Could not load registry.json.'; });
 </script>
 </body>
