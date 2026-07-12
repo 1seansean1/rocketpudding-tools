@@ -1,0 +1,1016 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Function Plotter</title>
+<meta name="description" content="Zero-dependency function graphing calculator. Plot one or more expressions in x on a crisp devicePixelRatio-aware canvas with pan, zoom, auto-fit, smart grid ticks, hover crosshair readout, per-curve derivative overlay, asymptote-aware discontinuity detection and PNG export. Its own safe shunting-yard expression parser — no eval, no libraries.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c24bff'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #c24bff;
+    --accent-soft: rgba(194, 75, 255, 0.10);
+    --grid: rgba(25, 27, 30, 0.07);
+    --axis: rgba(25, 27, 30, 0.42);
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #c24bff;
+      --accent-soft: rgba(194, 75, 255, 0.18);
+      --grid: rgba(236, 234, 228, 0.06);
+      --axis: rgba(236, 234, 228, 0.40);
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.10);
+      --shadow: 0 1px 2px rgba(0,0,0,0.30), 0 10px 30px rgba(0,0,0,0.35);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 16px 22px;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back svg { width: 15px; height: 15px; }
+  header .back:hover { color: var(--accent); }
+
+  /* ---------- layout ---------- */
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+    width: 100%;
+  }
+  aside {
+    width: 350px;
+    flex: none;
+    border-right: 1px solid var(--line);
+    padding: 18px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .plotwrap {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap;
+  }
+  .canvas-host {
+    position: relative;
+    flex: 1;
+    min-height: 260px;
+    overflow: hidden;
+  }
+  canvas { display: block; width: 100%; height: 100%; cursor: crosshair; touch-action: none; }
+
+  /* ---------- section labels ---------- */
+  .lbl {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .lbl svg { width: 14px; height: 14px; color: var(--accent); flex: none; }
+
+  /* ---------- curve rows ---------- */
+  .curves { display: flex; flex-direction: column; gap: 8px; }
+  .curve {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 8px 8px 10px;
+  }
+  .curve-main { display: flex; align-items: center; gap: 8px; }
+  .swatch {
+    width: 22px; height: 22px; flex: none;
+    padding: 0; border: none; border-radius: 6px;
+    background: none; cursor: pointer;
+    box-shadow: inset 0 0 0 1.5px rgba(255,255,255,0.35);
+  }
+  .swatch::-webkit-color-swatch-wrapper { padding: 0; }
+  .swatch::-webkit-color-swatch { border: none; border-radius: 6px; }
+  .swatch::-moz-color-swatch { border: none; border-radius: 6px; }
+  .fx {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; font-weight: 600;
+    color: var(--muted);
+    flex: none; width: 30px;
+  }
+  input.expr {
+    flex: 1; min-width: 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13.5px;
+    color: var(--fg);
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 2px 0;
+  }
+  input.expr::placeholder { color: var(--muted); }
+  .curve.has-error { border-color: var(--err); }
+  .curve.has-error input.expr { color: var(--err); }
+  .err {
+    font-size: 11.5px;
+    color: var(--err);
+    margin-top: 5px;
+    padding-left: 30px;
+    display: none;
+  }
+  .curve.has-error .err { display: block; }
+
+  /* icon buttons */
+  .iconbtn {
+    flex: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--muted);
+    border-radius: 7px;
+    cursor: pointer;
+    transition: color .12s, background .12s, border-color .12s;
+  }
+  .iconbtn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .iconbtn:hover { color: var(--fg); background: var(--accent-soft); }
+  .iconbtn.on { color: var(--accent); }
+  .iconbtn.deriv { font-family: "IBM Plex Mono", monospace; font-size: 11px; font-weight: 700; letter-spacing: -.02em; }
+  .iconbtn.danger:hover { color: var(--err); background: var(--err-bg); }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 13px; font-weight: 500;
+    color: var(--fg);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 7px 12px;
+    cursor: pointer;
+    transition: border-color .12s, background .12s, color .12s;
+  }
+  .btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.solid { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.solid:hover { filter: brightness(1.06); color: #fff; }
+  .btn.block { width: 100%; justify-content: center; }
+  .btn.small { padding: 6px 10px; font-size: 12.5px; }
+
+  .spacer { flex: 1; }
+  .range-read {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  /* ---------- sample chips ---------- */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--fg);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 4px 11px;
+    cursor: pointer;
+    transition: border-color .12s, color .12s, background .12s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .help {
+    font-size: 12px;
+    color: var(--muted);
+    line-height: 1.65;
+  }
+  .help code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11.5px;
+    color: var(--fg);
+    background: var(--accent-soft);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+  details.help-box { border-top: 1px solid var(--line); padding-top: 14px; }
+  details.help-box summary {
+    cursor: pointer; list-style: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: var(--muted);
+  }
+  details.help-box summary::-webkit-details-marker { display: none; }
+  details.help-box[open] summary { margin-bottom: 10px; color: var(--accent); }
+
+  /* ---------- readout overlay ---------- */
+  .readout {
+    position: absolute;
+    top: 12px; left: 12px;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 8px 11px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    box-shadow: var(--shadow);
+    pointer-events: none;
+    display: none;
+    max-width: 60%;
+    backdrop-filter: blur(6px);
+  }
+  .readout .rx { color: var(--muted); margin-bottom: 5px; }
+  .readout .rx b { color: var(--fg); font-weight: 600; }
+  .readout .rrow { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+  .readout .rrow + .rrow { margin-top: 2px; }
+  .readout .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+  .readout .rval { color: var(--fg); }
+  .readout .rval.nan { color: var(--muted); }
+
+  .hint {
+    position: absolute;
+    bottom: 10px; right: 12px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    pointer-events: none;
+    opacity: .8;
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    flex: none;
+    text-align: center;
+    padding: 12px;
+    border-top: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+  }
+
+  @media (max-width: 860px) {
+    main { flex-direction: column; }
+    aside { width: 100%; border-right: none; border-bottom: 1px solid var(--line); max-height: 46vh; }
+    .canvas-host { min-height: 340px; }
+    .readout { max-width: 72%; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="accent-square"></span>
+  <h1>Function Plotter</h1>
+  <a class="back" href="../../" aria-label="Back to tools">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    tools
+  </a>
+</header>
+
+<main>
+  <aside>
+    <div>
+      <div class="lbl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M4 15c4 0 4-8 8-8s4 8 8 8"/></svg>
+        functions of x
+      </div>
+      <div class="curves" id="curves"></div>
+      <button class="btn block small" id="add" style="margin-top:8px">
+        <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+        add function
+      </button>
+    </div>
+
+    <div>
+      <div class="lbl">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M4 12h10M4 17h7"/></svg>
+        samples
+      </div>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <details class="help-box">
+      <summary>syntax reference</summary>
+      <div class="help">
+        Operators <code>+ - * / ^ %</code>, unary minus, parentheses, and implicit multiplication (<code>2x</code>, <code>5(x+1)</code>).
+        Constants <code>pi</code> <code>e</code>. Variable <code>x</code>.<br>
+        Functions: <code>sin cos tan asin acos atan sinh cosh tanh exp log ln log2 log10 sqrt abs floor ceil round sign min max pow</code>.<br>
+        Precedence: <code>^</code> binds tighter than unary minus, so <code>-3^2 = -9</code>. <code>log</code> is the natural log (alias of <code>ln</code>).
+      </div>
+    </details>
+  </aside>
+
+  <div class="plotwrap">
+    <div class="toolbar">
+      <button class="btn small" id="fit" title="Fit vertical range to the curves">
+        <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+        auto-fit
+      </button>
+      <button class="btn small" id="reset" title="Reset the view">
+        <svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.4-5.7M4 4v4h4"/></svg>
+        reset
+      </button>
+      <button class="btn small" id="zoomout" title="Zoom out" aria-label="Zoom out">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/></svg>
+      </button>
+      <button class="btn small" id="zoomin" title="Zoom in" aria-label="Zoom in">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+      </button>
+      <div class="spacer"></div>
+      <span class="range-read" id="rangeRead"></span>
+      <button class="btn small solid" id="png" title="Export the plot as a PNG image">
+        <svg viewBox="0 0 24 24" stroke="#fff"><path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg>
+        PNG
+      </button>
+    </div>
+    <div class="canvas-host" id="host">
+      <canvas id="plot"></canvas>
+      <div class="readout" id="readout"></div>
+      <div class="hint">drag to pan &middot; scroll to zoom</div>
+    </div>
+  </div>
+</main>
+
+<footer>zero dependencies</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================================
+     ==== MATH ENGINE START ====
+     Self-contained, DOM-free safe expression parser + evaluator.
+     Pipeline: tokenize -> classify -> insert implicit '*' -> shunting-yard
+     (-> RPN) -> stack evaluator. No eval / no Function on user input.
+     ========================================================================= */
+  var FN1 = {
+    sin: Math.sin, cos: Math.cos, tan: Math.tan,
+    asin: Math.asin, acos: Math.acos, atan: Math.atan,
+    sinh: Math.sinh, cosh: Math.cosh, tanh: Math.tanh,
+    exp: Math.exp, sqrt: Math.sqrt, abs: Math.abs,
+    floor: Math.floor, ceil: Math.ceil, round: Math.round,
+    sign: Math.sign, ln: Math.log, log: Math.log,
+    log2: Math.log2, log10: Math.log10
+  };
+  var FN2 = { min: Math.min, max: Math.max, pow: Math.pow };
+  var CONSTS = { pi: Math.PI, e: Math.E, tau: Math.PI * 2 };
+  // p = precedence, a = associativity, n = arity, f = fn
+  var OPS = {
+    "+":  { p: 2, a: "L", n: 2, f: function (a, b) { return a + b; } },
+    "-":  { p: 2, a: "L", n: 2, f: function (a, b) { return a - b; } },
+    "*":  { p: 3, a: "L", n: 2, f: function (a, b) { return a * b; } },
+    "/":  { p: 3, a: "L", n: 2, f: function (a, b) { return a / b; } },
+    "%":  { p: 3, a: "L", n: 2, f: function (a, b) { return a % b; } },
+    "u-": { p: 4, a: "R", n: 1, f: function (a) { return -a; } },
+    "u+": { p: 4, a: "R", n: 1, f: function (a) { return a; } },
+    // '^' binds tighter than unary minus (p:4) so  -3^2 == -(3^2) == -9
+    "^":  { p: 5, a: "R", n: 2, f: function (a, b) { return Math.pow(a, b); } }
+  };
+
+  var NUM_RE = /^(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?/;
+  var NAME_RE = /^[A-Za-z_]\w*/;
+
+  function tokenize(src) {
+    var toks = [], i = 0, s = src, m, ch;
+    while (i < s.length) {
+      ch = s[i];
+      if (ch === " " || ch === "\t" || ch === "\n" || ch === "\r") { i++; continue; }
+      var rest = s.slice(i);
+      if ((m = NUM_RE.exec(rest))) {
+        toks.push({ t: "num", v: parseFloat(m[0]) });
+        i += m[0].length; continue;
+      }
+      if ((m = NAME_RE.exec(rest))) {
+        toks.push({ t: "name", v: m[0] });
+        i += m[0].length; continue;
+      }
+      if ("+-*/%^".indexOf(ch) >= 0) { toks.push({ t: "op", v: ch }); i++; continue; }
+      if (ch === "(") { toks.push({ t: "lp" }); i++; continue; }
+      if (ch === ")") { toks.push({ t: "rp" }); i++; continue; }
+      if (ch === ",") { toks.push({ t: "comma" }); i++; continue; }
+      throw new Error("Unexpected character “" + ch + "”");
+    }
+    return toks;
+  }
+
+  // Resolve raw name tokens into var / const / func; reject unknown names.
+  function classify(raw) {
+    var out = [];
+    for (var i = 0; i < raw.length; i++) {
+      var tk = raw[i];
+      if (tk.t === "name") {
+        var nm = tk.v;
+        if (FN1.hasOwnProperty(nm) || FN2.hasOwnProperty(nm)) {
+          var next = raw[i + 1];
+          if (!(next && next.t === "lp")) throw new Error("“" + nm + "” must be called like " + nm + "(…)");
+          out.push({ kind: "func", v: nm });
+        } else if (CONSTS.hasOwnProperty(nm)) {
+          out.push({ kind: "num", v: CONSTS[nm] });
+        } else if (nm === "x") {
+          out.push({ kind: "var" });
+        } else {
+          throw new Error("Unknown name “" + nm + "”");
+        }
+      } else if (tk.t === "num") { out.push({ kind: "num", v: tk.v }); }
+      else if (tk.t === "op")   { out.push({ kind: "op", v: tk.v }); }
+      else if (tk.t === "lp")   { out.push({ kind: "lp" }); }
+      else if (tk.t === "rp")   { out.push({ kind: "rp" }); }
+      else if (tk.t === "comma"){ out.push({ kind: "comma" }); }
+    }
+    return out;
+  }
+
+  // Insert implicit multiplication:  2x -> 2*x,  5(x+1) -> 5*(x+1), )( -> )*(
+  function insertImplicit(t) {
+    var out = [], A = { num: 1, var: 1, rp: 1 }, B = { num: 1, var: 1, func: 1, lp: 1 };
+    for (var i = 0; i < t.length; i++) {
+      if (i > 0 && A[t[i - 1].kind] && B[t[i].kind]) out.push({ kind: "op", v: "*" });
+      out.push(t[i]);
+    }
+    return out;
+  }
+
+  function toRPN(tokens) {
+    var out = [], stack = [], prev = null;
+    for (var i = 0; i < tokens.length; i++) {
+      var tk = tokens[i];
+      switch (tk.kind) {
+        case "num": case "var": out.push(tk); break;
+        case "func": stack.push(tk); break;
+        case "comma":
+          while (stack.length && stack[stack.length - 1].kind !== "lp") out.push(stack.pop());
+          if (!stack.length) throw new Error("Misplaced comma");
+          break;
+        case "op": {
+          var name = tk.v;
+          var unary = (name === "+" || name === "-") &&
+            (prev === null || prev.kind === "op" || prev.kind === "lp" || prev.kind === "comma");
+          if (unary) name = name === "-" ? "u-" : "u+";
+          var o1 = OPS[name];
+          if (o1.n !== 1) { // prefix-unary never pops; binary ops obey precedence
+            while (stack.length) {
+              var top = stack[stack.length - 1];
+              if (top.kind !== "op") break;
+              var o2 = OPS[top.v];
+              if (o2.p > o1.p || (o2.p === o1.p && o1.a === "L")) out.push(stack.pop());
+              else break;
+            }
+          }
+          stack.push({ kind: "op", v: name });
+          prev = { kind: "op" };
+          continue;
+        }
+        case "lp": stack.push(tk); prev = { kind: "lp" }; continue;
+        case "rp":
+          while (stack.length && stack[stack.length - 1].kind !== "lp") out.push(stack.pop());
+          if (!stack.length) throw new Error("Mismatched parenthesis");
+          stack.pop(); // discard '('
+          if (stack.length && stack[stack.length - 1].kind === "func") out.push(stack.pop());
+          break;
+      }
+      prev = tk;
+    }
+    while (stack.length) {
+      var r = stack.pop();
+      if (r.kind === "lp") throw new Error("Mismatched parenthesis");
+      out.push(r);
+    }
+    if (!out.length) throw new Error("Empty expression");
+    return out;
+  }
+
+  function runRPN(rpn, x) {
+    var st = [], i, a, b, name;
+    for (i = 0; i < rpn.length; i++) {
+      var tk = rpn[i];
+      if (tk.kind === "num") st.push(tk.v);
+      else if (tk.kind === "var") st.push(x);
+      else if (tk.kind === "op") {
+        var op = OPS[tk.v];
+        if (op.n === 1) { if (st.length < 1) throw new Error("Malformed expression"); a = st.pop(); st.push(op.f(a)); }
+        else { if (st.length < 2) throw new Error("Malformed expression"); b = st.pop(); a = st.pop(); st.push(op.f(a, b)); }
+      } else if (tk.kind === "func") {
+        name = tk.v;
+        if (FN1.hasOwnProperty(name)) { if (st.length < 1) throw new Error("Malformed expression"); a = st.pop(); st.push(FN1[name](a)); }
+        else { if (st.length < 2) throw new Error("Malformed expression"); b = st.pop(); a = st.pop(); st.push(FN2[name](a, b)); }
+      }
+    }
+    if (st.length !== 1) throw new Error("Malformed expression");
+    return st[0];
+  }
+
+  // compile(expr) -> { rpn, at:(x)=>number } ; throws Error on invalid input
+  function compile(expr) {
+    var rpn = toRPN(insertImplicit(classify(tokenize(expr))));
+    return { rpn: rpn, at: function (x) { return runRPN(rpn, x); } };
+  }
+
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = { compile: compile, runRPN: runRPN, tokenize: tokenize, OPS: OPS };
+  }
+  /* ==== MATH ENGINE END ==== */
+
+  /* =========================================================================
+     ==== UI / CANVAS ====  (skipped by the node math-engine sanity slice)
+     ========================================================================= */
+  if (typeof document === "undefined") return;
+
+  var PALETTE = ["#c24bff", "#1c7ed6", "#2f9e44", "#e8590c", "#e64980", "#0ca678", "#f59f00", "#7048e8"];
+  var SAMPLES = ["sin(x)*x", "x^2-3", "1/x", "e^-x*cos(5x)", "tan(x)", "sqrt(abs(x))", "e^(-x^2)", "log(x)", "sin(x)/x", "floor(x)"];
+
+  var host = document.getElementById("host");
+  var canvas = document.getElementById("plot");
+  var ctx = canvas.getContext("2d");
+  var curvesEl = document.getElementById("curves");
+  var readoutEl = document.getElementById("readout");
+  var rangeReadEl = document.getElementById("rangeRead");
+
+  var curves = [];
+  var nextId = 1;
+  var view = { xmin: -10, xmax: 10, ymin: -6.5, ymax: 6.5 };
+  var W = 800, H = 500;
+  var mouse = { px: 0, py: 0, inside: false };
+  var drag = null;
+  var rafPending = false;
+
+  var ICON = {
+    eye: '<svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+    eyeoff: '<svg viewBox="0 0 24 24"><path d="M3 3l18 18"/><path d="M10.6 6.1A9.7 9.7 0 0 1 12 6c6.4 0 10 6 10 6a17 17 0 0 1-3.1 3.9M6.5 6.6A16.6 16.6 0 0 0 2 12s3.6 6 10 6a9.5 9.5 0 0 0 3.6-.7"/></svg>',
+    trash: '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/></svg>'
+  };
+
+  /* ---------------- theme colors read live from CSS ---------------- */
+  function themeColors() {
+    var cs = getComputedStyle(document.documentElement);
+    return {
+      grid: cs.getPropertyValue("--grid").trim(),
+      axis: cs.getPropertyValue("--axis").trim(),
+      card: cs.getPropertyValue("--card").trim(),
+      muted: cs.getPropertyValue("--muted").trim(),
+      fg: cs.getPropertyValue("--fg").trim()
+    };
+  }
+
+  /* ---------------- coordinate mapping ---------------- */
+  function xToPx(x) { return (x - view.xmin) / (view.xmax - view.xmin) * W; }
+  function yToPx(y) { return (view.ymax - y) / (view.ymax - view.ymin) * H; }
+  function pxToX(px) { return view.xmin + (px / W) * (view.xmax - view.xmin); }
+  function pxToY(py) { return view.ymax - (py / H) * (view.ymax - view.ymin); }
+
+  /* ---------------- nice tick step ---------------- */
+  function niceStep(raw) {
+    if (!(raw > 0) || !isFinite(raw)) return 1;
+    var exp = Math.floor(Math.log10(raw)), f = raw / Math.pow(10, exp), nf;
+    if (f < 1.5) nf = 1; else if (f < 3) nf = 2; else if (f < 7) nf = 5; else nf = 10;
+    return nf * Math.pow(10, exp);
+  }
+  function fmtNum(v) {
+    if (v === 0) return "0";
+    var a = Math.abs(v);
+    if (a < 1e-4 || a >= 1e5) return v.toExponential(1).replace("e+", "e");
+    return String(parseFloat(v.toPrecision(8)));
+  }
+
+  /* ---------------- canvas sizing (devicePixelRatio-aware) ---------------- */
+  function resize() {
+    var r = host.getBoundingClientRect();
+    W = Math.max(20, Math.floor(r.width));
+    H = Math.max(20, Math.floor(r.height));
+    var dpr = window.devicePixelRatio || 1;
+    canvas.width = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width = W + "px";
+    canvas.style.height = H + "px";
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    requestDraw();
+  }
+
+  function requestDraw() {
+    if (rafPending) return;
+    rafPending = true;
+    requestAnimationFrame(function () { rafPending = false; draw(); });
+  }
+
+  /* ---------------- grid + axes ---------------- */
+  function drawGrid(c) {
+    var xr = view.xmax - view.xmin, yr = view.ymax - view.ymin;
+    var xStep = niceStep(xr / (W / 90)), yStep = niceStep(yr / (H / 70));
+    var x0 = Math.ceil(view.xmin / xStep) * xStep;
+    var y0 = Math.ceil(view.ymin / yStep) * yStep;
+    var i, px, py, v;
+
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = c.grid;
+    ctx.beginPath();
+    for (i = 0, v = x0; v <= view.xmax + xStep * 0.5 && i < 400; v += xStep, i++) {
+      px = Math.round(xToPx(v)) + 0.5;
+      ctx.moveTo(px, 0); ctx.lineTo(px, H);
+    }
+    for (i = 0, v = y0; v <= view.ymax + yStep * 0.5 && i < 400; v += yStep, i++) {
+      py = Math.round(yToPx(v)) + 0.5;
+      ctx.moveTo(0, py); ctx.lineTo(W, py);
+    }
+    ctx.stroke();
+
+    // axes
+    var ax = xToPx(0), ay = yToPx(0);
+    ctx.strokeStyle = c.axis;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    if (ay >= 0 && ay <= H) { ctx.moveTo(0, Math.round(ay) + 0.5); ctx.lineTo(W, Math.round(ay) + 0.5); }
+    if (ax >= 0 && ax <= W) { ctx.moveTo(Math.round(ax) + 0.5, 0); ctx.lineTo(Math.round(ax) + 0.5, H); }
+    ctx.stroke();
+
+    // tick labels
+    ctx.fillStyle = c.muted;
+    ctx.font = '11px "IBM Plex Mono", monospace';
+    var labelY = Math.min(Math.max(ay + 14, 12), H - 4);
+    ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+    for (i = 0, v = x0; v <= view.xmax + xStep * 0.5 && i < 400; v += xStep, i++) {
+      if (Math.abs(v) < xStep * 0.5) continue;
+      px = xToPx(v);
+      if (px < 14 || px > W - 6) continue;
+      ctx.fillText(fmtNum(v), px, labelY);
+    }
+    var labelX = Math.min(Math.max(ax - 7, 4), W - 4);
+    ctx.textAlign = "right"; ctx.textBaseline = "middle";
+    for (i = 0, v = y0; v <= view.ymax + yStep * 0.5 && i < 400; v += yStep, i++) {
+      if (Math.abs(v) < yStep * 0.5) continue;
+      py = yToPx(v);
+      if (py < 8 || py > H - 8) continue;
+      ctx.fillText(fmtNum(v), labelX, py);
+    }
+    // origin
+    if (ax >= 0 && ax <= W && ay >= 0 && ay <= H) {
+      ctx.textAlign = "right"; ctx.textBaseline = "alphabetic";
+      ctx.fillText("0", Math.min(Math.max(ax - 6, 8), W - 4), Math.min(Math.max(ay + 13, 12), H - 4));
+    }
+  }
+
+  /* ---------------- plot one curve with discontinuity breaks ---------------- */
+  function plotFn(fn, color, dashed) {
+    var breakGap = H * 2.2;   // px jump above this = asymptote / discontinuity
+    var step = 1;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = dashed ? 1.3 : 2;
+    ctx.setLineDash(dashed ? [5, 5] : []);
+    ctx.globalAlpha = dashed ? 0.7 : 1;
+    ctx.lineJoin = "round"; ctx.lineCap = "round";
+    ctx.beginPath();
+    var started = false, lastPy = 0;
+    for (var px = 0; px <= W; px += step) {
+      var wx = pxToX(px);
+      var wy;
+      try { wy = fn(wx); } catch (e) { wy = NaN; }
+      if (typeof wy !== "number" || !isFinite(wy)) { started = false; continue; }
+      var py = yToPx(wy);
+      if (!started) { ctx.moveTo(px, py); started = true; }
+      else if (Math.abs(py - lastPy) > breakGap) { ctx.moveTo(px, py); }
+      else { ctx.lineTo(px, py); }
+      lastPy = py;
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
+
+  function derivOf(fn) {
+    var h = (view.xmax - view.xmin) / W * 0.6;
+    return function (x) { return (fn(x + h) - fn(x - h)) / (2 * h); };
+  }
+
+  /* ---------------- crosshair + readout ---------------- */
+  function drawCrosshair(c) {
+    if (!mouse.inside) { readoutEl.style.display = "none"; return; }
+    var px = mouse.px;
+    var wx = pxToX(px);
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = c.muted;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(Math.round(px) + 0.5, 0); ctx.lineTo(Math.round(px) + 0.5, H);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    var rows = "";
+    var active = curves.filter(function (cu) { return cu.fn && cu.visible; });
+    for (var i = 0; i < active.length; i++) {
+      var cu = active[i], wy, ok = true;
+      try { wy = cu.fn.at(wx); } catch (e) { ok = false; }
+      if (ok && typeof wy === "number" && isFinite(wy)) {
+        var py = yToPx(wy);
+        if (py >= -4 && py <= H + 4) {
+          ctx.beginPath();
+          ctx.fillStyle = cu.color;
+          ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.lineWidth = 1.5; ctx.strokeStyle = c.card;
+          ctx.stroke();
+        }
+        rows += '<div class="rrow"><span class="dot" style="background:' + cu.color + '"></span><span class="rval">' + fmtNum(wy) + "</span></div>";
+      } else {
+        rows += '<div class="rrow"><span class="dot" style="background:' + cu.color + '"></span><span class="rval nan">undefined</span></div>';
+      }
+    }
+    ctx.restore();
+
+    if (!active.length) { readoutEl.style.display = "none"; return; }
+    readoutEl.innerHTML = '<div class="rx">x = <b>' + fmtNum(wx) + "</b></div>" + rows;
+    readoutEl.style.display = "block";
+  }
+
+  /* ---------------- master draw ---------------- */
+  function draw() {
+    var c = themeColors();
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = c.card;
+    ctx.fillRect(0, 0, W, H);
+    drawGrid(c);
+    for (var i = 0; i < curves.length; i++) {
+      var cu = curves[i];
+      if (!cu.fn || !cu.visible) continue;
+      if (cu.deriv) plotFn(derivOf(cu.fn.eval), cu.color, true);
+      plotFn(function (fn) { return function (x) { return fn.eval(x); }; }(cu.fn), cu.color, false);
+    }
+    drawCrosshair(c);
+    rangeReadEl.textContent = "x [" + fmtNum(view.xmin) + ", " + fmtNum(view.xmax) + "]  y [" + fmtNum(view.ymin) + ", " + fmtNum(view.ymax) + "]";
+  }
+
+  /* ---------------- auto-fit y to visible curves ---------------- */
+  function autoFit() {
+    var active = curves.filter(function (cu) { return cu.fn && cu.visible; });
+    if (!active.length) { view.ymin = -6.5; view.ymax = 6.5; requestDraw(); return; }
+    var ys = [];
+    for (var px = 0; px <= W; px += 2) {
+      var wx = pxToX(px);
+      for (var i = 0; i < active.length; i++) {
+        var y;
+        try { y = active[i].fn.eval(wx); } catch (e) { continue; }
+        if (typeof y === "number" && isFinite(y)) ys.push(y);
+      }
+    }
+    if (!ys.length) { view.ymin = -6.5; view.ymax = 6.5; requestDraw(); return; }
+    ys.sort(function (a, b) { return a - b; });
+    var lo = ys[Math.floor(ys.length * 0.02)];
+    var hi = ys[Math.floor(ys.length * 0.98)];
+    if (!(hi > lo)) { lo = ys[0]; hi = ys[ys.length - 1]; }
+    if (!(hi > lo)) { lo -= 1; hi += 1; }
+    var pad = (hi - lo) * 0.12;
+    view.ymin = lo - pad; view.ymax = hi + pad;
+    requestDraw();
+  }
+
+  function resetView() {
+    view.xmin = -10; view.xmax = 10;
+    autoFit();
+  }
+
+  function zoomAt(px, py, factor) {
+    var wx = pxToX(px), wy = pxToY(py);
+    var nxr = (view.xmax - view.xmin) * factor, nyr = (view.ymax - view.ymin) * factor;
+    var fx = px / W, fy = py / H;
+    view.xmin = wx - fx * nxr; view.xmax = wx + (1 - fx) * nxr;
+    view.ymax = wy + fy * nyr; view.ymin = view.ymax - nyr;
+    requestDraw();
+  }
+
+  /* ---------------- curve model + rows ---------------- */
+  function compileCurve(cu) {
+    var s = cu.expr.trim();
+    if (!s) { cu.fn = null; cu.error = ""; return; }
+    try { cu.fn = compile(s); cu.error = ""; }
+    catch (e) { cu.fn = null; cu.error = e.message || String(e); }
+  }
+
+  function buildRow(cu) {
+    var row = document.createElement("div");
+    row.className = "curve";
+    row.innerHTML =
+      '<div class="curve-main">' +
+        '<input type="color" class="swatch" value="' + cu.color + '" title="Curve color" aria-label="Curve color">' +
+        '<span class="fx mono">ƒ=</span>' +
+        '<input class="expr" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="e.g. sin(x)*x" value="' + escapeAttr(cu.expr) + '">' +
+        '<button class="iconbtn deriv" title="Toggle derivative overlay f′(x)" aria-label="Toggle derivative">f′</button>' +
+        '<button class="iconbtn vis on" title="Show / hide" aria-label="Show or hide">' + ICON.eye + '</button>' +
+        '<button class="iconbtn danger rm" title="Remove" aria-label="Remove">' + ICON.trash + '</button>' +
+      '</div>' +
+      '<div class="err"></div>';
+
+    var colorEl = row.querySelector(".swatch");
+    var exprEl = row.querySelector(".expr");
+    var derivEl = row.querySelector(".deriv");
+    var visEl = row.querySelector(".vis");
+    var rmEl = row.querySelector(".rm");
+    var errEl = row.querySelector(".err");
+
+    colorEl.style.background = cu.color;
+    colorEl.addEventListener("input", function () {
+      cu.color = colorEl.value; colorEl.style.background = cu.color; requestDraw();
+    });
+    exprEl.addEventListener("input", function () {
+      cu.expr = exprEl.value; compileCurve(cu); reflectError(); requestDraw();
+    });
+    derivEl.addEventListener("click", function () {
+      cu.deriv = !cu.deriv; derivEl.classList.toggle("on", cu.deriv); requestDraw();
+    });
+    visEl.addEventListener("click", function () {
+      cu.visible = !cu.visible;
+      visEl.classList.toggle("on", cu.visible);
+      visEl.innerHTML = cu.visible ? ICON.eye : ICON.eyeoff;
+      requestDraw();
+    });
+    rmEl.addEventListener("click", function () { removeCurve(cu.id); });
+
+    function reflectError() {
+      var bad = !!cu.error;
+      row.classList.toggle("has-error", bad);
+      errEl.textContent = cu.error || "";
+    }
+    cu._reflect = reflectError;
+    cu._el = row;
+    reflectError();
+    return row;
+  }
+
+  function escapeAttr(s) { return String(s).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;"); }
+
+  function addCurve(expr, opts) {
+    opts = opts || {};
+    var cu = {
+      id: nextId++,
+      expr: expr || "",
+      color: opts.color || PALETTE[curves.length % PALETTE.length],
+      visible: true,
+      deriv: false,
+      fn: null,
+      error: ""
+    };
+    compileCurve(cu);
+    curves.push(cu);
+    curvesEl.appendChild(buildRow(cu));
+    return cu;
+  }
+
+  function removeCurve(id) {
+    var idx = -1;
+    for (var i = 0; i < curves.length; i++) if (curves[i].id === id) { idx = i; break; }
+    if (idx < 0) return;
+    var el = curves[idx]._el;
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    curves.splice(idx, 1);
+    requestDraw();
+  }
+
+  /* ---------------- sample chips ---------------- */
+  (function () {
+    var wrap = document.getElementById("chips");
+    SAMPLES.forEach(function (s) {
+      var b = document.createElement("button");
+      b.className = "chip";
+      b.textContent = s;
+      b.addEventListener("click", function () {
+        addCurve(s);
+        var last = curves[curves.length - 1];
+        if (last._reflect) last._reflect();
+        requestDraw();
+      });
+      wrap.appendChild(b);
+    });
+  })();
+
+  /* ---------------- pointer: pan + zoom ---------------- */
+  function localPos(ev) {
+    var r = canvas.getBoundingClientRect();
+    return { px: ev.clientX - r.left, py: ev.clientY - r.top };
+  }
+  canvas.addEventListener("pointerdown", function (ev) {
+    canvas.setPointerCapture(ev.pointerId);
+    var p = localPos(ev);
+    drag = { px: p.px, py: p.py, xmin: view.xmin, xmax: view.xmax, ymin: view.ymin, ymax: view.ymax };
+    canvas.style.cursor = "grabbing";
+  });
+  canvas.addEventListener("pointermove", function (ev) {
+    var p = localPos(ev);
+    mouse.px = p.px; mouse.py = p.py; mouse.inside = true;
+    if (drag) {
+      var dx = (p.px - drag.px) / W * (drag.xmax - drag.xmin);
+      var dy = (p.py - drag.py) / H * (drag.ymax - drag.ymin);
+      view.xmin = drag.xmin - dx; view.xmax = drag.xmax - dx;
+      view.ymin = drag.ymin + dy; view.ymax = drag.ymax + dy;
+    }
+    requestDraw();
+  });
+  function endDrag(ev) {
+    if (drag) { drag = null; canvas.style.cursor = "crosshair"; }
+    if (ev && ev.pointerId != null && canvas.hasPointerCapture && canvas.hasPointerCapture(ev.pointerId)) {
+      try { canvas.releasePointerCapture(ev.pointerId); } catch (e) {}
+    }
+  }
+  canvas.addEventListener("pointerup", endDrag);
+  canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("pointerleave", function () { mouse.inside = false; requestDraw(); });
+  canvas.addEventListener("wheel", function (ev) {
+    ev.preventDefault();
+    var p = localPos(ev);
+    var factor = ev.deltaY > 0 ? 1.12 : 1 / 1.12;
+    zoomAt(p.px, p.py, factor);
+  }, { passive: false });
+
+  /* ---------------- toolbar ---------------- */
+  document.getElementById("add").addEventListener("click", function () { addCurve(""); });
+  document.getElementById("fit").addEventListener("click", autoFit);
+  document.getElementById("reset").addEventListener("click", resetView);
+  document.getElementById("zoomin").addEventListener("click", function () { zoomAt(W / 2, H / 2, 1 / 1.3); });
+  document.getElementById("zoomout").addEventListener("click", function () { zoomAt(W / 2, H / 2, 1.3); });
+  document.getElementById("png").addEventListener("click", function () {
+    var url = canvas.toDataURL("image/png");
+    var a = document.createElement("a");
+    a.href = url; a.download = "function-plot.png";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  /* ---------------- init ---------------- */
+  window.addEventListener("resize", resize);
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(host);
+  if (window.matchMedia) {
+    try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", requestDraw); }
+    catch (e) {}
+  }
+
+  addCurve("sin(x)*x");
+  addCurve("cos(x)");
+  resize();
+  autoFit();
+})();
+</script>
+</body>
+</html>

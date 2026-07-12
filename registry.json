@@ -898,6 +898,30 @@
         "version": "",
         "url": "https://www.eff.org/dice"
       }
+    },
+    {
+      "slug": "function-plotter",
+      "name": "Function Plotter",
+      "tagline": "Zero-dependency graphing calculator with a safe expression parser.",
+      "description": "Plot one or more expressions in x on a crisp, pannable, zoomable canvas. A hand-built shunting-yard parser evaluates + - * / ^ %, pi/e, and the usual functions (sin, cos, exp, log, sqrt, …) with no eval or Function on user input. Per-curve colors and toggles, hover crosshair readout, optional numeric derivative overlay, discontinuity handling, and PNG export.",
+      "path": "tools/function-plotter/",
+      "tags": [
+        "math",
+        "graph",
+        "plot",
+        "function",
+        "calculator"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#c24bff",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
