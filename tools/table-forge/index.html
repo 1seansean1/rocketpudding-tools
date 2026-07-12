@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Table Forge</title>
+<meta name="description" content="Zero-dependency visual table editor and multi-format exporter. Build a table in a spreadsheet-like grid — add, remove, reorder and align columns and rows, edit inline, sort, drag to reorder — then import from CSV/TSV/Markdown/JSON and export live to Markdown, CSV, TSV, JSON, HTML, ASCII box-drawing and SQL INSERT. Entirely in your browser, no libraries.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c9a227'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #c9a227;
+    --accent-soft: rgba(201, 162, 39, 0.12);
+    --accent-ink: #16171a;
+    --ok: #2e8b57;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #c9a227;
+      --accent-soft: rgba(201, 162, 39, 0.18);
+      --accent-ink: #16171a;
+      --ok: #5cbf82;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: var(--accent-ink); }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 26px 24px 56px;
+  }
+  section { margin-top: 28px; }
+  section:first-child { margin-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); flex: none; }
+  .section-head .stat { margin-left: auto; text-transform: none; letter-spacing: 0.04em; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  /* ---- generic buttons ---- */
+  .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 7px 12px;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .btn.primary:hover { color: var(--accent-ink); filter: brightness(1.05); }
+  .btn svg { pointer-events: none; }
+  .btn.on { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+  .toolbar .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 2px; }
+  .toolbar .group-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-right: -2px;
+  }
+
+  /* ---- toggle switch ---- */
+  .switch { display: inline-flex; align-items: center; gap: 8px; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); cursor: pointer; user-select: none; }
+  .switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .switch .track { width: 34px; height: 19px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; flex: none; }
+  .switch .track::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: var(--card); transition: transform .15s; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+  .switch input:checked + .track { background: var(--accent); }
+  .switch input:checked + .track::after { transform: translateX(15px); }
+  .switch input:focus-visible + .track { box-shadow: 0 0 0 2px var(--accent-soft); }
+
+  /* ---- grid ---- */
+  .grid-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--card); }
+  table.grid { border-collapse: collapse; font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  .grid th, .grid td { border: 1px solid var(--line); padding: 0; vertical-align: middle; }
+  .grid .corner { width: 46px; min-width: 46px; background: var(--bg); text-align: center; color: var(--muted); font-size: 11px; }
+  .grid .col-h { min-width: 132px; background: var(--bg); vertical-align: top; }
+  .grid.no-header .col-name { opacity: .5; }
+  .col-ctrls { display: flex; align-items: center; gap: 1px; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+  .col-ctrls .drag { cursor: grab; color: var(--muted); padding: 3px 2px; display: inline-flex; }
+  .col-ctrls .drag:active { cursor: grabbing; }
+  .col-ctrls .spacer { flex: 1; }
+  .icon-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border: none; background: transparent; color: var(--muted);
+    border-radius: 5px; cursor: pointer;
+  }
+  .icon-btn:hover { background: var(--accent-soft); color: var(--accent); }
+  .icon-btn.active { color: var(--accent); }
+  .icon-btn.danger:hover { color: var(--err); background: var(--err-bg); }
+  .col-name { width: 100%; border: none; background: transparent; color: var(--fg); font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 13px; padding: 7px 9px; outline: none; }
+  .col-name:focus { background: var(--accent-soft); }
+  .gutter { width: 46px; min-width: 46px; background: var(--bg); text-align: center; color: var(--muted); user-select: none; }
+  .gutter .g-inner { display: flex; align-items: center; justify-content: center; gap: 2px; }
+  .gutter .drag { cursor: grab; color: var(--muted); display: inline-flex; }
+  .gutter .drag:active { cursor: grabbing; }
+  .gutter .rownum { font-size: 11px; min-width: 14px; text-align: right; }
+  .cell input { width: 100%; min-width: 108px; border: none; background: transparent; color: var(--fg); font-family: "IBM Plex Mono", monospace; font-size: 13px; padding: 7px 9px; outline: none; }
+  .cell input:focus { background: var(--accent-soft); box-shadow: inset 0 0 0 2px var(--accent); }
+  .rowend { width: 34px; min-width: 34px; background: var(--bg); text-align: center; }
+  .grid tr.drop-above td, .grid tr.drop-above th { box-shadow: inset 0 2px 0 var(--accent); }
+  .grid tr.drop-below td { box-shadow: inset 0 -2px 0 var(--accent); }
+  .grid th.drop-left { box-shadow: inset 2px 0 0 var(--accent); }
+  .grid th.drop-right { box-shadow: inset -2px 0 0 var(--accent); }
+  .grid-empty { padding: 34px 18px; text-align: center; color: var(--muted); font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+
+  /* ---- import ---- */
+  .import-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 12px; }
+  select.sel {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; padding: 7px 10px;
+    background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; outline: none;
+  }
+  select.sel:focus { border-color: var(--accent); }
+  textarea.io {
+    width: 100%; min-height: 120px; resize: vertical;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; line-height: 1.5;
+    padding: 11px 13px; background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 8px; outline: none; white-space: pre;
+  }
+  textarea.io:focus { border-color: var(--accent); }
+  .msg { font-family: "IBM Plex Mono", monospace; font-size: 12px; margin-top: 8px; min-height: 16px; }
+  .msg.err { color: var(--err); }
+  .msg.ok { color: var(--ok); }
+
+  /* ---- export ---- */
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .tab {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.04em;
+    padding: 7px 13px; background: transparent; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+  }
+  .tab:hover { color: var(--accent); border-color: var(--accent); }
+  .tab.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .export-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .export-bar .spacer { flex: 1; }
+  .sql-name { display: none; align-items: center; gap: 8px; font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .sql-name.show { display: inline-flex; }
+  .sql-name input { font-family: "IBM Plex Mono", monospace; font-size: 12px; padding: 6px 9px; background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 7px; outline: none; width: 150px; }
+  .sql-name input:focus { border-color: var(--accent); }
+  pre.preview {
+    margin: 0; overflow-x: auto; background: var(--bg); border: 1px solid var(--line);
+    border-radius: 8px; padding: 14px 15px; font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px; line-height: 1.55; color: var(--fg); max-height: 460px; overflow-y: auto;
+    white-space: pre; tab-size: 4;
+  }
+  pre.preview:empty::before { content: "empty table"; color: var(--muted); }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 18px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 640px) {
+    .toolbar .group-label { display: none; }
+    header h1 { letter-spacing: 0.16em; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Table Forge</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <!-- ================= GRID ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <rect x="2" y="2" width="12" height="12" rx="1.5"></rect><path d="M2 6.5h12M2 10.5h12M6.5 2v12"></path>
+      </svg>
+      Grid &mdash; edit inline, drag to reorder, click a header to sort
+      <span class="stat" id="grid-stat"></span>
+    </div>
+    <div class="card">
+      <div class="toolbar" id="toolbar">
+        <button class="btn primary" data-tb="add-row" title="Add a row"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3v10M3 8h10"></path></svg>Row</button>
+        <button class="btn primary" data-tb="add-col" title="Add a column"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 3v10M3 8h10"></path></svg>Column</button>
+        <div class="sep" aria-hidden="true"></div>
+        <span class="group-label">fill</span>
+        <button class="btn" data-tb="fill-num" title="Fill the active column with 1..N">1&hellip;N</button>
+        <button class="btn" data-tb="fill-blank" title="Clear the active column">blank col</button>
+        <div class="sep" aria-hidden="true"></div>
+        <label class="switch" title="Include a header row in exports">
+          <input type="checkbox" id="header-toggle" checked>
+          <span class="track" aria-hidden="true"></span>
+          <span>header row</span>
+        </label>
+        <div class="sep" aria-hidden="true"></div>
+        <button class="btn" data-tb="sample" title="Load a sample table"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5l1.6 3.4 3.7.4-2.8 2.5.8 3.7L8 11l-3.3 2 .8-3.7L2.7 6.8l3.7-.5z"></path></svg>Sample</button>
+        <button class="btn" data-tb="clear" title="Clear to a blank grid"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M5.5 6v5M8 6v5M10.5 6v5M3 4h10M6 4V2.6h4V4M4.2 4l.6 9.2a1 1 0 0 0 1 .8h4.4a1 1 0 0 0 1-.8L11.8 4"></path></svg>Clear</button>
+      </div>
+      <div class="grid-wrap">
+        <table class="grid" id="grid" aria-label="Editable table"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= IMPORT ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M8 2v7M5 6.5l3 3 3-3M3 12.5h10"></path>
+      </svg>
+      Import &mdash; paste CSV / TSV / Markdown table / JSON
+    </div>
+    <div class="card">
+      <div class="import-controls">
+        <label style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--muted)">format
+          <select class="sel" id="import-format" aria-label="Import format">
+            <option value="auto">auto-detect</option>
+            <option value="csv">CSV</option>
+            <option value="tsv">TSV</option>
+            <option value="markdown">Markdown</option>
+            <option value="json">JSON</option>
+          </select>
+        </label>
+        <label class="switch" title="Treat the first CSV/TSV row as column headers">
+          <input type="checkbox" id="import-header" checked>
+          <span class="track" aria-hidden="true"></span>
+          <span>first row is header</span>
+        </label>
+        <button class="btn primary" data-tb="import" style="margin-left:auto">Import &rarr; grid</button>
+      </div>
+      <textarea class="io" id="import-text" spellcheck="false" placeholder="Paste data here, e.g.&#10;name,role,years&#10;Ada,Engineer,7&#10;Grace,Admiral,40"></textarea>
+      <div class="msg" id="import-msg" role="status"></div>
+    </div>
+  </section>
+
+  <!-- ================= EXPORT ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M8 13.5V6.5M5 9.5l3 3 3-3M3 3.5h10"></path>
+      </svg>
+      Export &mdash; live preview, copy, download
+    </div>
+    <div class="card">
+      <div class="tabs" id="export-tabs" role="tablist">
+        <button class="tab on" data-fmt="md" role="tab">Markdown</button>
+        <button class="tab" data-fmt="csv" role="tab">CSV</button>
+        <button class="tab" data-fmt="tsv" role="tab">TSV</button>
+        <button class="tab" data-fmt="json" role="tab">JSON</button>
+        <button class="tab" data-fmt="html" role="tab">HTML</button>
+        <button class="tab" data-fmt="ascii" role="tab">ASCII</button>
+        <button class="tab" data-fmt="sql" role="tab">SQL</button>
+      </div>
+      <div class="export-bar">
+        <span class="sql-name" id="sql-name">
+          table
+          <input type="text" id="sql-table" value="my_table" spellcheck="false" aria-label="SQL table name">
+        </span>
+        <span class="spacer"></span>
+        <button class="btn" id="export-copy"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>Copy</button>
+        <button class="btn" id="export-download"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2.5v7M5 7l3 3 3-3M3 13h10"></path></svg>Download</button>
+      </div>
+      <pre class="preview" id="export-pre" tabindex="0" aria-live="polite"></pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>zero dependencies</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =====================================================================
+   * CORE-START  — pure, DOM-free transforms (parse / build / format).
+   * This block is self-contained and is unit-tested from Node.
+   * ===================================================================== */
+  /*CORE-START*/
+  function tfEscHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+  function tfRepeat(ch, n) { return n > 0 ? new Array(n + 1).join(ch) : ""; }
+  function tfAlignPad(s, w, align) {
+    s = String(s == null ? "" : s);
+    var pad = w - s.length; if (pad < 0) pad = 0;
+    if (align === "right") return tfRepeat(" ", pad) + s;
+    if (align === "center") { var l = Math.floor(pad / 2); return tfRepeat(" ", l) + s + tfRepeat(" ", pad - l); }
+    return s + tfRepeat(" ", pad); /* left / default */
+  }
+
+  /* ---- RFC-4180-style delimited parser (handles quotes for CSV & TSV) ---- */
+  function tfParseDelimited(text, delim) {
+    var rows = [], row = [], field = "", i = 0, n = text.length, inQ = false;
+    while (i < n) {
+      var ch = text.charAt(i);
+      if (inQ) {
+        if (ch === '"') {
+          if (text.charAt(i + 1) === '"') { field += '"'; i += 2; continue; }
+          inQ = false; i++; continue;
+        }
+        field += ch; i++; continue;
+      }
+      if (ch === '"') { inQ = true; i++; continue; }
+      if (ch === delim) { row.push(field); field = ""; i++; continue; }
+      if (ch === "\r") { i++; continue; }
+      if (ch === "\n") { row.push(field); rows.push(row); row = []; field = ""; i++; continue; }
+      field += ch; i++;
+    }
+    row.push(field); rows.push(row);
+    if (rows.length && rows[rows.length - 1].length === 1 && rows[rows.length - 1][0] === "") rows.pop();
+    return rows;
+  }
+
+  /* ---- build a {columns, rows} grid from a 2-D array ---- */
+  function tfGridFromDelimited(rows2d, hasHeader) {
+    if (!rows2d.length) return { columns: [], rows: [] };
+    var maxc = 0, i;
+    for (i = 0; i < rows2d.length; i++) if (rows2d[i].length > maxc) maxc = rows2d[i].length;
+    if (maxc === 0) maxc = 1;
+    var columns = [], dataRows;
+    if (hasHeader) {
+      var head = rows2d[0];
+      for (i = 0; i < maxc; i++) columns.push({ name: (head[i] != null && head[i] !== "") ? head[i] : ("col" + (i + 1)), align: "left" });
+      dataRows = rows2d.slice(1);
+    } else {
+      for (i = 0; i < maxc; i++) columns.push({ name: "col" + (i + 1), align: "left" });
+      dataRows = rows2d;
+    }
+    var rows = dataRows.map(function (r) {
+      var rr = []; for (var j = 0; j < maxc; j++) rr.push(r[j] != null ? String(r[j]) : ""); return rr;
+    });
+    return { columns: columns, rows: rows };
+  }
+
+  /* ---- Markdown table parser ---- */
+  function tfSplitMdRow(l) {
+    l = l.replace(/^\s+|\s+$/g, "");
+    if (l.charAt(0) === "|") l = l.slice(1);
+    if (l.charAt(l.length - 1) === "|") l = l.slice(0, -1);
+    var out = [], cur = "", j;
+    for (j = 0; j < l.length; j++) {
+      var ch = l.charAt(j);
+      if (ch === "\\" && l.charAt(j + 1) === "|") { cur += "|"; j++; continue; }
+      if (ch === "|") { out.push(cur.replace(/^\s+|\s+$/g, "")); cur = ""; continue; }
+      cur += ch;
+    }
+    out.push(cur.replace(/^\s+|\s+$/g, ""));
+    return out;
+  }
+  function tfParseMarkdownTable(text) {
+    var lines = text.replace(/\r/g, "").split("\n").filter(function (l) { return l.replace(/\s/g, "") !== ""; });
+    if (lines.length < 2) return null;
+    var sepIdx = -1, k;
+    for (k = 1; k < lines.length; k++) {
+      if (/-/.test(lines[k]) && /^\s*\|?[\s:\-|]+\|?\s*$/.test(lines[k])) { sepIdx = k; break; }
+    }
+    if (sepIdx < 1) return null;
+    var headers = tfSplitMdRow(lines[sepIdx - 1]);
+    var seps = tfSplitMdRow(lines[sepIdx]);
+    var aligns = seps.map(function (s) {
+      var L = s.charAt(0) === ":", R = s.charAt(s.length - 1) === ":";
+      if (L && R) return "center"; if (R) return "right"; return "left";
+    });
+    var columns = headers.map(function (h, i) { return { name: h, align: aligns[i] || "left" }; });
+    var rows = lines.slice(sepIdx + 1).map(function (l) {
+      var c = tfSplitMdRow(l), rr = [];
+      for (var i = 0; i < columns.length; i++) rr.push(c[i] != null ? c[i] : "");
+      return rr;
+    });
+    return { columns: columns, rows: rows };
+  }
+
+  /* ---- JSON parser (array of objects, or array of arrays, or single object) ---- */
+  function tfParseJSONTable(text) {
+    var data = JSON.parse(text);
+    if (!Array.isArray(data)) {
+      if (data && typeof data === "object") data = [data]; else return null;
+    }
+    if (!data.length) return { columns: [], rows: [] };
+    var first = data[0];
+    if (first && typeof first === "object" && !Array.isArray(first)) {
+      var keys = [], seen = {};
+      data.forEach(function (o) {
+        if (o && typeof o === "object" && !Array.isArray(o)) {
+          Object.keys(o).forEach(function (kk) { if (!seen[kk]) { seen[kk] = 1; keys.push(kk); } });
+        }
+      });
+      var columns = keys.map(function (kk) { return { name: kk, align: "left" }; });
+      var rows = data.map(function (o) {
+        return keys.map(function (kk) {
+          var v = (o && typeof o === "object") ? o[kk] : "";
+          if (v == null) return "";
+          return (typeof v === "object") ? JSON.stringify(v) : String(v);
+        });
+      });
+      return { columns: columns, rows: rows };
+    }
+    if (Array.isArray(first)) {
+      var maxc = 0;
+      data.forEach(function (a) { if (Array.isArray(a) && a.length > maxc) maxc = a.length; });
+      var cols2 = []; for (var i = 0; i < maxc; i++) cols2.push({ name: "col" + (i + 1), align: "left" });
+      var rows2 = data.map(function (a) {
+        var rr = []; for (var j = 0; j < maxc; j++) { var v = Array.isArray(a) ? a[j] : ""; rr.push(v == null ? "" : (typeof v === "object" ? JSON.stringify(v) : String(v))); }
+        return rr;
+      });
+      return { columns: cols2, rows: rows2 };
+    }
+    /* array of scalars -> single column */
+    var rows3 = data.map(function (v) { return [v == null ? "" : String(v)]; });
+    return { columns: [{ name: "value", align: "left" }], rows: rows3 };
+  }
+
+  /* ============================ FORMATTERS ============================ */
+
+  function tfToMarkdown(columns, rows, header) {
+    if (!columns.length) return "";
+    var esc = function (s) { return String(s == null ? "" : s).replace(/\|/g, "\\|").replace(/\r?\n/g, "<br>"); };
+    var heads = columns.map(function (c) { return header ? esc(c.name) : ""; });
+    var data = rows.map(function (r) { return columns.map(function (c, i) { return esc(r[i]); }); });
+    var widths = columns.map(function (c, i) {
+      var w = heads[i].length;
+      for (var j = 0; j < data.length; j++) if (data[j][i].length > w) w = data[j][i].length;
+      return Math.max(w, 3);
+    });
+    function sep(align, w) {
+      if (align === "right") return tfRepeat("-", w - 1) + ":";
+      if (align === "center") return ":" + tfRepeat("-", w - 2) + ":";
+      return ":" + tfRepeat("-", w - 1); /* left */
+    }
+    var lines = [];
+    lines.push("| " + columns.map(function (c, i) { return tfAlignPad(heads[i], widths[i], c.align); }).join(" | ") + " |");
+    lines.push("| " + columns.map(function (c, i) { return sep(c.align, widths[i]); }).join(" | ") + " |");
+    data.forEach(function (r) {
+      lines.push("| " + columns.map(function (c, i) { return tfAlignPad(r[i], widths[i], c.align); }).join(" | ") + " |");
+    });
+    return lines.join("\n");
+  }
+
+  function tfToDelimited(columns, rows, header, delim) {
+    function cell(v) {
+      v = String(v == null ? "" : v);
+      if (delim === "\t") return v.replace(/\t/g, "    ").replace(/\r?\n/g, " ");
+      if (/[",\r\n]/.test(v)) return '"' + v.replace(/"/g, '""') + '"';
+      return v;
+    }
+    var lines = [];
+    if (header) lines.push(columns.map(function (c) { return cell(c.name); }).join(delim));
+    rows.forEach(function (r) { lines.push(columns.map(function (c, i) { return cell(r[i]); }).join(delim)); });
+    return lines.join("\n");
+  }
+
+  function tfGridToJSON(columns, rows, header) {
+    var seen = {}, keys = columns.map(function (c, i) {
+      var base = (header && String(c.name).replace(/\s/g, "") !== "") ? String(c.name) : ("col" + (i + 1));
+      var k = base, n = 1;
+      while (Object.prototype.hasOwnProperty.call(seen, k)) { k = base + "_" + (++n); }
+      seen[k] = 1; return k;
+    });
+    return rows.map(function (r) {
+      var o = {}; keys.forEach(function (k, i) { o[k] = String(r[i] == null ? "" : r[i]); }); return o;
+    });
+  }
+
+  function tfToHtml(columns, rows, header) {
+    if (!columns.length) return "";
+    var out = ["<table>"];
+    if (header) {
+      out.push("  <thead>", "    <tr>");
+      columns.forEach(function (c) { out.push('      <th style="text-align:' + c.align + '">' + tfEscHtml(c.name) + "</th>"); });
+      out.push("    </tr>", "  </thead>");
+    }
+    out.push("  <tbody>");
+    rows.forEach(function (r) {
+      out.push("    <tr>");
+      columns.forEach(function (c, i) { out.push('      <td style="text-align:' + c.align + '">' + tfEscHtml(r[i]) + "</td>"); });
+      out.push("    </tr>");
+    });
+    out.push("  </tbody>", "</table>");
+    return out.join("\n");
+  }
+
+  function tfToAscii(columns, rows, header) {
+    if (!columns.length) return "";
+    var clean = function (s) { return String(s == null ? "" : s).replace(/\t/g, " ").replace(/\r?\n/g, " "); };
+    var heads = columns.map(function (c) { return clean(c.name); });
+    var data = rows.map(function (r) { return columns.map(function (c, i) { return clean(r[i]); }); });
+    var widths = columns.map(function (c, i) {
+      var w = header ? heads[i].length : 1;
+      for (var j = 0; j < data.length; j++) if (data[j][i].length > w) w = data[j][i].length;
+      return Math.max(w, 1);
+    });
+    function rule(l, m, r) { return l + widths.map(function (w) { return tfRepeat("─", w + 2); }).join(m) + r; }
+    function rowLine(cells) {
+      return "│" + cells.map(function (s, i) { return " " + tfAlignPad(s, widths[i], columns[i].align) + " "; }).join("│") + "│";
+    }
+    var out = [rule("┌", "┬", "┐")];
+    if (header) { out.push(rowLine(heads)); out.push(rule("├", "┼", "┤")); }
+    data.forEach(function (r) { out.push(rowLine(r)); });
+    out.push(rule("└", "┴", "┘"));
+    return out.join("\n");
+  }
+
+  function tfSqlIdent(name) {
+    name = String(name == null ? "" : name);
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(name)) return name;
+    return '"' + name.replace(/"/g, '""') + '"';
+  }
+  function tfSqlVal(v) {
+    v = String(v == null ? "" : v);
+    if (v === "") return "NULL";
+    if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(v)) return v;
+    return "'" + v.replace(/'/g, "''") + "'";
+  }
+  function tfToSQL(columns, rows, header, tableName) {
+    if (!columns.length) return "";
+    var idents = columns.map(function (c, i) {
+      return tfSqlIdent((header && String(c.name).replace(/\s/g, "") !== "") ? c.name : ("col" + (i + 1)));
+    });
+    var tbl = tfSqlIdent(String(tableName || "").replace(/\s/g, "") ? tableName : "my_table");
+    var head = "INSERT INTO " + tbl + " (" + idents.join(", ") + ") VALUES";
+    if (!rows.length) return head + ";  -- no data rows";
+    var vals = rows.map(function (r) {
+      return "  (" + columns.map(function (c, i) { return tfSqlVal(r[i]); }).join(", ") + ")";
+    });
+    return head + "\n" + vals.join(",\n") + ";";
+  }
+  /*CORE-END*/
+
+  /* Expose core for the Node self-test (harmless in the browser). */
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      tfParseDelimited: tfParseDelimited, tfGridFromDelimited: tfGridFromDelimited,
+      tfParseMarkdownTable: tfParseMarkdownTable, tfParseJSONTable: tfParseJSONTable,
+      tfToMarkdown: tfToMarkdown, tfToDelimited: tfToDelimited, tfGridToJSON: tfGridToJSON,
+      tfToHtml: tfToHtml, tfToAscii: tfToAscii, tfToSQL: tfToSQL
+    };
+  }
+
+  /* =====================================================================
+   * DOM layer
+   * ===================================================================== */
+  var $ = function (id) { return document.getElementById(id); };
+  var ICON_CHECK = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.2 3.2L13 5"></path></svg>';
+
+  var ALIGN_ICON = {
+    left: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 4h11M2.5 8h7M2.5 12h9"></path></svg>',
+    center: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 4h11M4.5 8h7M3.5 12h9"></path></svg>',
+    right: '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 4h11M6.5 8h7M4.5 12h9"></path></svg>'
+  };
+  var GRIP = '<svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><circle cx="6" cy="4" r="1.1"/><circle cx="10" cy="4" r="1.1"/><circle cx="6" cy="8" r="1.1"/><circle cx="10" cy="8" r="1.1"/><circle cx="6" cy="12" r="1.1"/><circle cx="10" cy="12" r="1.1"/></svg>';
+  var X_ICON = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4l8 8M12 4l-8 8"></path></svg>';
+  function sortIcon(dir) {
+    if (dir === 1) return '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 12V4M5 7l3-3 3 3"></path></svg>';
+    if (dir === 2) return '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 4v8M5 9l3 3 3-3"></path></svg>';
+    return '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M6 6l2-2 2 2M6 10l2 2 2-2"></path></svg>';
+  }
+
+  /* ---------------- state ---------------- */
+  var state = { columns: [], rows: [], header: true, sortCol: -1, sortDir: 0 };
+  var lastCell = { r: 0, c: 0 };
+  var currentFmt = "md";
+  var drag = null; /* {type:'col'|'row', index} */
+
+  function emptyCols(n) { var a = []; for (var i = 0; i < n; i++) a.push({ name: "Column " + (i + 1), align: "left" }); return a; }
+  function emptyRows(n, cols) { var a = []; for (var i = 0; i < n; i++) { var r = []; for (var j = 0; j < cols; j++) r.push(""); a.push(r); } return a; }
+
+  function loadSample() {
+    state.columns = [
+      { name: "Language", align: "left" },
+      { name: "First Release", align: "right" },
+      { name: "Paradigm", align: "left" },
+      { name: "Typing", align: "center" }
+    ];
+    state.rows = [
+      ["JavaScript", "1995", "Multi-paradigm", "Dynamic"],
+      ["Python", "1991", "Multi-paradigm", "Dynamic"],
+      ["Rust", "2010", "Systems", "Static"],
+      ["Go", "2009", "Concurrent", "Static"],
+      ["Haskell", "1990", "Functional", "Static"]
+    ];
+    state.header = true; state.sortCol = -1; state.sortDir = 0;
+    $("header-toggle").checked = true;
+  }
+  function loadBlank() {
+    state.columns = emptyCols(3);
+    state.rows = emptyRows(3, 3);
+    state.header = true; state.sortCol = -1; state.sortDir = 0;
+    $("header-toggle").checked = true;
+  }
+
+  function normalizeRowWidths() {
+    var w = state.columns.length;
+    state.rows.forEach(function (r) { while (r.length < w) r.push(""); r.length = w; });
+  }
+
+  /* ---------------- grid render ---------------- */
+  function renderGrid() {
+    normalizeRowWidths();
+    var g = $("grid");
+    g.className = "grid" + (state.header ? "" : " no-header");
+    var cols = state.columns, rows = state.rows;
+    if (!cols.length) {
+      g.innerHTML = '<tbody><tr><td class="grid-empty">No columns. Use “+ Column”, load the sample, or import data.</td></tr></tbody>';
+      updateStat(); return;
+    }
+    var html = "<thead><tr>";
+    html += '<th class="corner" title="row / column controls">&nbsp;</th>';
+    cols.forEach(function (c, ci) {
+      var dir = (state.sortCol === ci) ? state.sortDir : 0;
+      html += '<th class="col-h" data-c="' + ci + '">';
+      html += '<div class="col-ctrls">';
+      html += '<span class="drag" draggable="true" data-drag="col" data-c="' + ci + '" title="Drag to reorder column">' + GRIP + '</span>';
+      html += '<span class="spacer"></span>';
+      html += '<button class="icon-btn" data-act="align" data-c="' + ci + '" title="Alignment: ' + c.align + '">' + ALIGN_ICON[c.align] + '</button>';
+      html += '<button class="icon-btn' + (dir ? ' active' : '') + '" data-act="sort" data-c="' + ci + '" title="Sort by this column">' + sortIcon(dir) + '</button>';
+      html += '<button class="icon-btn danger" data-act="delcol" data-c="' + ci + '" title="Delete column">' + X_ICON + '</button>';
+      html += '</div>';
+      html += '<input class="col-name" data-c="' + ci + '" value="' + tfEscHtml(c.name) + '" spellcheck="false" aria-label="Column ' + (ci + 1) + ' name" style="text-align:' + c.align + '">';
+      html += '</th>';
+    });
+    html += '<th class="rowend">&nbsp;</th></tr></thead><tbody>';
+    rows.forEach(function (r, ri) {
+      html += '<tr data-r="' + ri + '">';
+      html += '<td class="gutter"><span class="g-inner"><span class="drag" draggable="true" data-drag="row" data-r="' + ri + '" title="Drag to reorder row">' + GRIP + '</span><span class="rownum">' + (ri + 1) + '</span></span></td>';
+      cols.forEach(function (c, ci) {
+        html += '<td class="cell"><input data-r="' + ri + '" data-c="' + ci + '" value="' + tfEscHtml(r[ci]) + '" spellcheck="false" style="text-align:' + c.align + '" aria-label="row ' + (ri + 1) + ' column ' + (ci + 1) + '"></td>';
+      });
+      html += '<td class="rowend"><button class="icon-btn danger" data-act="delrow" data-r="' + ri + '" title="Delete row">' + X_ICON + '</button></td>';
+      html += '</tr>';
+    });
+    html += "</tbody>";
+    g.innerHTML = html;
+    updateStat();
+  }
+
+  function updateStat() {
+    $("grid-stat").textContent = state.rows.length + (state.rows.length === 1 ? " row" : " rows") +
+      " × " + state.columns.length + (state.columns.length === 1 ? " col" : " cols");
+  }
+
+  /* ---------------- export preview ---------------- */
+  function exportFor(fmt) {
+    var c = state.columns, r = state.rows, h = state.header;
+    switch (fmt) {
+      case "md": return { text: tfToMarkdown(c, r, h), ext: "md", mime: "text/markdown" };
+      case "csv": return { text: tfToDelimited(c, r, h, ","), ext: "csv", mime: "text/csv" };
+      case "tsv": return { text: tfToDelimited(c, r, h, "\t"), ext: "tsv", mime: "text/tab-separated-values" };
+      case "json": return { text: JSON.stringify(tfGridToJSON(c, r, h), null, 2), ext: "json", mime: "application/json" };
+      case "html": return { text: tfToHtml(c, r, h), ext: "html", mime: "text/html" };
+      case "ascii": return { text: tfToAscii(c, r, h), ext: "txt", mime: "text/plain" };
+      case "sql": return { text: tfToSQL(c, r, h, $("sql-table").value), ext: "sql", mime: "application/sql" };
+    }
+    return { text: "", ext: "txt", mime: "text/plain" };
+  }
+  function renderPreview() {
+    $("export-pre").textContent = exportFor(currentFmt).text;
+  }
+
+  /* ---------------- helpers ---------------- */
+  function moveItem(arr, from, to) {
+    if (from === to || from < 0 || from >= arr.length) return;
+    var item = arr.splice(from, 1)[0];
+    arr.splice(to, 0, item);
+  }
+  function focusCell(r, c) {
+    if (c < 0 || c >= state.columns.length) return;
+    if (r < 0) return;
+    if (r >= state.rows.length) { addRow(); }
+    var el = $("grid").querySelector('.cell input[data-r="' + r + '"][data-c="' + c + '"]');
+    if (el) { el.focus(); el.select(); lastCell = { r: r, c: c }; }
+  }
+  function flash(btn, label) {
+    var prev = btn.innerHTML;
+    btn.innerHTML = ICON_CHECK + (label || "");
+    setTimeout(function () { btn.innerHTML = prev; }, 950);
+  }
+  function copyText(text, btn) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove(); if (btn) flash(btn, " Copied");
+      } catch (e) { /* ignore */ }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { if (btn) flash(btn, " Copied"); }, fallback);
+    } else { fallback(); }
+  }
+  function download(text, filename, mime) {
+    try {
+      var blob = new Blob([text], { type: mime + ";charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+    } catch (e) { /* ignore */ }
+  }
+
+  /* ---------------- structural ops ---------------- */
+  function addRow() {
+    var r = []; for (var j = 0; j < state.columns.length; j++) r.push("");
+    if (!state.columns.length) { state.columns = emptyCols(1); }
+    state.rows.push(r);
+  }
+  function addCol() {
+    state.columns.push({ name: "Column " + (state.columns.length + 1), align: "left" });
+    state.rows.forEach(function (r) { r.push(""); });
+    if (!state.rows.length) state.rows.push([""]);
+  }
+  function delCol(ci) {
+    if (ci < 0 || ci >= state.columns.length) return;
+    state.columns.splice(ci, 1);
+    state.rows.forEach(function (r) { r.splice(ci, 1); });
+    if (state.sortCol === ci) { state.sortCol = -1; state.sortDir = 0; }
+  }
+  function delRow(ri) {
+    if (ri < 0 || ri >= state.rows.length) return;
+    state.rows.splice(ri, 1);
+  }
+  function sortBy(ci) {
+    var dir;
+    if (state.sortCol === ci) { dir = state.sortDir === 1 ? 2 : 1; }
+    else { dir = 1; }
+    state.sortCol = ci; state.sortDir = dir;
+    var mul = dir === 1 ? 1 : -1;
+    state.rows.sort(function (a, b) {
+      var x = a[ci] == null ? "" : a[ci], y = b[ci] == null ? "" : b[ci];
+      var nx = parseFloat(x), ny = parseFloat(y);
+      var xn = x !== "" && !isNaN(nx) && isFinite(nx) && /^[\s\-+0-9.eE]+$/.test(x);
+      var yn = y !== "" && !isNaN(ny) && isFinite(ny) && /^[\s\-+0-9.eE]+$/.test(y);
+      if (xn && yn) return (nx - ny) * mul;
+      return String(x).localeCompare(String(y)) * mul;
+    });
+  }
+  function fillNumbers() {
+    var ci = (lastCell.c >= 0 && lastCell.c < state.columns.length) ? lastCell.c : 0;
+    if (!state.columns.length) return;
+    state.rows.forEach(function (r, i) { r[ci] = String(i + 1); });
+  }
+  function fillBlank() {
+    var ci = (lastCell.c >= 0 && lastCell.c < state.columns.length) ? lastCell.c : 0;
+    if (!state.columns.length) return;
+    state.rows.forEach(function (r) { r[ci] = ""; });
+  }
+
+  function rerender() { renderGrid(); renderPreview(); }
+
+  /* ---------------- import ---------------- */
+  function detectFormat(text) {
+    var t = text.replace(/^\s+/, "");
+    if (t.charAt(0) === "[" || t.charAt(0) === "{") return "json";
+    if (/^\s*\|?[^\n]*\|[^\n]*\n\s*\|?[\s:\-|]+\|?\s*(\n|$)/.test(text) && /-/.test(text)) return "markdown";
+    var firstLine = text.split(/\r?\n/)[0] || "";
+    if (firstLine.indexOf("\t") >= 0) return "tsv";
+    return "csv";
+  }
+  function doImport() {
+    var text = $("import-text").value;
+    var msg = $("import-msg");
+    msg.className = "msg"; msg.textContent = "";
+    if (!text.replace(/\s/g, "")) { msg.className = "msg err"; msg.textContent = "Nothing to import — paste some data first."; return; }
+    var fmt = $("import-format").value;
+    if (fmt === "auto") fmt = detectFormat(text);
+    var grid = null, err = "";
+    try {
+      if (fmt === "json") { grid = tfParseJSONTable(text); if (!grid) err = "JSON must be an array of objects/arrays or a single object."; }
+      else if (fmt === "markdown") { grid = tfParseMarkdownTable(text); if (!grid) err = "Could not find a Markdown table (need a header row and a |---| separator)."; }
+      else {
+        var delim = fmt === "tsv" ? "\t" : ",";
+        grid = tfGridFromDelimited(tfParseDelimited(text, delim), $("import-header").checked);
+      }
+    } catch (e) { err = (fmt === "json" ? "Invalid JSON: " : "Parse error: ") + e.message; }
+    if (err) { msg.className = "msg err"; msg.textContent = err; return; }
+    if (!grid || !grid.columns.length) { msg.className = "msg err"; msg.textContent = "No columns detected in the input."; return; }
+    state.columns = grid.columns;
+    state.rows = grid.rows;
+    state.header = (fmt === "markdown" || fmt === "json") ? true : $("import-header").checked;
+    $("header-toggle").checked = state.header;
+    state.sortCol = -1; state.sortDir = 0;
+    rerender();
+    msg.className = "msg ok";
+    msg.textContent = "Imported " + grid.rows.length + " row" + (grid.rows.length === 1 ? "" : "s") +
+      " × " + grid.columns.length + " column" + (grid.columns.length === 1 ? "" : "s") + " as " + fmt.toUpperCase() + ".";
+  }
+
+  /* =====================================================================
+   * Event wiring
+   * ===================================================================== */
+  var g = $("grid");
+
+  /* cell + header-name editing (no re-render, keep focus) */
+  g.addEventListener("input", function (e) {
+    var t = e.target;
+    if (t.classList.contains("col-name")) {
+      var ci = +t.getAttribute("data-c");
+      state.columns[ci].name = t.value;
+      renderPreview();
+    } else if (t.tagName === "INPUT" && t.closest(".cell")) {
+      var r = +t.getAttribute("data-r"), c = +t.getAttribute("data-c");
+      state.rows[r][c] = t.value;
+      renderPreview();
+    }
+  });
+  g.addEventListener("focusin", function (e) {
+    var t = e.target;
+    if (t.tagName === "INPUT" && t.closest(".cell")) {
+      lastCell = { r: +t.getAttribute("data-r"), c: +t.getAttribute("data-c") };
+    }
+  });
+
+  /* button clicks (align / sort / delcol / delrow) */
+  g.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("[data-act]") : null;
+    if (!btn) return;
+    var act = btn.getAttribute("data-act");
+    if (act === "align") {
+      var ci = +btn.getAttribute("data-c");
+      var order = { left: "center", center: "right", right: "left" };
+      state.columns[ci].align = order[state.columns[ci].align] || "left";
+      rerender();
+    } else if (act === "sort") {
+      sortBy(+btn.getAttribute("data-c"));
+      rerender();
+    } else if (act === "delcol") {
+      delCol(+btn.getAttribute("data-c"));
+      rerender();
+    } else if (act === "delrow") {
+      delRow(+btn.getAttribute("data-r"));
+      rerender();
+    }
+  });
+
+  /* keyboard navigation across cells */
+  g.addEventListener("keydown", function (e) {
+    var t = e.target;
+    if (!(t.tagName === "INPUT" && t.closest(".cell"))) return;
+    var r = +t.getAttribute("data-r"), c = +t.getAttribute("data-c");
+    var atStart = t.selectionStart === 0 && t.selectionEnd === 0;
+    var atEnd = t.selectionStart === t.value.length && t.selectionEnd === t.value.length;
+    if (e.key === "ArrowUp") { e.preventDefault(); focusCell(r - 1, c); }
+    else if (e.key === "ArrowDown") { e.preventDefault(); focusCell(r + 1, c); }
+    else if (e.key === "Enter") { e.preventDefault(); focusCell(e.shiftKey ? r - 1 : r + 1, c); }
+    else if (e.key === "ArrowLeft" && atStart && c > 0) { e.preventDefault(); focusCell(r, c - 1); }
+    else if (e.key === "ArrowRight" && atEnd && c < state.columns.length - 1) { e.preventDefault(); focusCell(r, c + 1); }
+    else if (e.key === "Tab") {
+      e.preventDefault();
+      var nc = c + (e.shiftKey ? -1 : 1), nr = r;
+      if (nc >= state.columns.length) { nc = 0; nr = r + 1; }
+      if (nc < 0) { nc = state.columns.length - 1; nr = r - 1; }
+      focusCell(nr, nc);
+    }
+  });
+
+  /* drag reorder (rows & columns) */
+  g.addEventListener("dragstart", function (e) {
+    var h = e.target.closest ? e.target.closest("[data-drag]") : null;
+    if (!h) return;
+    drag = { type: h.getAttribute("data-drag"), index: +h.getAttribute(h.getAttribute("data-drag") === "col" ? "data-c" : "data-r") };
+    try { e.dataTransfer.setData("text/plain", drag.type + ":" + drag.index); e.dataTransfer.effectAllowed = "move"; } catch (err) {}
+  });
+  function clearDropMarks() {
+    Array.prototype.forEach.call(g.querySelectorAll(".drop-above,.drop-below,.drop-left,.drop-right"), function (el) {
+      el.classList.remove("drop-above", "drop-below", "drop-left", "drop-right");
+    });
+  }
+  g.addEventListener("dragover", function (e) {
+    if (!drag) return;
+    if (drag.type === "col") {
+      var th = e.target.closest ? e.target.closest("th.col-h") : null;
+      if (!th) return;
+      e.preventDefault();
+      clearDropMarks();
+      var ti = +th.getAttribute("data-c");
+      th.classList.add(ti <= drag.index ? "drop-left" : "drop-right");
+    } else {
+      var tr = e.target.closest ? e.target.closest("tbody tr") : null;
+      if (!tr) return;
+      e.preventDefault();
+      clearDropMarks();
+      var ri = +tr.getAttribute("data-r");
+      tr.classList.add(ri <= drag.index ? "drop-above" : "drop-below");
+    }
+  });
+  g.addEventListener("drop", function (e) {
+    if (!drag) return;
+    e.preventDefault();
+    if (drag.type === "col") {
+      var th = e.target.closest ? e.target.closest("th.col-h") : null;
+      if (th) {
+        var ti = +th.getAttribute("data-c");
+        moveItem(state.columns, drag.index, ti);
+        state.rows.forEach(function (row) { moveItem(row, drag.index, ti); });
+        if (state.sortCol === drag.index) state.sortCol = ti;
+      }
+    } else {
+      var tr = e.target.closest ? e.target.closest("tbody tr") : null;
+      if (tr) { moveItem(state.rows, drag.index, +tr.getAttribute("data-r")); }
+    }
+    drag = null; clearDropMarks(); rerender();
+  });
+  g.addEventListener("dragend", function () { drag = null; clearDropMarks(); });
+
+  /* toolbar */
+  $("toolbar").addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("[data-tb]") : null;
+    if (!btn) return;
+    switch (btn.getAttribute("data-tb")) {
+      case "add-row": addRow(); rerender(); focusCell(state.rows.length - 1, 0); break;
+      case "add-col": addCol(); rerender(); break;
+      case "fill-num": fillNumbers(); rerender(); break;
+      case "fill-blank": fillBlank(); rerender(); break;
+      case "sample": loadSample(); rerender(); break;
+      case "clear": loadBlank(); rerender(); break;
+    }
+  });
+  $("header-toggle").addEventListener("change", function () {
+    state.header = this.checked; rerender();
+  });
+
+  /* import */
+  document.addEventListener("click", function (e) {
+    var b = e.target.closest ? e.target.closest('[data-tb="import"]') : null;
+    if (b) doImport();
+  });
+
+  /* export tabs + actions */
+  $("export-tabs").addEventListener("click", function (e) {
+    var tab = e.target.closest ? e.target.closest(".tab") : null;
+    if (!tab) return;
+    currentFmt = tab.getAttribute("data-fmt");
+    Array.prototype.forEach.call(this.querySelectorAll(".tab"), function (t) { t.classList.remove("on"); });
+    tab.classList.add("on");
+    $("sql-name").classList.toggle("show", currentFmt === "sql");
+    renderPreview();
+  });
+  $("sql-table").addEventListener("input", function () { if (currentFmt === "sql") renderPreview(); });
+  $("export-copy").addEventListener("click", function () { copyText(exportFor(currentFmt).text, this); });
+  $("export-download").addEventListener("click", function () {
+    var e = exportFor(currentFmt);
+    download(e.text, "table." + e.ext, e.mime);
+  });
+
+  /* ---------------- init ---------------- */
+  loadSample();
+  rerender();
+})();
+</script>
+</body>
+</html>

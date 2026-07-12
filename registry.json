@@ -1066,6 +1066,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "table-forge",
+      "name": "Table Forge",
+      "tagline": "Visual table editor that exports to Markdown, CSV, JSON, HTML, ASCII, and SQL.",
+      "description": "Zero-dependency spreadsheet-style table editor: add/remove/reorder rows and columns, edit cells inline, set per-column alignment, toggle a header row, and sort by clicking a header. Import by pasting CSV/TSV, an existing Markdown table, or JSON (array of objects). Export — with live preview, copy, and download — to GitHub-flavored Markdown, CSV, TSV, JSON, HTML table, ASCII/box-drawing, and SQL INSERT. Everything runs in your browser.",
+      "path": "tools/table-forge/",
+      "tags": [
+        "table",
+        "markdown",
+        "csv",
+        "json",
+        "converter"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#c9a227",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
