@@ -28,3 +28,5 @@ bytecode-lab
 wasm-explorer
 compression-lab
 text-toolkit
+unit-converter
+number-base
