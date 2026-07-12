@@ -8,3 +8,11 @@ csv-workbench
 qr-forge
 markdown-studio
 nomnoml-studio
+ast-explorer
+pdg-viewer
+cpg-lite
+import-graph
+sqlite-workbench
+graphviz-studio
+esbuild-playground
+regex-lab

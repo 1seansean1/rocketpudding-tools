@@ -28,7 +28,14 @@
   .brand{font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:1.6px;font-size:13px}
   .brand .rp{color:var(--accent)}
   .count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
-  .hero{padding:58px 0 8px}
+  .toptease{display:flex;align-items:center;gap:11px;padding:16px 0 0}
+  @keyframes dance{0%,100%{transform:rotate(-15deg) translateY(0)}50%{transform:rotate(15deg) translateY(-6px)}}
+  .banana{font-size:30px;line-height:1;display:inline-block;transform-origin:50% 90%;
+    animation:dance .62s ease-in-out infinite;filter:drop-shadow(0 3px 5px rgba(0,0,0,.14))}
+  .epigraph{font-family:'IBM Plex Serif',serif;font-style:italic;font-size:13px;color:var(--muted);letter-spacing:.01em;line-height:1.4}
+  .epigraph::before{content:'\201C'} .epigraph::after{content:'\201D'}
+  @media(max-width:600px){ .toptease{padding:12px 0 0;gap:9px} .banana{font-size:26px} .epigraph{font-size:12px} }
+  .hero{padding:34px 0 8px}
   .hero h1{margin:0 0 12px;font-size:32px;letter-spacing:-.015em;font-weight:600}
   .hero p{margin:0;max-width:640px;color:var(--muted);font-size:15px;line-height:1.65}
   .hero p em{font-family:'IBM Plex Serif',serif;font-style:italic;color:var(--fg)}
@@ -193,7 +200,9 @@
     fetch('registry.json').then(r=>r.json()).catch(()=>({tools:[]})),
     fetch('building.json').then(r=>r.json()).catch(()=>({building:[]}))
   ]).then(([d,b])=>{
-    TOOLS = d.tools||[]; BUILDING = (b&&b.building)||[];
+    TOOLS = d.tools||[];
+    const liveSlugs = new Set(TOOLS.map(t=>t.slug));
+    BUILDING = ((b&&b.building)||[]).filter(x => !liveSlugs.has(x.slug));  // never double-show a shipped tool
     if(d.updated) $('updated').textContent = 'updated '+d.updated;
     render(TOOLS, BUILDING);
   }).catch(()=>{ $('empty').style.display=''; $('empty').textContent='Could not load registry.json.'; });

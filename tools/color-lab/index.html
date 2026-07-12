@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Color Lab</title>
+<meta name="description" content="Zero-dependency color workbench: parse hex/rgb/hsl/oklch, list every format copyable, WCAG contrast checker with pass badges, and OKLCH-perceptual palette generator. sRGB↔OKLCH implemented from scratch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #2e9e5b;
+  --accent-fg: #ffffff;
+  --danger: #cb4b3f;
+  --hover: rgba(0,0,0,0.035);
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #38b46b;
+    --accent-fg: #0c130f;
+    --danger: #e2685c;
+    --hover: rgba(255,255,255,0.045);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+.sq { width: 13px; height: 13px; background: var(--accent); flex: none; border-radius: 2px; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.24em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: color .15s, background .15s;
+}
+.back:hover, .back:focus-visible { color: var(--fg); background: var(--hover); outline: none; }
+footer {
+  margin-top: auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+footer .sq { width: 8px; height: 8px; opacity: .8; }
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.card > h2, .subhead {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.subhead { margin: 4px 0 12px; }
+.lbl {
+  display: block;
+  font: 500 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+
+/* ---------- inputs & buttons ---------- */
+input[type="text"] {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  font: 500 14px "IBM Plex Mono", monospace;
+  border-radius: 7px;
+  transition: border-color .15s, box-shadow .15s;
+}
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+input[type="text"].err {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 46px;
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  padding: 4px;
+  flex: none;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+input[type="color"]::-moz-color-swatch { border: none; border-radius: 5px; }
+
+button {
+  font: 500 13px "IBM Plex Sans", sans-serif;
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: 8px;
+  transition: background .15s, border-color .15s, color .15s, transform .05s;
+}
+button:hover { background: var(--hover); border-color: var(--muted); }
+button:active { transform: translateY(1px); }
+button:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+.ibtn {
+  width: 46px; height: 46px;
+  display: inline-flex; align-items: center; justify-content: center;
+  flex: none;
+}
+.ibtn svg { width: 18px; height: 18px; }
+.ibtn.sm { width: 34px; height: 34px; border-radius: 7px; }
+.ibtn.sm svg { width: 15px; height: 15px; }
+svg { display: block; }
+
+/* ---------- inspector ---------- */
+.insp-grid { display: grid; grid-template-columns: minmax(0,0.95fr) minmax(0,1.05fr); gap: 26px; }
+@media (max-width: 780px) { .insp-grid { grid-template-columns: 1fr; gap: 22px; } }
+
+.bigwrap {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  min-height: 240px;
+  /* checkerboard for alpha */
+  background-image:
+    linear-gradient(45deg, var(--line) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--line) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--line) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--line) 75%);
+  background-size: 18px 18px;
+  background-position: 0 0, 0 9px, 9px -9px, -9px 0;
+}
+.big {
+  position: absolute; inset: 0;
+  display: flex; align-items: flex-end; padding: 16px;
+  transition: background .18s ease;
+}
+.chip {
+  font: 600 15px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+  padding: 7px 11px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+}
+.chip:hover { background: var(--card); }
+
+.controls { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+.crow { display: flex; gap: 10px; align-items: center; }
+.crow .grow { flex: 1 1 auto; min-width: 0; }
+
+.alpha-row { display: flex; align-items: center; gap: 12px; }
+.alpha-row .lbl { margin: 0; flex: none; width: 46px; }
+input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; height: 20px; background: transparent; cursor: pointer; min-width: 0;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px; border-radius: 5px; border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, transparent, var(--alpha-color, #888)),
+    repeating-conic-gradient(var(--line) 0% 25%, transparent 0% 50%) 0/12px 12px;
+}
+input[type="range"]::-moz-range-track {
+  height: 8px; border-radius: 5px; border: 1px solid var(--line);
+  background:
+    linear-gradient(90deg, transparent, var(--alpha-color, #888)),
+    repeating-conic-gradient(var(--line) 0% 25%, transparent 0% 50%) 0/12px 12px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 18px; height: 18px; margin-top: -6px;
+  border-radius: 50%; background: var(--card);
+  border: 2px solid var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 16px; height: 16px; border-radius: 50%;
+  background: var(--card); border: 2px solid var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.25);
+}
+.alpha-val { font: 500 12px "IBM Plex Mono", monospace; color: var(--muted); width: 44px; text-align: right; flex: none; }
+
+/* ---------- format rows ---------- */
+#formats { display: flex; flex-direction: column; gap: 6px; }
+.fmt {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.fmt:hover { background: var(--hover); border-color: var(--line); }
+.fmt .k { font: 600 10px "IBM Plex Mono", monospace; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; }
+.fmt .v { font: 500 13.5px "IBM Plex Mono", monospace; color: var(--fg); overflow-x: auto; white-space: nowrap; scrollbar-width: none; }
+.fmt .v::-webkit-scrollbar { display: none; }
+.fmt .c { color: var(--muted); display: inline-flex; }
+.fmt:hover .c { color: var(--accent); }
+
+/* ---------- recent ---------- */
+.recent-head { display: flex; align-items: center; justify-content: space-between; }
+.recent-strip { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.rsw {
+  width: 34px; height: 34px; border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  cursor: pointer; padding: 0; position: relative;
+  transition: transform .1s, box-shadow .1s;
+  background-image:
+    linear-gradient(45deg, var(--line) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--line) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--line) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--line) 75%);
+  background-size: 12px 12px;
+  background-position: 0 0, 0 6px, 6px -6px, -6px 0;
+}
+.rsw span { position: absolute; inset: 0; border-radius: 6px; }
+.rsw:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.recent-empty { font: 400 12px "IBM Plex Mono", monospace; color: var(--muted); margin-top: 12px; }
+
+/* ---------- contrast ---------- */
+.contrast-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+@media (max-width: 780px) { .contrast-grid { grid-template-columns: 1fr; } }
+.cc-fields { display: flex; flex-direction: column; gap: 16px; }
+.cc-field .cc-inrow { display: flex; gap: 10px; align-items: center; }
+.cc-tools { display: flex; gap: 8px; margin-top: 2px; }
+.cc-result { display: flex; flex-direction: column; gap: 16px; }
+.ratio-box { display: flex; align-items: baseline; gap: 10px; }
+.ratio-num { font: 700 46px "IBM Plex Mono", monospace; letter-spacing: -0.02em; line-height: 1; }
+.ratio-suffix { font: 500 15px "IBM Plex Mono", monospace; color: var(--muted); }
+.badges { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.badge {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line);
+  font: 500 12px "IBM Plex Sans", sans-serif;
+}
+.badge .bi { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+.badge .bi svg { width: 12px; height: 12px; color: #fff; }
+.badge small { display: block; font: 500 9.5px "IBM Plex Mono", monospace; letter-spacing: 0.08em; color: var(--muted); text-transform: uppercase; }
+.badge.pass { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.badge.pass .bi { background: var(--accent); }
+.badge.fail .bi { background: var(--muted); }
+.badge.fail { opacity: .82; }
+.sample {
+  border-radius: 10px; border: 1px solid var(--line); overflow: hidden;
+}
+.sample .sbody { padding: 18px 18px 20px; }
+.sample .s-lg { font: 700 24px "IBM Plex Sans", sans-serif; margin-bottom: 6px; }
+.sample .s-sm { font: 400 15px "IBM Plex Sans", sans-serif; }
+.sample .s-tag { font: 600 9px "IBM Plex Mono", monospace; letter-spacing: 0.14em; text-transform: uppercase; opacity: .65; padding: 8px 18px 0; }
+
+/* ---------- palette ---------- */
+.pal-section { margin-top: 6px; }
+.pal-section + .pal-section { margin-top: 22px; }
+.ramp { display: flex; gap: 6px; }
+@media (max-width: 640px){ .ramp { flex-wrap: wrap; } }
+.ramp .sw { flex: 1 1 0; min-width: 46px; }
+.harm-groups { display: flex; flex-wrap: wrap; gap: 22px; }
+.harm { display: flex; flex-direction: column; gap: 8px; }
+.harm .hrow { display: flex; gap: 6px; }
+.sw {
+  cursor: pointer; border: none; padding: 0; background: none;
+  display: flex; flex-direction: column; gap: 5px; text-align: left;
+}
+.sw .chipbox {
+  height: 52px; border-radius: 7px;
+  border: 1px solid color-mix(in srgb, var(--fg) 12%, transparent);
+  transition: transform .1s, box-shadow .1s;
+}
+.harm .sw .chipbox { width: 52px; }
+.sw:hover .chipbox { transform: translateY(-3px); box-shadow: 0 6px 16px rgba(0,0,0,.2); }
+.sw.base .chipbox { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.sw .cap { font: 500 10px "IBM Plex Mono", monospace; color: var(--muted); letter-spacing: 0.02em; }
+.sw:hover .cap { color: var(--fg); }
+.hint { font: 400 11.5px "IBM Plex Sans", sans-serif; color: var(--muted); margin-top: 4px; }
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(14px);
+  background: var(--fg); color: var(--bg);
+  padding: 10px 16px; border-radius: 9px;
+  font: 500 12.5px "IBM Plex Mono", monospace;
+  box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  display: flex; align-items: center; gap: 9px; z-index: 50; max-width: 90vw;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast svg { width: 15px; height: 15px; color: var(--accent); flex: none; }
+</style>
+</head>
+<body>
+<header>
+  <div class="sq"></div>
+  <h1>COLOR LAB</h1>
+  <a class="back mono" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <!-- ============ INSPECTOR ============ -->
+  <section class="card">
+    <div class="insp-grid">
+      <div class="insp-left">
+        <div class="bigwrap">
+          <div class="big" id="bigSwatch"><span class="chip mono" id="bigChip" data-copy="">#000000</span></div>
+        </div>
+        <div class="controls">
+          <div class="crow">
+            <input type="text" class="grow mono" id="colorInput" spellcheck="false" autocomplete="off"
+                   placeholder="#2e9e5b · rgb() · hsl() · oklch() · name" aria-label="Color value">
+            <input type="color" id="picker" value="#2e9e5b" aria-label="Color picker">
+          </div>
+          <div class="crow" id="actionRow">
+            <button class="ibtn" id="dropperBtn" title="Pick from screen (EyeDropper)" aria-label="Eyedropper" hidden></button>
+            <button class="ibtn" id="randomBtn" title="Random color" aria-label="Random color"></button>
+            <div class="alpha-row grow">
+              <span class="lbl">Alpha</span>
+              <input type="range" id="alpha" min="0" max="100" value="100" aria-label="Alpha">
+              <span class="alpha-val mono" id="alphaVal">100%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="insp-right">
+        <h2>Formats <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;">— click any to copy</span></h2>
+        <div id="formats"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RECENT ============ -->
+  <section class="card">
+    <div class="recent-head">
+      <div class="subhead" style="margin:0;">Recent colors</div>
+      <button class="ibtn sm" id="clearRecent" title="Clear recent" aria-label="Clear recent"></button>
+    </div>
+    <div class="recent-strip" id="recentStrip"></div>
+  </section>
+
+  <!-- ============ CONTRAST ============ -->
+  <section class="card">
+    <h2>WCAG contrast checker</h2>
+    <div class="contrast-grid">
+      <div class="cc-fields">
+        <div class="cc-field">
+          <span class="lbl">Foreground (text)</span>
+          <div class="cc-inrow">
+            <input type="color" id="fgPicker" value="#191b1e" aria-label="Foreground picker">
+            <input type="text" class="grow mono" id="fgInput" spellcheck="false" autocomplete="off" value="#191b1e" aria-label="Foreground value">
+          </div>
+          <div class="cc-tools">
+            <button class="usecur mono" data-target="fg">Use current</button>
+          </div>
+        </div>
+        <div style="display:flex;justify-content:center;">
+          <button class="ibtn sm" id="swapCC" title="Swap foreground / background" aria-label="Swap"></button>
+        </div>
+        <div class="cc-field">
+          <span class="lbl">Background</span>
+          <div class="cc-inrow">
+            <input type="color" id="bgPicker" value="#f4f3ef" aria-label="Background picker">
+            <input type="text" class="grow mono" id="bgInput" spellcheck="false" autocomplete="off" value="#f4f3ef" aria-label="Background value">
+          </div>
+          <div class="cc-tools">
+            <button class="usecur mono" data-target="bg">Use current</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="cc-result">
+        <div class="ratio-box">
+          <span class="ratio-num mono" id="ratioNum">—</span>
+          <span class="ratio-suffix" id="ratioSuffix">: 1 contrast</span>
+        </div>
+        <div class="badges" id="badges"></div>
+        <div class="sample" id="sample">
+          <div class="sbody" id="sampleBody">
+            <div class="s-lg">Large text sample</div>
+            <div class="s-sm">Normal body text renders here to preview legibility against the chosen pair.</div>
+          </div>
+          <div class="s-tag" id="sampleTag">preview</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PALETTE ============ -->
+  <section class="card">
+    <h2>Palette generator <span style="color:var(--muted);font-weight:500;text-transform:none;letter-spacing:0;">— derived from current color · OKLCH</span></h2>
+
+    <div class="pal-section">
+      <div class="subhead">Tints &amp; shades <span style="color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0;">· perceptual lightness ramp</span></div>
+      <div class="ramp" id="ramp"></div>
+    </div>
+
+    <div class="pal-section">
+      <div class="subhead">Harmonies</div>
+      <div class="harm-groups">
+        <div class="harm"><span class="lbl">Complementary</span><div class="hrow" id="harmComp"></div></div>
+        <div class="harm"><span class="lbl">Analogous</span><div class="hrow" id="harmAna"></div></div>
+        <div class="harm"><span class="lbl">Triadic</span><div class="hrow" id="harmTri"></div></div>
+      </div>
+    </div>
+    <div class="hint">Click any swatch to copy its hex. Ramps and harmonies recompute live as you change the current color.</div>
+  </section>
+</main>
+
+<footer>
+  <div class="sq"></div>
+  <span class="mono">zero dependencies · OKLCH</span>
+</footer>
+
+<div id="toast"><span id="toastIcon"></span><span id="toastMsg"></span></div>
+
+<script>
+"use strict";
+
+/* ============================================================
+   COLOR LAB — zero-dependency color math + workbench
+   sRGB <-> HSL, sRGB <-> HWB, and sRGB <-> OKLCH implemented
+   from scratch (linear-sRGB -> OKLab -> OKLCH, Ottosson coeffs).
+   ============================================================ */
+
+/* -------- small numeric helpers -------- */
+const round = (x, n = 0) => { const p = 10 ** n; return Math.round(x * p) / p; };
+const clamp = (x, lo, hi) => Math.min(hi, Math.max(lo, x));
+const clamp255 = (x) => clamp(Math.round(x), 0, 255);
+const clamp01 = (x) => clamp(x, 0, 1);
+
+/* -------- sRGB transfer function (IEC 61966-2-1) -------- */
+function srgbToLinear(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function linearToSrgb(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+
+/* -------- linear sRGB -> OKLab -> OKLCH -------- */
+function rgbToOklch(r, g, b) {
+  const lr = srgbToLinear(r / 255), lg = srgbToLinear(g / 255), lb = srgbToLinear(b / 255);
+  const l = 0.4122214708 * lr + 0.5363325363 * lg + 0.0514459929 * lb;
+  const m = 0.2119034982 * lr + 0.6806995451 * lg + 0.1073969566 * lb;
+  const s = 0.0883024619 * lr + 0.2817188376 * lg + 0.6299787005 * lb;
+  const l_ = Math.cbrt(l), m_ = Math.cbrt(m), s_ = Math.cbrt(s);
+  const L = 0.2104542553 * l_ + 0.7936177850 * m_ - 0.0040720468 * s_;
+  const A = 1.9779984951 * l_ - 2.4285922050 * m_ + 0.4505937099 * s_;
+  const B = 0.0259040371 * l_ + 0.7827717662 * m_ - 0.8086757660 * s_;
+  const C = Math.sqrt(A * A + B * B);
+  let H = Math.atan2(B, A) * 180 / Math.PI;
+  if (H < 0) H += 360;
+  return { L, C, H };
+}
+
+/* OKLCH -> linear sRGB triple (may be out of gamut) */
+function oklchToLinearRgb(L, C, H) {
+  const hr = H * Math.PI / 180;
+  const A = C * Math.cos(hr);
+  const B = C * Math.sin(hr);
+  const l_ = L + 0.3963377774 * A + 0.2158037573 * B;
+  const m_ = L - 0.1055613458 * A - 0.0638541728 * B;
+  const s_ = L - 0.0894841775 * A - 1.2914855480 * B;
+  const l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  const r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  const g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  const b = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+  return [r, g, b];
+}
+function inGamut(lin, eps = 1e-4) {
+  return lin[0] >= -eps && lin[0] <= 1 + eps &&
+         lin[1] >= -eps && lin[1] <= 1 + eps &&
+         lin[2] >= -eps && lin[2] <= 1 + eps;
+}
+function linRgbToRgb(lin) {
+  return {
+    r: clamp255(linearToSrgb(clamp01(lin[0])) * 255),
+    g: clamp255(linearToSrgb(clamp01(lin[1])) * 255),
+    b: clamp255(linearToSrgb(clamp01(lin[2])) * 255),
+  };
+}
+/* Gamut-mapped OKLCH -> sRGB: keep L & H, bisect chroma into gamut. */
+function oklchToRgbClamped(L, C, H) {
+  if (L <= 0) return { r: 0, g: 0, b: 0 };
+  if (L >= 1) return { r: 255, g: 255, b: 255 };
+  let lin = oklchToLinearRgb(L, C, H);
+  if (inGamut(lin)) return linRgbToRgb(lin);
+  let lo = 0, hi = C;
+  for (let i = 0; i < 26; i++) {
+    const mid = (lo + hi) / 2;
+    if (inGamut(oklchToLinearRgb(L, mid, H))) lo = mid; else hi = mid;
+  }
+  return linRgbToRgb(oklchToLinearRgb(L, lo, H));
+}
+
+/* -------- sRGB <-> HSL -------- */
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0, s = 0; const l = (max + min) / 2;
+  if (d !== 0) {
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60;
+  }
+  return { h, s: s * 100, l: l * 100 };
+}
+function hslToRgb(h, s, l) {
+  h = ((h % 360) + 360) % 360; s /= 100; l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r = 0, g = 0, b = 0;
+  if (h < 60) { r = c; g = x; }
+  else if (h < 120) { r = x; g = c; }
+  else if (h < 180) { g = c; b = x; }
+  else if (h < 240) { g = x; b = c; }
+  else if (h < 300) { r = x; b = c; }
+  else { r = c; b = x; }
+  return { r: clamp255((r + m) * 255), g: clamp255((g + m) * 255), b: clamp255((b + m) * 255) };
+}
+
+/* -------- sRGB <-> HWB -------- */
+function rgbToHwb(r, g, b) {
+  const { h } = rgbToHsl(r, g, b);
+  const w = Math.min(r, g, b) / 255 * 100;
+  const bl = (1 - Math.max(r, g, b) / 255) * 100;
+  return { h, w, b: bl };
+}
+function hwbToRgb(h, w, bl) {
+  w /= 100; bl /= 100;
+  if (w + bl >= 1) { const g = clamp255(w / (w + bl) * 255); return { r: g, g: g, b: g }; }
+  const pure = hslToRgb(h, 100, 50);
+  const f = (c) => clamp255((c / 255 * (1 - w - bl) + w) * 255);
+  return { r: f(pure.r), g: f(pure.g), b: f(pure.b) };
+}
+
+/* -------- WCAG 2.x relative luminance + contrast -------- */
+function relLuminance(r, g, b) {
+  return 0.2126 * srgbToLinear(r / 255) + 0.7152 * srgbToLinear(g / 255) + 0.0722 * srgbToLinear(b / 255);
+}
+function contrastRatio(c1, c2) {
+  const l1 = relLuminance(c1.r, c1.g, c1.b), l2 = relLuminance(c2.r, c2.g, c2.b);
+  const hi = Math.max(l1, l2), lo = Math.min(l1, l2);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/* -------- named colors (common CSS set) -------- */
+const NAMED = {
+  black:"#000000", white:"#ffffff", red:"#ff0000", lime:"#00ff00", blue:"#0000ff",
+  yellow:"#ffff00", cyan:"#00ffff", aqua:"#00ffff", magenta:"#ff00ff", fuchsia:"#ff00ff",
+  silver:"#c0c0c0", gray:"#808080", grey:"#808080", maroon:"#800000", olive:"#808000",
+  green:"#008000", purple:"#800080", teal:"#008080", navy:"#000080", orange:"#ffa500",
+  gold:"#ffd700", pink:"#ffc0cb", hotpink:"#ff69b4", crimson:"#dc143c", tomato:"#ff6347",
+  coral:"#ff7f50", salmon:"#fa8072", indigo:"#4b0082", violet:"#ee82ee", orchid:"#da70d6",
+  plum:"#dda0dd", lavender:"#e6e6fa", turquoise:"#40e0d0", skyblue:"#87ceeb",
+  steelblue:"#4682b4", royalblue:"#4169e1", dodgerblue:"#1e90ff", slateblue:"#6a5acd",
+  seagreen:"#2e8b57", forestgreen:"#228b22", limegreen:"#32cd32", olivedrab:"#6b8e23",
+  khaki:"#f0e68c", chocolate:"#d2691e", sienna:"#a0522d", brown:"#a52a2a", tan:"#d2b48c",
+  beige:"#f5f5dc", ivory:"#fffff0", mintcream:"#f5fffa", azure:"#f0ffff", snow:"#fffafa",
+  slategray:"#708090", slategrey:"#708090", dimgray:"#696969", dimgrey:"#696969",
+  gainsboro:"#dcdcdc", whitesmoke:"#f5f5f5", lightgray:"#d3d3d3", lightgrey:"#d3d3d3",
+  darkgray:"#a9a9a9", darkgrey:"#a9a9a9", rebeccapurple:"#663399", transparent:"#00000000"
+};
+
+/* -------- parser: hex / rgb() / hsl() / hwb() / oklch() / names -------- */
+function splitFunc(inner) {
+  inner = inner.trim();
+  let alpha = 1;
+  const slash = inner.indexOf("/");
+  if (slash !== -1) {
+    alpha = parseAlpha(inner.slice(slash + 1).trim());
+    inner = inner.slice(0, slash).trim();
+  }
+  let parts = inner.split(/[\s,]+/).filter(Boolean);
+  if (slash === -1 && parts.length === 4) alpha = parseAlpha(parts.pop());
+  return { parts, alpha };
+}
+function parseAlpha(p) {
+  if (p == null || p === "" || p === "none") return 1;
+  return clamp01(p.endsWith("%") ? parseFloat(p) / 100 : parseFloat(p));
+}
+function parseAngle(p) {
+  if (p === "none") return 0;
+  const v = parseFloat(p);
+  return isNaN(v) ? 0 : ((v % 360) + 360) % 360;
+}
+function parseColor(input) {
+  if (input == null) return null;
+  let str = String(input).trim().toLowerCase();
+  if (!str) return null;
+  if (Object.prototype.hasOwnProperty.call(NAMED, str)) str = NAMED[str];
+
+  const hex = str.match(/^#?([0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})$/);
+  if (hex) {
+    let h = hex[1], a = 1;
+    if (h.length === 3) h = h.split("").map(c => c + c).join("");
+    else if (h.length === 4) { const e = h.split("").map(c => c + c); a = parseInt(e[3], 16) / 255; h = e.slice(0, 3).join(""); }
+    else if (h.length === 8) { a = parseInt(h.slice(6, 8), 16) / 255; h = h.slice(0, 6); }
+    return { r: parseInt(h.slice(0, 2), 16), g: parseInt(h.slice(2, 4), 16), b: parseInt(h.slice(4, 6), 16), a };
+  }
+
+  const fn = str.match(/^([a-z]+)\(([^)]*)\)$/);
+  if (fn) {
+    const name = fn[1];
+    const { parts, alpha } = splitFunc(fn[2]);
+    const ch = (p) => p.endsWith("%") ? clamp255(parseFloat(p) / 100 * 255) : clamp255(parseFloat(p));
+    if ((name === "rgb" || name === "rgba") && parts.length >= 3)
+      return { r: ch(parts[0]), g: ch(parts[1]), b: ch(parts[2]), a: alpha };
+    if ((name === "hsl" || name === "hsla") && parts.length >= 3) {
+      const c = hslToRgb(parseAngle(parts[0]), clamp(parseFloat(parts[1]), 0, 100), clamp(parseFloat(parts[2]), 0, 100));
+      c.a = alpha; return c;
+    }
+    if (name === "hwb" && parts.length >= 3) {
+      const c = hwbToRgb(parseAngle(parts[0]), clamp(parseFloat(parts[1]), 0, 100), clamp(parseFloat(parts[2]), 0, 100));
+      c.a = alpha; return c;
+    }
+    if (name === "oklch" && parts.length >= 3) {
+      const L = parts[0].endsWith("%") ? clamp01(parseFloat(parts[0]) / 100) : clamp01(parseFloat(parts[0]));
+      const C = Math.max(0, parts[1].endsWith("%") ? parseFloat(parts[1]) / 100 * 0.4 : parseFloat(parts[1]));
+      const c = oklchToRgbClamped(L, C, parseAngle(parts[2]));
+      c.a = alpha; return c;
+    }
+  }
+  return null;
+}
+
+/* -------- formatters -------- */
+const hx = (x) => clamp255(x).toString(16).padStart(2, "0");
+function fmtHex(c) {
+  let s = "#" + hx(c.r) + hx(c.g) + hx(c.b);
+  if (c.a < 1) s += hx(Math.round(c.a * 255));
+  return s;
+}
+function fmtRgb(c) {
+  return c.a < 1 ? `rgba(${c.r}, ${c.g}, ${c.b}, ${round(c.a, 2)})` : `rgb(${c.r}, ${c.g}, ${c.b})`;
+}
+function fmtHsl(c) {
+  const { h, s, l } = rgbToHsl(c.r, c.g, c.b);
+  const base = `${round(h, 0)}, ${round(s, 0)}%, ${round(l, 0)}%`;
+  return c.a < 1 ? `hsla(${base}, ${round(c.a, 2)})` : `hsl(${base})`;
+}
+function fmtHwb(c) {
+  const { h, w, b } = rgbToHwb(c.r, c.g, c.b);
+  const base = `${round(h, 0)} ${round(w, 0)}% ${round(b, 0)}%`;
+  return c.a < 1 ? `hwb(${base} / ${round(c.a, 2)})` : `hwb(${base})`;
+}
+function fmtOklch(c) {
+  const { L, C, H } = rgbToOklch(c.r, c.g, c.b);
+  const base = `${round(L * 100, 1)}% ${round(C, 3)} ${round(H, 1)}`;
+  return c.a < 1 ? `oklch(${base} / ${round(c.a, 2)})` : `oklch(${base})`;
+}
+function pickTextColor(c) {
+  const w = contrastRatio(c, { r: 255, g: 255, b: 255 });
+  const k = contrastRatio(c, { r: 0, g: 0, b: 0 });
+  return w >= k ? "#ffffff" : "#000000";
+}
+
+/* -------- palette builders -------- */
+const RAMP_L = [0.97, 0.92, 0.86, 0.78, 0.69, 0.60, 0.50, 0.41, 0.32, 0.23, 0.14];
+function buildRamp(c) {
+  const { C, H } = rgbToOklch(c.r, c.g, c.b);
+  return RAMP_L.map(L => { const rc = oklchToRgbClamped(L, C, H); rc.a = 1; rc.L = L; return rc; });
+}
+function harmonyAt(base, dh) {
+  const { L, C, H } = rgbToOklch(base.r, base.g, base.b);
+  const rc = oklchToRgbClamped(L, C, ((H + dh) % 360 + 360) % 360);
+  rc.a = 1; return rc;
+}
+
+/* ============================================================
+   Export pure math for Node round-trip verification; skip in browser.
+   ============================================================ */
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    round, clamp, srgbToLinear, linearToSrgb, rgbToOklch, oklchToLinearRgb,
+    oklchToRgbClamped, rgbToHsl, hslToRgb, rgbToHwb, hwbToRgb, relLuminance,
+    contrastRatio, parseColor, fmtHex, fmtRgb, fmtHsl, fmtHwb, fmtOklch,
+  };
+}
+
+/* ============================================================
+   DOM / UI layer — only runs in the browser.
+   ============================================================ */
+function icon(name) {
+  const p = {
+    copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
+    dropper: '<path d="m2 22 1-4 12-12 4 4L7 22l-5 0Z"/><path d="m15 6 3 3"/><path d="m17 4 3 3-2 2-3-3 2-2Z"/>',
+    dice: '<path d="M12 3 3 8v8l9 5 9-5V8l-9-5Z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/>',
+    swap: '<path d="M7 4 3 8l4 4"/><path d="M3 8h14"/><path d="m17 20 4-4-4-4"/><path d="M21 16H7"/>',
+    trash: '<path d="M4 7h16"/><path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M6 7v13a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7"/>',
+  };
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${p[name] || ""}</svg>`;
+}
+
+function init() {
+  const $ = (id) => document.getElementById(id);
+  const els = {
+    bigSwatch: $("bigSwatch"), bigChip: $("bigChip"), colorInput: $("colorInput"),
+    picker: $("picker"), dropperBtn: $("dropperBtn"), randomBtn: $("randomBtn"),
+    alpha: $("alpha"), alphaVal: $("alphaVal"), formats: $("formats"),
+    recentStrip: $("recentStrip"), clearRecent: $("clearRecent"),
+    fgPicker: $("fgPicker"), fgInput: $("fgInput"), bgPicker: $("bgPicker"), bgInput: $("bgInput"),
+    swapCC: $("swapCC"), ratioNum: $("ratioNum"), ratioSuffix: $("ratioSuffix"),
+    badges: $("badges"), sample: $("sample"), sampleBody: $("sampleBody"), sampleTag: $("sampleTag"),
+    ramp: $("ramp"), harmComp: $("harmComp"), harmAna: $("harmAna"), harmTri: $("harmTri"),
+    toast: $("toast"), toastMsg: $("toastMsg"), toastIcon: $("toastIcon"),
+  };
+
+  // inline icons
+  els.dropperBtn.innerHTML = icon("dropper");
+  els.randomBtn.innerHTML = icon("dice");
+  els.clearRecent.innerHTML = icon("trash");
+  els.swapCC.innerHTML = icon("swap");
+  els.toastIcon.innerHTML = icon("check");
+
+  const FORMATS = [
+    ["HEX", fmtHex], ["RGB", fmtRgb], ["HSL", fmtHsl], ["HWB", fmtHwb], ["OKLCH", fmtOklch],
+  ];
+  const LS_RECENT = "colorlab.recent";
+  const LS_CURRENT = "colorlab.current";
+
+  let color = parseColor(loadCurrent()) || { r: 46, g: 158, b: 91, a: 1 };
+  let cc = { fg: { r: 25, g: 27, b: 30 }, bg: { r: 244, g: 243, b: 239 } };
+
+  /* ---------- toast ---------- */
+  let toastT = null;
+  function toast(msg) {
+    els.toastMsg.textContent = msg;
+    els.toast.classList.add("show");
+    clearTimeout(toastT);
+    toastT = setTimeout(() => els.toast.classList.remove("show"), 1500);
+  }
+  async function copyText(t) {
+    try { await navigator.clipboard.writeText(t); }
+    catch (e) {
+      const ta = document.createElement("textarea");
+      ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } catch (e2) {}
+      ta.remove();
+    }
+    toast("Copied  " + t);
+  }
+
+  /* ---------- persistence ---------- */
+  function loadCurrent() { try { return localStorage.getItem(LS_CURRENT); } catch (e) { return null; } }
+  function saveCurrent() { try { localStorage.setItem(LS_CURRENT, fmtHex(color)); } catch (e) {} }
+  function loadRecent() { try { return JSON.parse(localStorage.getItem(LS_RECENT) || "[]"); } catch (e) { return []; } }
+  function saveRecent(list) { try { localStorage.setItem(LS_RECENT, JSON.stringify(list)); } catch (e) {} }
+  function pushRecent(c) {
+    const hex = fmtHex(c);
+    let list = loadRecent().filter(x => x.toLowerCase() !== hex.toLowerCase());
+    list.unshift(hex);
+    list = list.slice(0, 18);
+    saveRecent(list);
+    renderRecent();
+  }
+
+  /* ---------- inspector render ---------- */
+  function renderInspector() {
+    const solid = `rgb(${color.r}, ${color.g}, ${color.b})`;
+    els.bigSwatch.style.background = `rgba(${color.r}, ${color.g}, ${color.b}, ${color.a})`;
+    const txt = pickTextColor(color);
+    els.bigChip.style.color = txt;
+    els.bigChip.textContent = fmtHex(color);
+    els.bigChip.setAttribute("data-copy", fmtHex(color));
+    els.picker.value = fmtHex({ r: color.r, g: color.g, b: color.b, a: 1 }).slice(0, 7);
+    els.alpha.value = Math.round(color.a * 100);
+    els.alphaVal.textContent = Math.round(color.a * 100) + "%";
+    els.alpha.style.setProperty("--alpha-color", solid);
+
+    els.formats.innerHTML = FORMATS.map(([k, fn]) => {
+      const v = fn(color);
+      return `<div class="fmt" data-copy="${v}"><span class="k">${k}</span><span class="v mono">${v}</span><span class="c">${icon("copy")}</span></div>`;
+    }).join("");
+  }
+
+  function renderRecent() {
+    const list = loadRecent();
+    if (!list.length) { els.recentStrip.innerHTML = '<div class="recent-empty">No saved colors yet — pick or type one.</div>'; return; }
+    els.recentStrip.innerHTML = list.map(hex =>
+      `<button class="rsw" data-load="${hex}" title="${hex}"><span style="background:${hex}"></span></button>`
+    ).join("");
+  }
+
+  /* ---------- palette render ---------- */
+  function swatchHTML(c, { base = false, wide = false } = {}) {
+    const hex = fmtHex(c);
+    return `<button class="sw${base ? " base" : ""}${wide ? "" : ""}" data-copy="${hex}" title="Copy ${hex}"><span class="chipbox" style="background:${hex}"></span><span class="cap mono">${hex}</span></button>`;
+  }
+  function renderPalette() {
+    const ramp = buildRamp(color);
+    const baseL = rgbToOklch(color.r, color.g, color.b).L;
+    let nearest = 0, nd = Infinity;
+    ramp.forEach((c, i) => { const d = Math.abs(c.L - baseL); if (d < nd) { nd = d; nearest = i; } });
+    els.ramp.innerHTML = ramp.map((c, i) => swatchHTML(c, { base: i === nearest, wide: true })).join("");
+
+    const base = { r: color.r, g: color.g, b: color.b, a: 1 };
+    els.harmComp.innerHTML = [base, harmonyAt(base, 180)].map((c, i) => swatchHTML(c, { base: i === 0 })).join("");
+    els.harmAna.innerHTML = [harmonyAt(base, -30), base, harmonyAt(base, 30)].map((c, i) => swatchHTML(c, { base: i === 1 })).join("");
+    els.harmTri.innerHTML = [base, harmonyAt(base, 120), harmonyAt(base, 240)].map((c, i) => swatchHTML(c, { base: i === 0 })).join("");
+  }
+
+  /* ---------- set current color ---------- */
+  function setColor(c, { recent = true, syncInput = true } = {}) {
+    if (!c) return;
+    color = { r: c.r, g: c.g, b: c.b, a: c.a == null ? 1 : c.a };
+    if (syncInput) els.colorInput.value = fmtHex(color);
+    els.colorInput.classList.remove("err");
+    renderInspector();
+    renderPalette();
+    saveCurrent();
+    if (recent) pushRecent(color);
+  }
+
+  /* ---------- contrast render ---------- */
+  const BADGES = [
+    ["AA · Normal", 4.5], ["AAA · Normal", 7],
+    ["AA · Large", 3], ["AAA · Large", 4.5],
+  ];
+  function renderContrast() {
+    const ratio = contrastRatio(cc.fg, cc.bg);
+    els.ratioNum.textContent = round(ratio, 2).toFixed(2);
+    els.badges.innerHTML = BADGES.map(([label, need]) => {
+      const pass = ratio >= need;
+      const iconHTML = pass ? icon("check") : "";
+      return `<div class="badge ${pass ? "pass" : "fail"}"><span class="bi">${iconHTML}</span><span>${label}<small>${pass ? "pass" : "fail"} · &ge;${need}</small></span></div>`;
+    }).join("");
+    const fgHex = fmtHex({ ...cc.fg, a: 1 }), bgHex = fmtHex({ ...cc.bg, a: 1 });
+    els.sample.style.background = bgHex;
+    els.sampleBody.style.color = fgHex;
+    els.sampleTag.style.color = fgHex;
+    els.sample.style.borderColor = "color-mix(in srgb, " + fgHex + " 20%, var(--line))";
+    els.fgPicker.value = fgHex; els.bgPicker.value = bgHex;
+  }
+  function setCC(which, c, { syncInput = true } = {}) {
+    if (!c) return;
+    cc[which] = { r: c.r, g: c.g, b: c.b };
+    const inp = which === "fg" ? els.fgInput : els.bgInput;
+    if (syncInput) inp.value = fmtHex({ ...cc[which], a: 1 });
+    inp.classList.remove("err");
+    renderContrast();
+  }
+
+  /* ============ events ============ */
+
+  // main text input — live parse, don't clobber while typing
+  els.colorInput.addEventListener("input", () => {
+    const c = parseColor(els.colorInput.value);
+    if (c) { setColor(c, { recent: false, syncInput: false }); }
+    else els.colorInput.classList.add("err");
+  });
+  els.colorInput.addEventListener("change", () => {
+    const c = parseColor(els.colorInput.value);
+    if (c) setColor(c, { recent: true, syncInput: true });
+  });
+  els.colorInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { const c = parseColor(els.colorInput.value); if (c) setColor(c, { recent: true, syncInput: true }); }
+  });
+
+  // native picker
+  els.picker.addEventListener("input", () => {
+    const c = parseColor(els.picker.value); if (c) { c.a = color.a; setColor(c, { recent: false }); }
+  });
+  els.picker.addEventListener("change", () => {
+    const c = parseColor(els.picker.value); if (c) { c.a = color.a; setColor(c, { recent: true }); }
+  });
+
+  // alpha
+  els.alpha.addEventListener("input", () => {
+    color.a = clamp01(els.alpha.value / 100);
+    els.alphaVal.textContent = els.alpha.value + "%";
+    els.colorInput.value = fmtHex(color);
+    renderInspector();
+    saveCurrent();
+  });
+
+  // random
+  els.randomBtn.addEventListener("click", () => {
+    setColor({ r: Math.floor(Math.random() * 256), g: Math.floor(Math.random() * 256), b: Math.floor(Math.random() * 256), a: 1 });
+  });
+
+  // eyedropper (feature-detect)
+  if (typeof window !== "undefined" && "EyeDropper" in window) {
+    els.dropperBtn.hidden = false;
+    els.dropperBtn.addEventListener("click", async () => {
+      try {
+        const ed = new window.EyeDropper();
+        const res = await ed.open();
+        const c = parseColor(res.sRGBHex);
+        if (c) setColor(c);
+      } catch (e) { /* user cancelled */ }
+    });
+  }
+
+  // recent: load on click (delegated)
+  els.recentStrip.addEventListener("click", (e) => {
+    const b = e.target.closest("[data-load]");
+    if (b) setColor(parseColor(b.getAttribute("data-load")), { recent: false });
+  });
+  els.clearRecent.addEventListener("click", () => { saveRecent([]); renderRecent(); toast("Recent cleared"); });
+
+  // contrast inputs
+  els.fgInput.addEventListener("input", () => { const c = parseColor(els.fgInput.value); if (c) setCC("fg", c, { syncInput: false }); else els.fgInput.classList.add("err"); });
+  els.bgInput.addEventListener("input", () => { const c = parseColor(els.bgInput.value); if (c) setCC("bg", c, { syncInput: false }); else els.bgInput.classList.add("err"); });
+  els.fgInput.addEventListener("change", () => { const c = parseColor(els.fgInput.value); if (c) setCC("fg", c); });
+  els.bgInput.addEventListener("change", () => { const c = parseColor(els.bgInput.value); if (c) setCC("bg", c); });
+  els.fgPicker.addEventListener("input", () => setCC("fg", parseColor(els.fgPicker.value)));
+  els.bgPicker.addEventListener("input", () => setCC("bg", parseColor(els.bgPicker.value)));
+  els.swapCC.addEventListener("click", () => { const t = cc.fg; setCC("fg", cc.bg); setCC("bg", t); });
+  document.querySelectorAll(".usecur").forEach(btn => {
+    btn.addEventListener("click", () => setCC(btn.getAttribute("data-target"), { r: color.r, g: color.g, b: color.b }));
+  });
+
+  // global copy delegation (formats + palette swatches + chip)
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-copy]");
+    if (el && el.getAttribute("data-copy")) copyText(el.getAttribute("data-copy"));
+  });
+
+  /* ---------- boot ---------- */
+  els.colorInput.value = fmtHex(color);
+  renderInspector();
+  renderPalette();
+  renderRecent();
+  renderContrast();
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+}
+</script>
+<style>
+.usecur {
+  font: 500 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); padding: 6px 10px; border-radius: 6px;
+}
+.usecur:hover { color: var(--fg); }
+</style>
+</body>
+</html>

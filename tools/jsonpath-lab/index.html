@@ -1,0 +1,923 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JSONPath Lab</title>
+<meta name="description" content="Query JSON with JSONPath, live: matched values as pretty JSON, normalized paths, filters, slices, recursive descent, and a precise cheat sheet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #8a5a44;
+    --accent-text: #8a5a44;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+    --ok: #2f7d4f;
+    --field: #f4f3ef;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #8a5a44;
+      --accent-text: #c0906f;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+      --ok: #5fbd82;
+      --field: #16171a;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  code, .mono { font-family: "IBM Plex Mono", monospace; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent-text); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 24px 24px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px;
+  }
+  .card-label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  /* ---- expression row ---- */
+  .expr-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: stretch; }
+  .expr-wrap {
+    flex: 1 1 420px;
+    display: flex;
+    align-items: center;
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 0 12px;
+    min-height: 48px;
+  }
+  .expr-wrap:focus-within { border-color: var(--accent); }
+  .expr-wrap .lead {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 18px;
+    color: var(--accent-text);
+    user-select: none;
+    padding-right: 6px;
+  }
+  #expr {
+    flex: 1;
+    min-width: 60px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--fg);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 16px;
+    padding: 10px 4px;
+  }
+  #expr::placeholder { color: var(--muted); opacity: 0.7; }
+
+  .sample-controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .sel-group { display: flex; align-items: center; gap: 8px; }
+  .sel-group label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  select.pick {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    padding: 8px 10px;
+    background: var(--field);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    outline: none;
+    max-width: 260px;
+  }
+  select.pick:focus { border-color: var(--accent); }
+
+  .expr-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 18px;
+    align-items: center;
+    margin-top: 12px;
+  }
+  #stats {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  #stats strong { color: var(--fg); font-weight: 600; }
+  #stats .accent { color: var(--accent-text); }
+  #expr-error {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--err);
+    background: var(--err-bg);
+    color: var(--err);
+    border-radius: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  #expr-error.show { display: block; }
+
+  /* ---- two-pane workspace ---- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 900px) { .duo { grid-template-columns: 1fr; } }
+
+  .pane-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    min-height: 30px;
+    flex-wrap: wrap;
+  }
+  .pane-head .card-label { margin-bottom: 0; }
+  .pane-head .spacer { flex: 1; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 6px 11px;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent-text); }
+  .btn svg { display: block; flex: none; }
+
+  /* segmented toggle */
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 6px 12px;
+    background: var(--card);
+    color: var(--muted);
+    border: none;
+    border-left: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .seg button:first-child { border-left: none; }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .seg button:hover:not([aria-pressed="true"]) { color: var(--fg); }
+
+  #json-input {
+    width: 100%;
+    min-height: 420px;
+    resize: vertical;
+    background: var(--field);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    outline: none;
+    tab-size: 2;
+    white-space: pre;
+    overflow: auto;
+  }
+  #json-input:focus { border-color: var(--accent); }
+  #json-input.invalid { border-color: var(--err); }
+
+  #json-status {
+    margin-top: 10px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    min-height: 18px;
+    word-break: break-word;
+  }
+  #json-status.ok { color: var(--ok); }
+  #json-status.bad { color: var(--err); }
+
+  .result-box {
+    min-height: 420px;
+    max-height: 620px;
+    overflow: auto;
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    white-space: pre;
+  }
+  .result-box.wrap { white-space: pre-wrap; word-break: break-word; }
+  .result-box .idle { color: var(--muted); font-style: italic; }
+  .result-box .bad { color: var(--err); white-space: pre-wrap; word-break: break-word; }
+  .path-line { display: block; }
+  .path-line .pnum { color: var(--muted); user-select: none; margin-right: 12px; }
+  .path-line .ptxt { color: var(--accent-text); }
+
+  #result-note {
+    margin-top: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 16px;
+  }
+
+  /* ---- cheat sheet ---- */
+  details.cheat { border: 1px solid var(--line); border-radius: 8px; background: var(--card); }
+  details.cheat summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 16px 20px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    user-select: none;
+  }
+  details.cheat summary::-webkit-details-marker { display: none; }
+  details.cheat summary:hover { color: var(--fg); }
+  details.cheat summary svg { transition: transform 0.15s ease; flex: none; }
+  details.cheat[open] summary svg { transform: rotate(90deg); }
+  .cs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 22px 32px;
+    padding: 4px 20px 22px;
+  }
+  .cs-grid h3 {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent-text);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 5px;
+  }
+  .cs-row {
+    display: grid;
+    grid-template-columns: minmax(118px, auto) 1fr;
+    gap: 12px;
+    padding: 2.5px 0;
+    font-size: 12.5px;
+  }
+  .cs-row code {
+    font-size: 12px;
+    background: var(--field);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 0 5px;
+    white-space: nowrap;
+    justify-self: start;
+    align-self: start;
+    color: var(--accent-text);
+  }
+  .cs-row span { color: var(--muted); }
+  .cs-row span b { color: var(--fg); font-weight: 500; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 14px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: center;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>JSONPath Lab</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+
+  <section class="card" aria-label="JSONPath expression">
+    <label class="card-label" for="expr">JSONPath expression</label>
+    <div class="expr-row">
+      <div class="expr-wrap">
+        <span class="lead" aria-hidden="true">&gt;</span>
+        <input id="expr" type="text" spellcheck="false" autocomplete="off"
+               placeholder="$.store.book[?(@.price&lt;10)].title" aria-label="JSONPath expression">
+      </div>
+      <div class="sample-controls">
+        <div class="sel-group">
+          <label for="sample">doc</label>
+          <select id="sample" class="pick" aria-label="Sample JSON document"></select>
+        </div>
+        <div class="sel-group">
+          <label for="examples">query</label>
+          <select id="examples" class="pick" aria-label="Example queries for the current document"></select>
+        </div>
+      </div>
+    </div>
+    <div class="expr-meta">
+      <div id="stats" aria-live="polite"></div>
+    </div>
+    <div id="expr-error" role="alert"></div>
+  </section>
+
+  <div class="duo">
+
+    <section class="card" aria-label="JSON document">
+      <div class="pane-head">
+        <span class="card-label">JSON document</span>
+        <span class="spacer"></span>
+        <button class="btn" id="pretty-btn" type="button" title="Reformat with 2-space indentation">pretty</button>
+        <button class="btn" id="minify-btn" type="button" title="Collapse to a single line">minify</button>
+      </div>
+      <textarea id="json-input" spellcheck="false" autocomplete="off" aria-label="JSON document to query"></textarea>
+      <div id="json-status" aria-live="polite"></div>
+    </section>
+
+    <section class="card" aria-label="Results">
+      <div class="pane-head">
+        <span class="card-label">Results</span>
+        <span class="spacer"></span>
+        <div class="seg" role="group" aria-label="Result view">
+          <button id="view-values" type="button" aria-pressed="true">values</button>
+          <button id="view-paths" type="button" aria-pressed="false">paths</button>
+        </div>
+        <button class="btn" id="copy-btn" type="button" aria-label="Copy results">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span id="copy-label">copy</span>
+        </button>
+      </div>
+      <div id="result-box" class="result-box" aria-live="polite"><span class="idle">Matched values appear here.</span></div>
+      <div id="result-note"></div>
+    </section>
+
+  </div>
+
+  <details class="cheat">
+    <summary>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"></polyline></svg>
+      JSONPath cheat sheet
+    </summary>
+    <div class="cs-grid">
+      <section>
+        <h3>Roots &amp; steps</h3>
+        <div class="cs-row"><code>$</code><span>the <b>root</b> of the document &#8212; every path starts here</span></div>
+        <div class="cs-row"><code>@</code><span>the <b>current</b> node &#8212; used inside filter expressions</span></div>
+        <div class="cs-row"><code>.name</code><span>child by name (<b>dot notation</b>), e.g. <b>$.store</b></span></div>
+        <div class="cs-row"><code>['name']</code><span>child by name (<b>bracket notation</b>) &#8212; use for keys with spaces or dots</span></div>
+        <div class="cs-row"><code>..</code><span><b>recursive descent</b> &#8212; scan self and all descendants, e.g. <b>$..price</b></span></div>
+        <div class="cs-row"><code>*</code><span><b>wildcard</b> &#8212; every child (of an object or array), e.g. <b>$.store.*</b></span></div>
+      </section>
+      <section>
+        <h3>Array indexing</h3>
+        <div class="cs-row"><code>[n]</code><span>element at index <b>n</b> (0-based), e.g. <b>[2]</b></span></div>
+        <div class="cs-row"><code>[-n]</code><span>counts from the end &#8212; <b>[-1]</b> is the last element</span></div>
+        <div class="cs-row"><code>[a,b]</code><span><b>union</b> &#8212; several indices or names at once, e.g. <b>[0,2]</b></span></div>
+        <div class="cs-row"><code>[start:end]</code><span><b>slice</b> &#8212; from <b>start</b> up to (not including) <b>end</b>, e.g. <b>[0:2]</b></span></div>
+        <div class="cs-row"><code>[:n]</code><span>first <b>n</b> elements; <b>[n:]</b> from n onward; <b>[-2:]</b> last two</span></div>
+        <div class="cs-row"><code>[start:end:step]</code><span>slice with a <b>step</b>, e.g. <b>[::2]</b> every other</span></div>
+      </section>
+      <section>
+        <h3>Filters &nbsp;<code>[?(&#8230;)]</code></h3>
+        <div class="cs-row"><code>[?(@.x)]</code><span>items where property <b>x</b> exists / is truthy</span></div>
+        <div class="cs-row"><code>[?(@.x&gt;1)]</code><span>comparisons: <b>== != &lt; &lt;= &gt; &gt;=</b></span></div>
+        <div class="cs-row"><code>@.x=="y"</code><span>string compare (quote the literal)</span></div>
+        <div class="cs-row"><code>&amp;&amp; &nbsp;||</code><span>combine conditions, e.g. <b>@.a&gt;1&amp;&amp;@.b&lt;9</b></span></div>
+        <div class="cs-row"><code>@.arr.length</code><span>length of an array/string property</span></div>
+        <div class="cs-row"><code>@.price&lt;@root.max</code><span>reference the document <b>root</b> from inside a filter (use <b>@root</b>, not $)</span></div>
+        <div class="cs-row"><code>[?(/re/.test(@.s))]</code><span>regex test on a value</span></div>
+      </section>
+      <section>
+        <h3>Result forms &amp; tips</h3>
+        <div class="cs-row"><code>values</code><span>this tool&#8217;s left toggle &#8212; the matched <b>values</b> as pretty JSON</span></div>
+        <div class="cs-row"><code>paths</code><span>the right toggle &#8212; each match&#8217;s <b>normalized path</b>, e.g. <b>$['store']['book'][0]</b></span></div>
+        <div class="cs-row"><code>$..*</code><span>every value in the document (deep)</span></div>
+        <div class="cs-row"><code>$.a.b.c</code><span>a missing step yields <b>no matches</b>, not an error</span></div>
+        <div class="cs-row"><code>~</code><span>property <b>name</b> of a match (rather than its value)</span></div>
+        <div class="cs-row"><code>^</code><span>the <b>parent</b> of a match</span></div>
+      </section>
+    </div>
+  </details>
+
+</main>
+
+<footer>
+  <span>jsonpath-plus v10 &#183; MIT &#183; <a href="vendor/LICENSE-jsonpath-plus.txt">license</a></span>
+</footer>
+
+<script src="vendor/jsonpath-plus.umd.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  // Resolve the JSONPath function from the UMD global (window.JSONPath is a
+  // namespace object whose .JSONPath is the callable; guard both shapes).
+  var NS = window.JSONPath;
+  var JP = (NS && typeof NS.JSONPath === "function") ? NS.JSONPath
+         : (typeof NS === "function") ? NS : null;
+
+  var STORE_KEY = "jsonpath-lab.v1";
+  var DEBOUNCE_MS = 180;
+  var MAX_NODES = 5000;          // cap on matched nodes rendered
+  var MAX_OUTPUT_CHARS = 600000; // cap on rendered characters
+
+  var $expr = document.getElementById("expr");
+  var $sample = document.getElementById("sample");
+  var $examples = document.getElementById("examples");
+  var $stats = document.getElementById("stats");
+  var $exprError = document.getElementById("expr-error");
+  var $json = document.getElementById("json-input");
+  var $jsonStatus = document.getElementById("json-status");
+  var $prettyBtn = document.getElementById("pretty-btn");
+  var $minifyBtn = document.getElementById("minify-btn");
+  var $resultBox = document.getElementById("result-box");
+  var $resultNote = document.getElementById("result-note");
+  var $viewValues = document.getElementById("view-values");
+  var $viewPaths = document.getElementById("view-paths");
+  var $copyBtn = document.getElementById("copy-btn");
+  var $copyLabel = document.getElementById("copy-label");
+
+  var viewMode = "values";     // "values" | "paths"
+  var lastCopyText = "";       // text backing the copy button
+  var parsedDoc = undefined;   // last successfully parsed JSON document
+  var docValid = false;
+
+  /* ---------------- sample documents ---------------- */
+  var SAMPLES = {
+    bookstore: {
+      label: "bookstore",
+      doc: {
+        store: {
+          book: [
+            { category: "reference", author: "Nigel Rees", title: "Sayings of the Century", price: 8.95 },
+            { category: "fiction", author: "Evelyn Waugh", title: "Sword of Honour", price: 12.99 },
+            { category: "fiction", author: "Herman Melville", title: "Moby Dick", isbn: "0-553-21311-3", price: 8.99 },
+            { category: "fiction", author: "J. R. R. Tolkien", title: "The Lord of the Rings", isbn: "0-395-19395-8", price: 22.99 }
+          ],
+          bicycle: { color: "red", price: 19.95 }
+        },
+        expensive: 10
+      },
+      queries: [
+        ["$.store.book[*].author", "every book author"],
+        ["$..author", "all authors, anywhere (recursive)"],
+        ["$.store.*", "everything in the store"],
+        ["$..price", "every price in the document"],
+        ["$..book[2]", "the third book"],
+        ["$..book[-1:]", "the last book (slice from end)"],
+        ["$..book[0,1]", "first two books (union)"],
+        ["$..book[:2]", "first two books (slice)"],
+        ["$..book[?(@.isbn)]", "books that have an isbn"],
+        ["$..book[?(@.price<10)].title", "titles cheaper than 10"],
+        ["$..book[?(@.price<@root.expensive)].title", "cheaper than the \"expensive\" threshold (@root)"],
+        ["$..*", "every value in the document"]
+      ]
+    },
+    fleet: {
+      label: "satellite fleet",
+      doc: {
+        fleet: [
+          { id: "sat-01", status: "nominal", battery: 87, sensors: ["swir", "vis"], orbit: { alt_km: 550, incl: 53.0 } },
+          { id: "sat-02", status: "degraded", battery: 41, sensors: ["vis"], orbit: { alt_km: 540, incl: 53.0 } },
+          { id: "sat-03", status: "nominal", battery: 96, sensors: ["swir", "vis", "lwir"], orbit: { alt_km: 560, incl: 97.6 } }
+        ],
+        ground: { stations: 4, region: "us-west" }
+      },
+      queries: [
+        ["$.fleet[*].id", "every craft id"],
+        ["$.fleet[?(@.battery<50)].id", "craft below 50% battery"],
+        ["$.fleet[?(@.status==\"nominal\")].id", "craft reporting nominal"],
+        ["$..sensors[*]", "every sensor listed, flattened"],
+        ["$.fleet[?(@.sensors.length>2)].id", "craft carrying more than 2 sensors"],
+        ["$.fleet[*].orbit.alt_km", "altitude of each craft"],
+        ["$..orbit[?(@.incl>90)]", "sun-synchronous-ish orbits (incl > 90)"]
+      ]
+    },
+    users: {
+      label: "users",
+      doc: {
+        users: [
+          { name: "Ada", roles: ["admin", "dev"], active: true, age: 36 },
+          { name: "Grace", roles: ["dev"], active: true, age: 45 },
+          { name: "Alan", roles: ["ops"], active: false, age: 41 }
+        ],
+        count: 3
+      },
+      queries: [
+        ["$.users[*].name", "every user name"],
+        ["$.users[?(@.active==true)].name", "active users"],
+        ["$.users[?(@.age>40)].name", "users older than 40"],
+        ["$.users[*].roles[*]", "every role held, flattened"],
+        ["$..roles", "the roles array of each user"],
+        ["$.users[0,2].name", "first and third user (union)"]
+      ]
+    }
+  };
+
+  /* ---------------- helpers ---------------- */
+  function escapeHtml(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function setExprError(msg) {
+    if (msg) {
+      $exprError.textContent = msg;
+      $exprError.classList.add("show");
+    } else {
+      $exprError.textContent = "";
+      $exprError.classList.remove("show");
+    }
+  }
+
+  function setJsonStatus(state, msg) {
+    $jsonStatus.className = state; // "ok" | "bad" | ""
+    $jsonStatus.textContent = msg || "";
+  }
+
+  function setStats(html) { $stats.innerHTML = html; }
+
+  function idleResult(msg) {
+    $resultBox.classList.remove("wrap");
+    $resultBox.innerHTML = '<span class="idle">' + escapeHtml(msg) + "</span>";
+    $resultNote.textContent = "";
+    lastCopyText = "";
+  }
+
+  function badResult(msg) {
+    $resultBox.classList.remove("wrap");
+    $resultBox.innerHTML = '<span class="bad">' + escapeHtml(msg) + "</span>";
+    $resultNote.textContent = "";
+    lastCopyText = "";
+  }
+
+  /* ---------------- JSON parsing ---------------- */
+  function parseDoc() {
+    var raw = $json.value;
+    if (raw.trim() === "") {
+      docValid = false; parsedDoc = undefined;
+      $json.classList.remove("invalid");
+      setJsonStatus("", "");
+      return false;
+    }
+    try {
+      parsedDoc = JSON.parse(raw);
+      docValid = true;
+      $json.classList.remove("invalid");
+      setJsonStatus("ok", "valid JSON · " + raw.length.toLocaleString() + " chars");
+      return true;
+    } catch (e) {
+      docValid = false; parsedDoc = undefined;
+      $json.classList.add("invalid");
+      setJsonStatus("bad", String(e && e.message ? e.message : e));
+      return false;
+    }
+  }
+
+  /* ---------------- evaluation ---------------- */
+  function evaluate() {
+    var path = $expr.value.trim();
+
+    if (!parseDoc()) {
+      setExprError(null);
+      setStats("");
+      if ($json.value.trim() === "") idleResult("Paste or load a JSON document to query.");
+      else badResult("Fix the JSON document to evaluate the path.");
+      return;
+    }
+
+    if (path === "") {
+      setExprError(null);
+      setStats('<span>enter a JSONPath expression &#8212; start with <span class="accent">$</span></span>');
+      idleResult("Matched values appear here.");
+      return;
+    }
+
+    if (!JP) {
+      setExprError("jsonpath-plus failed to load (vendor/jsonpath-plus.umd.min.js).");
+      return;
+    }
+
+    var t0 = performance.now();
+    var all;
+    try {
+      all = JP({ path: path, json: parsedDoc, resultType: "all", wrap: true });
+    } catch (e) {
+      setExprError(String(e && e.message ? e.message : e));
+      setStats('<span>invalid path</span>');
+      badResult("Path is invalid — see the message above.");
+      return;
+    }
+    var elapsed = performance.now() - t0;
+    setExprError(null);
+
+    if (!Array.isArray(all)) all = all == null ? [] : [all];
+    var n = all.length;
+
+    var parts = ['<strong>' + n.toLocaleString() + '</strong> match' + (n === 1 ? "" : "es"),
+                 elapsed.toFixed(2) + " ms"];
+    setStats(parts.join(" · "));
+
+    if (n === 0) {
+      idleResult("No matches for this path.");
+      return;
+    }
+
+    var capped = n > MAX_NODES;
+    var shown = capped ? all.slice(0, MAX_NODES) : all;
+
+    if (viewMode === "paths") renderPaths(shown, n, capped);
+    else renderValues(shown, n, capped);
+  }
+
+  function renderValues(shown, total, capped) {
+    var values = shown.map(function (r) { return (r && typeof r === "object" && "value" in r) ? r.value : r; });
+    var text;
+    try {
+      text = JSON.stringify(values, null, 2);
+    } catch (e) {
+      text = "[\n" + values.map(function (v) {
+        try { return "  " + JSON.stringify(v); } catch (_e) { return "  \"<unserializable>\""; }
+      }).join(",\n") + "\n]";
+    }
+    if (text == null) text = "undefined";
+    var truncated = false;
+    if (text.length > MAX_OUTPUT_CHARS) {
+      text = text.slice(0, MAX_OUTPUT_CHARS);
+      truncated = true;
+    }
+    $resultBox.classList.remove("wrap");
+    $resultBox.textContent = text;
+    lastCopyText = text;
+    note(total, capped, truncated);
+  }
+
+  function renderPaths(shown, total, capped) {
+    var lines = shown.map(function (r) { return (r && r.path) ? r.path : ""; });
+    var html = lines.map(function (p, i) {
+      return '<span class="path-line"><span class="pnum">' + (i + 1) + '</span><span class="ptxt">' + escapeHtml(p) + '</span></span>';
+    }).join("");
+    $resultBox.classList.add("wrap");
+    $resultBox.innerHTML = html;
+    lastCopyText = lines.join("\n");
+    note(total, capped, false);
+  }
+
+  function note(total, capped, truncated) {
+    var msgs = [];
+    if (capped) msgs.push("showing first " + MAX_NODES.toLocaleString() + " of " + total.toLocaleString() + " matches");
+    if (truncated) msgs.push("output truncated at " + MAX_OUTPUT_CHARS.toLocaleString() + " chars");
+    $resultNote.textContent = msgs.join(" · ");
+  }
+
+  /* ---------------- sample / example wiring ---------------- */
+  function fillSampleSelect() {
+    var opts = ['<option value="">choose…</option>'];
+    Object.keys(SAMPLES).forEach(function (k) {
+      opts.push('<option value="' + k + '">' + escapeHtml(SAMPLES[k].label) + "</option>");
+    });
+    $sample.innerHTML = opts.join("");
+  }
+
+  function fillExampleSelect(key) {
+    var s = SAMPLES[key];
+    if (!s) {
+      $examples.innerHTML = '<option value="">—</option>';
+      return;
+    }
+    var opts = ['<option value="">choose…</option>'];
+    s.queries.forEach(function (q, i) {
+      opts.push('<option value="' + i + '">' + escapeHtml(q[0]) + "  —  " + escapeHtml(q[1]) + "</option>");
+    });
+    $examples.innerHTML = opts.join("");
+  }
+
+  var currentSampleKey = "bookstore";
+
+  function loadSample(key, setQuery) {
+    var s = SAMPLES[key];
+    if (!s) return;
+    currentSampleKey = key;
+    $json.value = JSON.stringify(s.doc, null, 2);
+    fillExampleSelect(key);
+    if (setQuery && s.queries.length) $expr.value = s.queries[0][0];
+    evaluate();
+    save();
+  }
+
+  /* ---------------- view toggle ---------------- */
+  function setView(mode) {
+    viewMode = mode;
+    var vOn = mode === "values";
+    $viewValues.setAttribute("aria-pressed", vOn ? "true" : "false");
+    $viewPaths.setAttribute("aria-pressed", vOn ? "false" : "true");
+    evaluate();
+    save();
+  }
+
+  /* ---------------- persistence ---------------- */
+  var saveTimer = null;
+  function save() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+          expr: $expr.value,
+          json: $json.value,
+          view: viewMode,
+          sample: currentSampleKey
+        }));
+      } catch (e) { /* ignore */ }
+    }, 220);
+  }
+
+  function load() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { saved = null; }
+    fillSampleSelect();
+    if (saved && typeof saved === "object" && typeof saved.json === "string" && saved.json.trim() !== "") {
+      currentSampleKey = (saved.sample && SAMPLES[saved.sample]) ? saved.sample : "bookstore";
+      $json.value = saved.json;
+      $expr.value = typeof saved.expr === "string" ? saved.expr : "";
+      viewMode = saved.view === "paths" ? "paths" : "values";
+      $sample.value = SAMPLES[currentSampleKey] ? currentSampleKey : "";
+      fillExampleSelect(currentSampleKey);
+    } else {
+      currentSampleKey = "bookstore";
+      $sample.value = "bookstore";
+      $json.value = JSON.stringify(SAMPLES.bookstore.doc, null, 2);
+      $expr.value = SAMPLES.bookstore.queries[0][0];
+      fillExampleSelect("bookstore");
+    }
+    $viewValues.setAttribute("aria-pressed", viewMode === "values" ? "true" : "false");
+    $viewPaths.setAttribute("aria-pressed", viewMode === "paths" ? "true" : "false");
+  }
+
+  /* ---------------- debounce ---------------- */
+  function debounce(fn, ms) {
+    var t = null;
+    return function () {
+      if (t) clearTimeout(t);
+      t = setTimeout(fn, ms);
+    };
+  }
+  var debouncedEval = debounce(function () { evaluate(); save(); }, DEBOUNCE_MS);
+
+  /* ---------------- events ---------------- */
+  $expr.addEventListener("input", debouncedEval);
+  $json.addEventListener("input", debouncedEval);
+
+  $sample.addEventListener("change", function () {
+    if ($sample.value) loadSample($sample.value, true);
+  });
+
+  $examples.addEventListener("change", function () {
+    var s = SAMPLES[currentSampleKey];
+    if (!s || $examples.value === "") return;
+    var q = s.queries[parseInt($examples.value, 10)];
+    if (q) { $expr.value = q[0]; evaluate(); save(); }
+    $examples.value = "";
+  });
+
+  $prettyBtn.addEventListener("click", function () {
+    try {
+      var obj = JSON.parse($json.value);
+      $json.value = JSON.stringify(obj, null, 2);
+      evaluate(); save();
+    } catch (e) {
+      parseDoc(); // surfaces the error in the status line
+    }
+  });
+
+  $minifyBtn.addEventListener("click", function () {
+    try {
+      var obj = JSON.parse($json.value);
+      $json.value = JSON.stringify(obj);
+      evaluate(); save();
+    } catch (e) {
+      parseDoc();
+    }
+  });
+
+  // allow Tab to insert two spaces inside the JSON editor
+  $json.addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      var s = this.selectionStart, en = this.selectionEnd;
+      this.value = this.value.slice(0, s) + "  " + this.value.slice(en);
+      this.selectionStart = this.selectionEnd = s + 2;
+      debouncedEval();
+    }
+  });
+
+  $viewValues.addEventListener("click", function () { setView("values"); });
+  $viewPaths.addEventListener("click", function () { setView("paths"); });
+
+  $copyBtn.addEventListener("click", function () {
+    if (!lastCopyText) return;
+    function done(ok) {
+      $copyLabel.textContent = ok ? "copied" : "failed";
+      setTimeout(function () { $copyLabel.textContent = "copy"; }, 1200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(lastCopyText).then(function () { done(true); }, function () { done(false); });
+    } else {
+      var ta = document.createElement("textarea");
+      ta.value = lastCopyText;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+  });
+
+  /* ---------------- boot ---------------- */
+  load();
+  evaluate();
+})();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQL Formatter</title>
+<meta name="description" content="Client-side SQL formatter with dialect, keyword case, indentation, and copy controls.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f4f3ef;--fg:#191b1e;--muted:#8a8d93;--line:#dcd9d2;--card:#fff;--accent:#c47a2c;--bad:#b3261e}
+@media(prefers-color-scheme:dark){:root{--bg:#16171a;--fg:#eceae4;--line:#2b2d31;--card:#1e2024;--bad:#ff6b60}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);font:400 14px/1.5 "IBM Plex Sans",system-ui,sans-serif;display:flex;flex-direction:column}
+textarea,select,input,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}header{display:flex;align-items:center;gap:12px;padding:16px 24px;border-bottom:1px solid var(--line)}.sq{width:12px;height:12px;background:var(--accent);border-radius:2px}.back{margin-left:auto;color:var(--muted);text-decoration:none;font:500 12px "IBM Plex Mono",monospace}.back:hover{color:var(--accent)}
+h1{margin:0;font:700 14px "IBM Plex Mono",monospace;letter-spacing:.18em}.toolbar{display:flex;gap:8px;flex-wrap:wrap;padding:12px 20px;border-bottom:1px solid var(--line);align-items:center}.toolbar label{color:var(--muted);font:600 11px "IBM Plex Mono",monospace;text-transform:uppercase;letter-spacing:.08em}
+select,input{border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);padding:7px 9px;font-size:12px}button{border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:6px;padding:8px 11px;font:600 12px "IBM Plex Sans",system-ui,sans-serif;cursor:pointer}button:hover{border-color:var(--accent);color:var(--accent)}
+main{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:18px 20px}@media(max-width:900px){main{grid-template-columns:1fr}}.pane{display:flex;flex-direction:column;min-height:0;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}.pane h2{margin:0;padding:10px 12px;border-bottom:1px solid var(--line);color:var(--muted);font:700 11px "IBM Plex Mono",monospace;letter-spacing:.14em;text-transform:uppercase}
+textarea{flex:1;min-height:360px;border:0;resize:none;background:transparent;color:var(--fg);padding:14px;font-size:13px;line-height:1.55;tab-size:2}textarea:focus,select:focus,input:focus{outline:2px solid var(--accent);outline-offset:-2px}.err{padding:0 20px 12px;color:var(--bad);font:500 12px "IBM Plex Mono",monospace;min-height:18px}footer{padding:14px 24px;border-top:1px solid var(--line);color:var(--muted);font:400 11px "IBM Plex Mono",monospace}
+</style>
+</head>
+<body>
+<header><span class="sq"></span><h1>SQL FORMATTER</h1><a class="back" href="../../">Back to tools</a></header>
+<div class="toolbar">
+  <label>Dialect <select id="language"></select></label>
+  <label>Keywords <select id="keywordCase"><option value="upper">UPPER</option><option value="lower">lower</option><option value="preserve">preserve</option></select></label>
+  <label>Indent <input id="tabWidth" type="number" min="1" max="8" value="2"></label>
+  <button id="sample">Sample</button><button id="copy">Copy output</button>
+</div>
+<div id="err" class="err"></div>
+<main>
+  <section class="pane"><h2>Input</h2><textarea id="input" spellcheck="false"></textarea></section>
+  <section class="pane"><h2>Formatted</h2><textarea id="output" readonly spellcheck="false"></textarea></section>
+</main>
+<footer>sql-formatter is vendored locally under the MIT license. Queries never leave this browser.</footer>
+<script src="sql-formatter.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const sample="select u.id,u.email,count(o.id) as orders,sum(o.total) as revenue from users u left join orders o on o.user_id=u.id where u.created_at >= date '2026-01-01' and u.status='active' group by u.id,u.email having count(o.id)>0 order by revenue desc limit 25;";
+function init(){
+  const langs=sqlFormatter.supportedDialects || ["sql","postgresql","mysql","sqlite","bigquery","transactsql"];
+  $("language").innerHTML=langs.map(x=>`<option value="${x}">${x}</option>`).join("");
+  $("language").value="postgresql"; $("input").value=sample; format();
+}
+function format(){
+  try{
+    $("err").textContent="";
+    $("output").value=sqlFormatter.format($("input").value,{language:$("language").value,keywordCase:$("keywordCase").value,tabWidth:Number($("tabWidth").value)||2});
+  }catch(e){$("err").textContent=e.message || String(e);}
+}
+$("input").addEventListener("input",format);
+["language","keywordCase","tabWidth"].forEach(id=>$(id).addEventListener("input",format));
+$("sample").onclick=()=>{$("input").value=sample;format();};
+$("copy").onclick=async()=>{await navigator.clipboard.writeText($("output").value);};
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ID Forge</title>
+<meta name="description" content="Generate UUID v4, UUID v7, ULID, and nanoid identifiers in the browser with per-type options, batch counts, copy/download, and a UUID/ULID decoder. Zero dependencies.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #7a6cff;
+  --accent-contrast: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #7a6cff;
+    --accent-contrast: #ffffff;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+::selection { background: var(--accent); color: var(--accent-contrast); }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.sq { width: 12px; height: 12px; background: var(--accent); flex: none; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.18em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+}
+.back:hover, .back:focus-visible { color: var(--accent); }
+footer {
+  margin-top: auto;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  main { grid-template-columns: minmax(0, 1fr); }
+}
+.col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 18px;
+}
+.card h2 {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+}
+label, .lbl {
+  display: block;
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* ---------- inputs ---------- */
+textarea, input[type="text"], input[type="number"], select {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 8px 10px;
+  font: 400 13px "IBM Plex Mono", monospace;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8d93' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+textarea { resize: vertical; min-height: 72px; }
+textarea:focus, input:focus, select:focus, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+input[type="range"] { accent-color: var(--accent); width: 100%; }
+input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; cursor: pointer; }
+input[type="number"] { -moz-appearance: textfield; }
+
+/* ---------- segmented control (type picker) ---------- */
+.seg { display: flex; border: 1px solid var(--line); flex-wrap: wrap; }
+.seg button {
+  flex: 1 1 0;
+  min-width: 72px;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--accent); }
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* ---------- control rows ---------- */
+.row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.row:last-child { margin-bottom: 0; }
+.field { margin-bottom: 14px; }
+.field:last-child { margin-bottom: 0; }
+.val {
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  min-width: 30px;
+  text-align: right;
+}
+.check-row { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.check-row span {
+  font: 400 13px "IBM Plex Sans", sans-serif;
+  color: var(--fg);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.hint { font: 400 11px "IBM Plex Mono", monospace; color: var(--muted); margin-top: 6px; line-height: 1.5; }
+
+/* ---------- per-type option panels ---------- */
+.opts { display: none; }
+.opts.active { display: block; }
+
+/* ---------- action buttons ---------- */
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn svg { flex: none; }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-contrast); }
+.btn.primary:hover:not(:disabled) { color: var(--accent-contrast); opacity: 0.9; }
+
+/* ---------- output list ---------- */
+.out-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+.out-head .stats { font: 400 12px "IBM Plex Mono", monospace; color: var(--muted); margin-right: auto; }
+.id-list {
+  border: 1px solid var(--line);
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--bg);
+}
+.id-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.id-row:last-child { border-bottom: none; }
+.id-row:hover { background: var(--card); }
+.id-idx {
+  font: 400 11px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  min-width: 34px;
+  text-align: right;
+  flex: none;
+  user-select: none;
+}
+.id-val {
+  font: 400 13px/1.4 "IBM Plex Mono", monospace;
+  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+  word-break: break-all;
+}
+.icon-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px; height: 26px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 0;
+}
+.icon-btn:hover, .icon-btn:focus-visible { color: var(--accent); border-color: var(--line); }
+.icon-btn.ok { color: var(--accent); }
+
+/* ---------- decoder ---------- */
+.dec-grid { display: grid; grid-template-columns: 128px 1fr; gap: 8px 14px; margin-top: 14px; }
+.dec-grid dt {
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  align-self: start;
+}
+.dec-grid dd {
+  font: 400 13px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  word-break: break-all;
+}
+.dec-empty { display: none; }
+.dec-err {
+  display: none;
+  margin-top: 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font: 400 12px "IBM Plex Mono", monospace;
+}
+.dec-err.show { display: block; }
+.badge {
+  display: inline-block;
+  padding: 1px 7px;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sq" aria-hidden="true"></div>
+  <h1>ID&nbsp;FORGE</h1>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <!-- ================= LEFT: controls ================= -->
+  <div class="col col-left">
+    <div class="card">
+      <h2>Identifier type</h2>
+      <div class="seg" id="type-seg" role="tablist" aria-label="Identifier type">
+        <button type="button" data-type="uuidv4" role="tab" aria-pressed="true">UUID&nbsp;v4</button>
+        <button type="button" data-type="uuidv7" role="tab" aria-pressed="false">UUID&nbsp;v7</button>
+        <button type="button" data-type="ulid" role="tab" aria-pressed="false">ULID</button>
+        <button type="button" data-type="nanoid" role="tab" aria-pressed="false">nanoid</button>
+      </div>
+
+      <!-- UUID options (v4 + v7 share) -->
+      <div class="opts" id="opts-uuidv4" data-opts="uuidv4">
+        <div class="field" style="margin-top:14px">
+          <label class="check-row"><input type="checkbox" id="uuid-upper"><span>Uppercase</span></label>
+        </div>
+        <p class="hint">Random 128-bit v4, generated with <span class="mono">crypto.randomUUID()</span>.</p>
+      </div>
+      <div class="opts" id="opts-uuidv7" data-opts="uuidv7">
+        <div class="field" style="margin-top:14px">
+          <label class="check-row"><input type="checkbox" id="uuid-upper7"><span>Uppercase</span></label>
+        </div>
+        <p class="hint">Time-ordered: 48-bit Unix-ms timestamp + 74 random bits (RFC&nbsp;9562).</p>
+      </div>
+
+      <!-- ULID options -->
+      <div class="opts" id="opts-ulid" data-opts="ulid">
+        <div class="field" style="margin-top:14px">
+          <label class="check-row"><input type="checkbox" id="ulid-mono"><span>Monotonic (same-ms increment)</span></label>
+        </div>
+        <p class="hint">26-char Crockford Base32: 10-char timestamp + 16-char randomness. Lexicographically sortable.</p>
+      </div>
+
+      <!-- nanoid options -->
+      <div class="opts" id="opts-nanoid" data-opts="nanoid">
+        <div class="field" style="margin-top:14px">
+          <label for="nano-preset">Alphabet</label>
+          <select id="nano-preset">
+            <option value="urlsafe">URL-safe (A-Za-z0-9_-)</option>
+            <option value="alphanumeric">Alphanumeric (A-Za-z0-9)</option>
+            <option value="lower">Lowercase (a-z)</option>
+            <option value="upper">Uppercase (A-Z)</option>
+            <option value="numbers">Numbers (0-9)</option>
+            <option value="hex">Hex lower (0-9a-f)</option>
+            <option value="nolookalikes">No look-alikes</option>
+            <option value="custom">Custom&hellip;</option>
+          </select>
+        </div>
+        <div class="field" id="nano-custom-field" style="display:none">
+          <label for="nano-custom">Custom alphabet</label>
+          <input type="text" id="nano-custom" spellcheck="false" placeholder="Type 2+ unique characters&hellip;">
+        </div>
+        <div class="field">
+          <div class="row" style="margin-bottom:6px">
+            <label style="margin-bottom:0">Size</label>
+            <span class="val" id="nano-size-val">21</span>
+          </div>
+          <input type="range" id="nano-size" min="2" max="64" value="21">
+        </div>
+        <p class="hint" id="nano-entropy"></p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Batch</h2>
+      <div class="field">
+        <label for="count">Count (1&ndash;1000)</label>
+        <input type="number" id="count" min="1" max="1000" value="10">
+      </div>
+      <div class="actions">
+        <button type="button" class="btn primary" id="gen-btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"/><path d="M13.5 2.5V5H11"/></svg>
+          Generate
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= RIGHT: output + decoder ================= -->
+  <div class="col col-right">
+    <div class="card">
+      <div class="out-head">
+        <span class="stats" id="stats">&mdash;</span>
+        <button type="button" class="btn" id="copyall-btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="9" rx="1"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>
+          Copy all
+        </button>
+        <button type="button" class="btn" id="dl-btn">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8"/><path d="M4.5 6.5 8 10l3.5-3.5"/><path d="M2.5 13h11"/></svg>
+          .txt
+        </button>
+      </div>
+      <div class="id-list" id="id-list" aria-live="polite"></div>
+    </div>
+
+    <div class="card">
+      <h2>Decoder &mdash; UUID / ULID</h2>
+      <div class="field">
+        <label for="dec-in">Paste an identifier</label>
+        <textarea id="dec-in" spellcheck="false" placeholder="e.g. 018f4a3c-... , 01HZ... (ULID), or 32 hex chars"></textarea>
+      </div>
+      <dl class="dec-grid" id="dec-out">
+        <dt>Format</dt><dd id="d-format">&mdash;</dd>
+        <dt>Version</dt><dd id="d-version">&mdash;</dd>
+        <dt>Variant</dt><dd id="d-variant">&mdash;</dd>
+        <dt>Timestamp</dt><dd id="d-ts">&mdash;</dd>
+        <dt>Local time</dt><dd id="d-local">&mdash;</dd>
+        <dt>UTC time</dt><dd id="d-utc">&mdash;</dd>
+        <dt>Normalized</dt><dd id="d-norm">&mdash;</dd>
+      </dl>
+      <div class="dec-err" id="dec-err"></div>
+    </div>
+  </div>
+</main>
+
+<footer>zero dependencies</footer>
+
+<script>
+"use strict";
+(function () {
+
+  /* ============================================================
+   *  CORE GENERATORS  (self-contained, crypto.getRandomValues)
+   *  NOTE: functions below the "HARNESS-COPY" markers are copied
+   *  verbatim into the node round-trip harness during verify.
+   * ============================================================ */
+
+  var HEX = "0123456789abcdef";
+
+  function bytesToUuid(b) {
+    var s = "";
+    for (var i = 0; i < 16; i++) s += HEX[b[i] >> 4] + HEX[b[i] & 15];
+    return (
+      s.slice(0, 8) + "-" + s.slice(8, 12) + "-" + s.slice(12, 16) + "-" +
+      s.slice(16, 20) + "-" + s.slice(20, 32)
+    );
+  }
+
+  function uuidBytes(uuid) {
+    var hex = uuid.replace(/[^0-9a-fA-F]/g, "");
+    var b = new Uint8Array(16);
+    for (var i = 0; i < 16; i++) b[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return b;
+  }
+
+  // --- UUID v4 (crypto.randomUUID with hand-rolled fallback) ---
+  function uuidv4() {
+    if (typeof crypto !== "undefined" && crypto.randomUUID) return crypto.randomUUID();
+    var b = crypto.getRandomValues(new Uint8Array(16));
+    b[6] = (b[6] & 0x0f) | 0x40; // version 4
+    b[8] = (b[8] & 0x3f) | 0x80; // variant 10
+    return bytesToUuid(b);
+  }
+
+  // >>> HARNESS-COPY START (uuidv7) <<<
+  // --- UUID v7 : 48-bit ms timestamp + version + 74 random bits ---
+  function uuidv7(ts) {
+    ts = (ts === undefined) ? Date.now() : ts;
+    var b = new Uint8Array(16);
+    var tsHigh = Math.floor(ts / 0x100000000);   // upper 16 bits of the 48
+    var tsLow = ts % 0x100000000;                // lower 32 bits
+    b[0] = (tsHigh >>> 8) & 0xff;
+    b[1] = tsHigh & 0xff;
+    b[2] = (tsLow >>> 24) & 0xff;
+    b[3] = (tsLow >>> 16) & 0xff;
+    b[4] = (tsLow >>> 8) & 0xff;
+    b[5] = tsLow & 0xff;
+    var rnd = crypto.getRandomValues(new Uint8Array(10));
+    b.set(rnd, 6);
+    b[6] = (b[6] & 0x0f) | 0x70;   // version 7
+    b[8] = (b[8] & 0x3f) | 0x80;   // variant 10 (RFC)
+    return bytesToUuid(b);
+  }
+
+  // decode the 48-bit unix-ms timestamp embedded in a v7 UUID
+  function uuidv7Time(uuid) {
+    var b = uuidBytes(uuid);
+    var high = b[0] * 0x100 + b[1];                              // 16 bits
+    var low = b[2] * 0x1000000 + b[3] * 0x10000 + b[4] * 0x100 + b[5]; // 32 bits
+    return high * 0x100000000 + low;
+  }
+  // >>> HARNESS-COPY END (uuidv7) <<<
+
+  // >>> HARNESS-COPY START (ulid) <<<
+  // --- ULID : Crockford Base32, 48-bit time + 80-bit randomness ---
+  var CROCKFORD = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+  function encodeTime(now, len) {
+    var str = "";
+    for (var i = len - 1; i >= 0; i--) {
+      var mod = now % 32;
+      str = CROCKFORD.charAt(mod) + str;
+      now = (now - mod) / 32;
+    }
+    return str;
+  }
+
+  function encodeRandom(len) {
+    var bytes = crypto.getRandomValues(new Uint8Array(len));
+    var str = "";
+    for (var i = 0; i < len; i++) str += CROCKFORD.charAt(bytes[i] & 31);
+    return str;
+  }
+
+  function ulid(seedTime) {
+    var t = (seedTime === undefined) ? Date.now() : seedTime;
+    return encodeTime(t, 10) + encodeRandom(16);
+  }
+
+  function decodeUlidTime(id) {
+    var timePart = id.substring(0, 10);
+    var time = 0;
+    for (var i = 0; i < timePart.length; i++) {
+      var idx = CROCKFORD.indexOf(timePart.charAt(i).toUpperCase());
+      if (idx === -1) throw new Error("invalid ULID character: " + timePart.charAt(i));
+      time = time * 32 + idx;
+    }
+    return time;
+  }
+
+  function incrementBase32(str) {
+    var index = str.length;
+    var done;
+    while (index-- > 0) {
+      var ci = CROCKFORD.indexOf(str.charAt(index));
+      if (ci === -1) throw new Error("invalid base32 character");
+      if (ci === 31) { str = str.slice(0, index) + CROCKFORD.charAt(0) + str.slice(index + 1); continue; }
+      done = str.slice(0, index) + CROCKFORD.charAt(ci + 1) + str.slice(index + 1);
+      break;
+    }
+    if (done === undefined) throw new Error("cannot increment: randomness overflow");
+    return done;
+  }
+
+  function monotonicFactory() {
+    var lastTime = 0, lastRandom = "";
+    return function (seedTime) {
+      var t = (seedTime === undefined) ? Date.now() : seedTime;
+      if (t <= lastTime) {
+        lastRandom = incrementBase32(lastRandom);
+        return encodeTime(lastTime, 10) + lastRandom;
+      }
+      lastTime = t;
+      lastRandom = encodeRandom(16);
+      return encodeTime(t, 10) + lastRandom;
+    };
+  }
+  // >>> HARNESS-COPY END (ulid) <<<
+
+  // --- nanoid : mask + rejection sampling, any alphabet 2..256 ---
+  function makeNanoid(alphabet) {
+    var len = alphabet.length;
+    var mask = (2 << (31 - Math.clz32((len - 1) | 1))) - 1;
+    return function (size) {
+      size = size || 21;
+      var step = Math.ceil((1.6 * mask * size) / len);
+      var id = "";
+      while (true) {
+        var bytes = crypto.getRandomValues(new Uint8Array(step));
+        for (var i = 0; i < step; i++) {
+          var v = bytes[i] & mask;
+          if (v < len) {
+            id += alphabet.charAt(v);
+            if (id.length === size) return id;
+          }
+        }
+      }
+    };
+  }
+
+  /* ============================================================
+   *  STATE + PERSISTENCE
+   * ============================================================ */
+
+  var PRESETS = {
+    urlsafe: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-",
+    alphanumeric: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789",
+    lower: "abcdefghijklmnopqrstuvwxyz",
+    upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ",
+    numbers: "0123456789",
+    hex: "0123456789abcdef",
+    nolookalikes: "346789ABCDEFGHJKLMNPQRTUVWXYabcdefghijkmnpqrtwxyz"
+  };
+
+  var LS_KEY = "id-forge:v1";
+  var state = {
+    type: "uuidv4",
+    count: 10,
+    uuidUpper: false,
+    ulidMono: false,
+    nanoPreset: "urlsafe",
+    nanoCustom: "",
+    nanoSize: 21
+  };
+
+  function loadState() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return;
+      var s = JSON.parse(raw);
+      if (s && typeof s === "object") {
+        for (var k in state) if (Object.prototype.hasOwnProperty.call(s, k)) state[k] = s[k];
+      }
+    } catch (e) { /* ignore corrupt storage */ }
+  }
+  function saveState() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+
+  /* ============================================================
+   *  DOM
+   * ============================================================ */
+
+  var $ = function (id) { return document.getElementById(id); };
+  var typeSeg = $("type-seg");
+  var idList = $("id-list");
+  var statsEl = $("stats");
+  var lastIds = [];
+
+  function clampInt(v, lo, hi, dflt) {
+    v = parseInt(v, 10);
+    if (!isFinite(v)) v = dflt;
+    return Math.max(lo, Math.min(hi, v));
+  }
+
+  function currentAlphabet() {
+    if (state.nanoPreset === "custom") {
+      // de-duplicate, keep order, require >= 2
+      var seen = {}, out = "";
+      var src = state.nanoCustom || "";
+      for (var i = 0; i < src.length; i++) {
+        var c = src.charAt(i);
+        if (!seen[c]) { seen[c] = 1; out += c; }
+      }
+      return out;
+    }
+    return PRESETS[state.nanoPreset] || PRESETS.urlsafe;
+  }
+
+  var TYPE_LABEL = { uuidv4: "UUID v4", uuidv7: "UUID v7", ulid: "ULID", nanoid: "nanoid" };
+
+  function generate() {
+    var count = clampInt(state.count, 1, 1000, 10);
+    var ids = [];
+    var i;
+    if (state.type === "uuidv4") {
+      for (i = 0; i < count; i++) { var u4 = uuidv4(); ids.push(state.uuidUpper ? u4.toUpperCase() : u4); }
+    } else if (state.type === "uuidv7") {
+      for (i = 0; i < count; i++) { var u7 = uuidv7(); ids.push(state.uuidUpper ? u7.toUpperCase() : u7); }
+    } else if (state.type === "ulid") {
+      if (state.ulidMono) {
+        var next = monotonicFactory();
+        var t0 = Date.now();
+        for (i = 0; i < count; i++) ids.push(next(t0)); // fixed seed => strictly monotonic run
+      } else {
+        for (i = 0; i < count; i++) ids.push(ulid());
+      }
+    } else if (state.type === "nanoid") {
+      var alpha = currentAlphabet();
+      if (alpha.length < 2) { renderError("nanoid alphabet needs at least 2 unique characters."); return; }
+      var gen = makeNanoid(alpha);
+      var size = clampInt(state.nanoSize, 2, 64, 21);
+      for (i = 0; i < count; i++) ids.push(gen(size));
+    }
+    lastIds = ids;
+    renderIds(ids);
+  }
+
+  function renderError(msg) {
+    lastIds = [];
+    idList.innerHTML = "";
+    statsEl.textContent = msg;
+    setBatchDisabled(true);
+  }
+
+  function setBatchDisabled(d) {
+    $("copyall-btn").disabled = d;
+    $("dl-btn").disabled = d;
+  }
+
+  function copyIcon() {
+    return '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="8" height="9" rx="1"/><path d="M11 5V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h2"/></svg>';
+  }
+  function checkIcon() {
+    return '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8.5 6.5 12 13 4.5"/></svg>';
+  }
+
+  function renderIds(ids) {
+    setBatchDisabled(ids.length === 0);
+    statsEl.textContent = ids.length + " " + (ids.length === 1 ? "id" : "ids") + " · " + TYPE_LABEL[state.type];
+    var frag = document.createDocumentFragment();
+    var pad = String(ids.length).length;
+    for (var i = 0; i < ids.length; i++) {
+      var row = document.createElement("div");
+      row.className = "id-row";
+      var idx = document.createElement("span");
+      idx.className = "id-idx";
+      idx.textContent = String(i + 1).padStart ? String(i + 1).padStart(pad, "0") : String(i + 1);
+      var val = document.createElement("span");
+      val.className = "id-val mono";
+      val.textContent = ids[i];
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "icon-btn";
+      btn.title = "Copy";
+      btn.setAttribute("aria-label", "Copy identifier");
+      btn.innerHTML = copyIcon();
+      (function (button, text) {
+        button.addEventListener("click", function () {
+          copyText(text).then(function () { flashOk(button); });
+        });
+      })(btn, ids[i]);
+      row.appendChild(idx);
+      row.appendChild(val);
+      row.appendChild(btn);
+      frag.appendChild(row);
+    }
+    idList.innerHTML = "";
+    idList.appendChild(frag);
+  }
+
+  function flashOk(btn) {
+    btn.classList.add("ok");
+    btn.innerHTML = checkIcon();
+    setTimeout(function () {
+      btn.classList.remove("ok");
+      btn.innerHTML = copyIcon();
+    }, 1100);
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(text).catch(function () { return fallbackCopy(text); });
+    }
+    return Promise.resolve(fallbackCopy(text));
+  }
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand("copy"); } catch (e) { /* ignore */ }
+    document.body.removeChild(ta);
+  }
+
+  function download(filename, text) {
+    var blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 0);
+  }
+
+  /* ============================================================
+   *  DECODER
+   * ============================================================ */
+
+  function variantOf(b8) {
+    if ((b8 & 0x80) === 0x00) return "NCS backward compat (variant 0, 0b0)";
+    if ((b8 & 0xc0) === 0x80) return "RFC 4122 / 9562 (variant 1, 0b10)";
+    if ((b8 & 0xe0) === 0xc0) return "Microsoft GUID (variant 2, 0b110)";
+    return "reserved (variant 3, 0b111)";
+  }
+
+  // v1/v6 Gregorian 100ns -> unix ms, via BigInt for exactness
+  var GREG_OFFSET = 122192928000000000n; // 100ns intervals 1582-10-15 -> 1970-01-01
+
+  function gregToUnixMs(ts60) {
+    return Number((ts60 - GREG_OFFSET) / 10000n);
+  }
+
+  function decode(raw) {
+    var errEl = $("dec-err");
+    errEl.classList.remove("show");
+    if (!raw || !raw.trim()) { clearDecoder(); return; }
+
+    var s = raw.trim().replace(/^urn:uuid:/i, "").replace(/[{}\s]/g, "");
+    var hexOnly = s.replace(/-/g, "");
+
+    var isUuid = /^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$/.test(s) ||
+                 /^[0-9a-fA-F]{32}$/.test(hexOnly);
+    var isUlid = /^[0-9A-HJKMNP-TV-Za-hjkmnp-tv-z]{26}$/.test(s);
+
+    if (isUuid) { decodeUuid(hexOnly); return; }
+    if (isUlid) { decodeUlid(s.toUpperCase()); return; }
+
+    clearDecoder();
+    errEl.textContent = "Not a recognizable UUID (32 hex / 8-4-4-4-12) or ULID (26 Crockford base32).";
+    errEl.classList.add("show");
+  }
+
+  function set(id, val) { $(id).innerHTML = val; }
+
+  function decodeUuid(hex) {
+    var b = new Uint8Array(16);
+    for (var i = 0; i < 16; i++) b[i] = parseInt(hex.substr(i * 2, 2), 16);
+    var norm = bytesToUuid(b);
+    var ver = b[6] >> 4;
+
+    set("d-format", '<span class="badge">UUID</span>');
+    set("d-version", "version " + ver + verName(ver));
+    set("d-variant", variantOf(b[8]));
+    set("d-norm", norm);
+
+    var ms = null;
+    if (ver === 7) {
+      ms = uuidv7Time(norm);
+    } else if (ver === 1) {
+      var timeLow = BigInt(b[0]) * 16777216n + BigInt(b[1]) * 65536n + BigInt(b[2]) * 256n + BigInt(b[3]);
+      var timeMid = BigInt(b[4]) * 256n + BigInt(b[5]);
+      var timeHi = (BigInt(b[6]) & 0x0fn) * 256n + BigInt(b[7]);
+      var ts60 = (timeHi << 48n) | (timeMid << 32n) | timeLow;
+      ms = gregToUnixMs(ts60);
+    } else if (ver === 6) {
+      var tHigh = BigInt(b[0]) * 16777216n + BigInt(b[1]) * 65536n + BigInt(b[2]) * 256n + BigInt(b[3]);
+      var tMid = BigInt(b[4]) * 256n + BigInt(b[5]);
+      var tLow = (BigInt(b[6]) & 0x0fn) * 256n + BigInt(b[7]);
+      var ts6 = (tHigh << 28n) | (tMid << 12n) | tLow;
+      ms = gregToUnixMs(ts6);
+    }
+    showTime(ms);
+  }
+
+  function decodeUlid(s) {
+    set("d-format", '<span class="badge">ULID</span>');
+    set("d-version", "— (no version field)");
+    set("d-variant", "—");
+    set("d-norm", s);
+    var ms;
+    try { ms = decodeUlidTime(s); } catch (e) { ms = null; }
+    showTime(ms);
+  }
+
+  function verName(v) {
+    var names = { 1: " · time (Gregorian)", 3: " · name/MD5", 4: " · random", 5: " · name/SHA-1", 6: " · reordered time", 7: " · unix-ms time", 8: " · custom" };
+    return names[v] || "";
+  }
+
+  function showTime(ms) {
+    if (ms === null || ms === undefined || !isFinite(ms)) {
+      set("d-ts", "— (no embedded timestamp)");
+      set("d-local", "—");
+      set("d-utc", "—");
+      return;
+    }
+    var d = new Date(ms);
+    set("d-ts", ms + " ms");
+    set("d-local", escapeHtml(d.toString()));
+    set("d-utc", escapeHtml(d.toISOString()));
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>]/g, function (c) { return c === "&" ? "&amp;" : c === "<" ? "&lt;" : "&gt;"; });
+  }
+
+  function clearDecoder() {
+    ["d-format", "d-version", "d-variant", "d-ts", "d-local", "d-utc", "d-norm"].forEach(function (id) {
+      $(id).innerHTML = "—";
+    });
+  }
+
+  /* ============================================================
+   *  WIRING
+   * ============================================================ */
+
+  function updateTypeUI() {
+    var buttons = typeSeg.querySelectorAll("button");
+    buttons.forEach(function (b) {
+      b.setAttribute("aria-pressed", b.getAttribute("data-type") === state.type ? "true" : "false");
+    });
+    document.querySelectorAll(".opts").forEach(function (p) {
+      p.classList.toggle("active", p.getAttribute("data-opts") === state.type);
+    });
+  }
+
+  function updateNanoUI() {
+    $("nano-custom-field").style.display = state.nanoPreset === "custom" ? "block" : "none";
+    $("nano-size-val").textContent = state.nanoSize;
+    var alpha = currentAlphabet();
+    var bits = alpha.length >= 2 ? (Math.log2(alpha.length) * state.nanoSize) : 0;
+    $("nano-entropy").textContent = alpha.length < 2
+      ? "Alphabet needs at least 2 unique characters."
+      : alpha.length + "-char alphabet · " + state.nanoSize + " symbols ≈ " + bits.toFixed(0) + " bits entropy";
+  }
+
+  function syncInputsFromState() {
+    $("count").value = state.count;
+    $("uuid-upper").checked = state.uuidUpper;
+    $("uuid-upper7").checked = state.uuidUpper;
+    $("ulid-mono").checked = state.ulidMono;
+    $("nano-preset").value = state.nanoPreset;
+    $("nano-custom").value = state.nanoCustom;
+    $("nano-size").value = state.nanoSize;
+    updateTypeUI();
+    updateNanoUI();
+  }
+
+  function commit(regen) {
+    saveState();
+    updateNanoUI();
+    if (regen) generate();
+  }
+
+  // type picker
+  typeSeg.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-type]");
+    if (!btn) return;
+    state.type = btn.getAttribute("data-type");
+    updateTypeUI();
+    commit(true);
+  });
+
+  // count
+  $("count").addEventListener("input", function () {
+    state.count = clampInt(this.value, 1, 1000, 10);
+    commit(true);
+  });
+  $("count").addEventListener("blur", function () {
+    this.value = clampInt(this.value, 1, 1000, 10);
+    state.count = parseInt(this.value, 10);
+    commit(false);
+  });
+
+  // uuid uppercase (two synced checkboxes)
+  function onUpper() {
+    state.uuidUpper = this.checked;
+    $("uuid-upper").checked = state.uuidUpper;
+    $("uuid-upper7").checked = state.uuidUpper;
+    commit(true);
+  }
+  $("uuid-upper").addEventListener("change", onUpper);
+  $("uuid-upper7").addEventListener("change", onUpper);
+
+  // ulid monotonic
+  $("ulid-mono").addEventListener("change", function () { state.ulidMono = this.checked; commit(true); });
+
+  // nanoid preset / custom / size
+  $("nano-preset").addEventListener("change", function () { state.nanoPreset = this.value; commit(true); });
+  $("nano-custom").addEventListener("input", function () { state.nanoCustom = this.value; commit(true); });
+  $("nano-size").addEventListener("input", function () {
+    state.nanoSize = clampInt(this.value, 2, 64, 21);
+    $("nano-size-val").textContent = state.nanoSize;
+    commit(true);
+  });
+
+  // generate / copy-all / download
+  $("gen-btn").addEventListener("click", function () { generate(); });
+  $("copyall-btn").addEventListener("click", function () {
+    if (!lastIds.length) return;
+    copyText(lastIds.join("\n"));
+    var b = this; var prev = b.innerHTML;
+    b.innerHTML = checkIcon() + " Copied";
+    setTimeout(function () { b.innerHTML = prev; }, 1100);
+  });
+  $("dl-btn").addEventListener("click", function () {
+    if (!lastIds.length) return;
+    download(state.type + "-" + lastIds.length + ".txt", lastIds.join("\n") + "\n");
+  });
+
+  // decoder
+  $("dec-in").addEventListener("input", function () { decode(this.value); });
+
+  /* ============================================================
+   *  INIT
+   * ============================================================ */
+  loadState();
+  syncInputsFromState();
+  generate();
+
+})();
+</script>
+</body>
+</html>

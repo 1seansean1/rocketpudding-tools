@@ -1,0 +1,823 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hash Forge</title>
+<meta name="description" content="Cryptographic hashes and HMAC in your browser: MD5, CRC32, SHA-1/256/384/512 over text or a dropped file, plus HMAC. WebCrypto powered, nothing uploaded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #e0483d;
+  --accent-contrast: #ffffff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #e0483d;
+    --accent-contrast: #ffffff;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.5 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.sq { width: 12px; height: 12px; background: var(--accent); flex: none; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.20em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+}
+.back:hover, .back:focus-visible { color: var(--accent); }
+footer {
+  margin-top: auto;
+  padding: 14px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  color: var(--muted);
+}
+footer a { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+footer a:hover { color: var(--accent); }
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  padding: 18px;
+}
+.card h2 {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.card h2 .hint {
+  margin-left: auto;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+label, .lbl {
+  display: block;
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+/* ---------- inputs ---------- */
+textarea, input[type="text"], select {
+  width: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  padding: 9px 11px;
+  font: 400 13px "IBM Plex Mono", monospace;
+  border-radius: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+select {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a8d93' stroke-width='1.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+  cursor: pointer;
+}
+textarea { resize: vertical; min-height: 120px; line-height: 1.6; }
+textarea:focus, input:focus, select:focus, button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; flex: none; cursor: pointer; }
+
+/* ---------- segmented controls ---------- */
+.seg { display: flex; border: 1px solid var(--line); margin-bottom: 14px; }
+.seg button {
+  flex: 1;
+  padding: 8px 4px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+}
+.seg button:last-child { border-right: none; }
+.seg button:hover { color: var(--accent); }
+.seg button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+
+/* ---------- control rows ---------- */
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 18px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--line);
+}
+.check-row { display: flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.check-row span {
+  font: 400 13px "IBM Plex Sans", sans-serif;
+  color: var(--fg);
+}
+.check-row.disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ---------- panels ---------- */
+.panel { display: none; }
+.panel.active { display: block; }
+
+/* ---------- file drop ---------- */
+.drop {
+  border: 1px dashed var(--line);
+  background: var(--bg);
+  padding: 30px 18px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
+}
+.drop:hover { border-color: var(--accent); }
+.drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.drop .big { font: 500 13px "IBM Plex Mono", monospace; color: var(--fg); }
+.drop .sub { font: 400 12px "IBM Plex Sans", sans-serif; color: var(--muted); margin-top: 4px; }
+.drop svg { display: block; margin: 0 auto 10px; color: var(--muted); }
+.filemeta {
+  display: none;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font: 400 12px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  align-items: center;
+  gap: 12px;
+}
+.filemeta.show { display: flex; }
+.filemeta .name { font-weight: 500; word-break: break-all; }
+.filemeta .meta { color: var(--muted); margin-left: auto; white-space: nowrap; }
+.filemeta .x {
+  flex: none; cursor: pointer; color: var(--muted); background: none; border: none;
+  font: 500 14px "IBM Plex Mono", monospace; padding: 2px 4px; line-height: 1;
+}
+.filemeta .x:hover { color: var(--accent); }
+
+/* ---------- digest table ---------- */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td {
+  text-align: left;
+  padding: 9px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+thead th {
+  font: 600 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+tbody tr:last-child td { border-bottom: none; }
+.algo {
+  font: 600 12px "IBM Plex Mono", monospace;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.algo .bits { color: var(--muted); font-weight: 400; }
+.digest {
+  font: 400 12px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  word-break: break-all;
+  line-height: 1.5;
+  width: 100%;
+}
+.digest.pending { color: var(--muted); }
+td.copycell { width: 1%; white-space: nowrap; text-align: right; }
+
+/* ---------- buttons ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font: 500 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+.btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.btn svg { flex: none; }
+.iconbtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px; height: 28px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+.iconbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.iconbtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.iconbtn.ok { color: var(--accent); border-color: var(--accent); }
+
+.rowbar { display: flex; flex-wrap: wrap; gap: 10px; }
+
+/* ---------- hmac ---------- */
+.hmac-grid {
+  display: grid;
+  grid-template-columns: 1fr 190px;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 620px) { .hmac-grid { grid-template-columns: 1fr; } }
+.hmac-out {
+  margin-top: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.hmac-out .digest {
+  padding: 9px 11px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  min-height: 38px;
+}
+
+/* ---------- notes / stats ---------- */
+.note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  font: 400 12px/1.55 "IBM Plex Sans", sans-serif;
+  color: var(--muted);
+}
+.note svg { flex: none; color: var(--accent); margin-top: 1px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sq" aria-hidden="true"></div>
+  <h1>HASH&nbsp;FORGE</h1>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<main>
+
+  <!-- ---------- INPUT ---------- -->
+  <div class="card">
+    <h2>Input</h2>
+    <div class="seg" role="tablist" aria-label="Input source">
+      <button type="button" data-mode="text" aria-pressed="true">TEXT</button>
+      <button type="button" data-mode="file" aria-pressed="false">FILE</button>
+    </div>
+
+    <div class="panel active" id="panel-text">
+      <label for="text-input" class="sr">Text to hash</label>
+      <textarea id="text-input" spellcheck="false" autocomplete="off" placeholder="Type or paste text to hash&hellip;"></textarea>
+      <div class="rowbar" style="margin-top:12px">
+        <button type="button" class="btn" id="btn-sample">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2.5 3.5h9M2.5 7h9M2.5 10.5h6"/></svg>
+          Sample text
+        </button>
+        <button type="button" class="btn" id="btn-clear">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M3 3l8 8M11 3l-8 8"/></svg>
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-file">
+      <div class="drop" id="drop" tabindex="0" role="button" aria-label="Drop a file or click to choose">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5"/><path d="M4 15v3a2 2 0 002 2h12a2 2 0 002-2v-3"/></svg>
+        <div class="big">Drop a file here</div>
+        <div class="sub">or click to choose &middot; hashed locally, never uploaded</div>
+      </div>
+      <input type="file" id="file-input" hidden>
+      <div class="filemeta" id="filemeta">
+        <span class="name" id="file-name"></span>
+        <span class="meta" id="file-meta"></span>
+        <button type="button" class="x" id="file-clear" aria-label="Remove file">&times;</button>
+      </div>
+    </div>
+
+    <div class="controls">
+      <label class="check-row" id="wrap-upper">
+        <input type="checkbox" id="opt-upper">
+        <span>Uppercase hex</span>
+      </label>
+      <label class="check-row">
+        <input type="checkbox" id="opt-b64">
+        <span>Base64 digest</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- ---------- DIGESTS ---------- -->
+  <div class="card">
+    <h2>Digests <span class="hint" id="digest-stats"></span></h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr><th>Algorithm</th><th>Digest</th><th class="sr">Copy</th></tr>
+        </thead>
+        <tbody id="digest-body"><!-- rows injected --></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ---------- HMAC ---------- -->
+  <div class="card">
+    <h2>HMAC <span class="hint">keyed hash over the input above</span></h2>
+    <div class="hmac-grid">
+      <div>
+        <label for="hmac-key">Secret key</label>
+        <input type="text" id="hmac-key" spellcheck="false" autocomplete="off" placeholder="enter a secret key&hellip;">
+      </div>
+      <div>
+        <label for="hmac-algo">Algorithm</label>
+        <select id="hmac-algo">
+          <option value="SHA-256" selected>HMAC-SHA-256</option>
+          <option value="SHA-1">HMAC-SHA-1</option>
+          <option value="SHA-512">HMAC-SHA-512</option>
+        </select>
+      </div>
+    </div>
+    <div class="hmac-out">
+      <div class="digest pending" id="hmac-out">enter a key to compute HMAC</div>
+      <button type="button" class="iconbtn" id="hmac-copy" title="Copy HMAC" aria-label="Copy HMAC" disabled>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4.5" y="4.5" width="7" height="7" rx="1"/><path d="M2.5 9.5V2.5h7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ---------- PRIVACY ---------- -->
+  <div class="card">
+    <div class="note">
+      <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M8 1.5l5 2v4c0 3-2.2 5.3-5 6.5C5.2 12.8 3 10.5 3 7.5v-4l5-2z"/><path d="M5.8 8l1.5 1.5L10.4 6.4"/></svg>
+      <span>Everything runs client-side in your browser using the WebCrypto API. No text or file ever leaves this page &mdash; no network calls, no uploads, no telemetry. The only external request this page makes is for the IBM Plex fonts.</span>
+    </div>
+  </div>
+
+</main>
+
+<footer>WebCrypto &middot; <a href="LICENSE-blueimp-md5.txt">blueimp-md5</a> MIT &middot; CRC32 &amp; MD5 in-page</footer>
+
+<script src="md5.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+   * Algorithm engines
+   * ============================================================ */
+
+  // ---- CRC32 (zero-dep) ----
+  var CRC_TABLE = (function () {
+    var t = new Uint32Array(256);
+    for (var n = 0; n < 256; n++) {
+      var c = n;
+      for (var k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+      t[n] = c >>> 0;
+    }
+    return t;
+  })();
+  function crc32Bytes(bytes) {
+    var crc = 0xFFFFFFFF;
+    for (var i = 0; i < bytes.length; i++) crc = CRC_TABLE[(crc ^ bytes[i]) & 0xFF] ^ (crc >>> 8);
+    crc = (crc ^ 0xFFFFFFFF) >>> 0;
+    return new Uint8Array([(crc >>> 24) & 0xFF, (crc >>> 16) & 0xFF, (crc >>> 8) & 0xFF, crc & 0xFF]);
+  }
+
+  // ---- MD5 over raw bytes (RFC 1321).
+  //   blueimp-md5 (vendored) is UTF-8/string-only, so it powers the TEXT path
+  //   where UTF-8 semantics are wanted; binary FILE bytes need this byte-level pass. ----
+  var MD5_S = [7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+               5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+               4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+               6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21];
+  var MD5_K = (function () {
+    var k = new Int32Array(64);
+    for (var i = 0; i < 64; i++) k[i] = (Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296)) | 0;
+    return k;
+  })();
+  function md5Bytes(bytes) {
+    function rol(n, c) { return (n << c) | (n >>> (32 - c)); }
+    var origLen = bytes.length, bitLen = origLen * 8;
+    var padLen = ((origLen % 64) < 56) ? (56 - (origLen % 64)) : (120 - (origLen % 64));
+    var total = origLen + padLen + 8;
+    var msg = new Uint8Array(total);
+    msg.set(bytes, 0);
+    msg[origLen] = 0x80;
+    var lenLo = bitLen >>> 0, lenHi = Math.floor(bitLen / 4294967296) >>> 0;
+    msg[total - 8] = lenLo & 0xFF; msg[total - 7] = (lenLo >>> 8) & 0xFF;
+    msg[total - 6] = (lenLo >>> 16) & 0xFF; msg[total - 5] = (lenLo >>> 24) & 0xFF;
+    msg[total - 4] = lenHi & 0xFF; msg[total - 3] = (lenHi >>> 8) & 0xFF;
+    msg[total - 2] = (lenHi >>> 16) & 0xFF; msg[total - 1] = (lenHi >>> 24) & 0xFF;
+    var a0 = 0x67452301, b0 = 0xEFCDAB89, c0 = 0x98BADCFE, d0 = 0x10325476;
+    var M = new Int32Array(16);
+    for (var off = 0; off < total; off += 64) {
+      for (var j = 0; j < 16; j++) {
+        M[j] = msg[off + j * 4] | (msg[off + j * 4 + 1] << 8) | (msg[off + j * 4 + 2] << 16) | (msg[off + j * 4 + 3] << 24);
+      }
+      var A = a0, B = b0, C = c0, D = d0;
+      for (var k = 0; k < 64; k++) {
+        var F, g;
+        if (k < 16) { F = (B & C) | ((~B) & D); g = k; }
+        else if (k < 32) { F = (D & B) | ((~D) & C); g = (5 * k + 1) & 15; }
+        else if (k < 48) { F = B ^ C ^ D; g = (3 * k + 5) & 15; }
+        else { F = C ^ (B | (~D)); g = (7 * k) & 15; }
+        F = (F + A + MD5_K[k] + M[g]) | 0;
+        A = D; D = C; C = B; B = (B + rol(F, MD5_S[k])) | 0;
+      }
+      a0 = (a0 + A) | 0; b0 = (b0 + B) | 0; c0 = (c0 + C) | 0; d0 = (d0 + D) | 0;
+    }
+    function le(n) { return [n & 0xFF, (n >>> 8) & 0xFF, (n >>> 16) & 0xFF, (n >>> 24) & 0xFF]; }
+    return new Uint8Array(le(a0).concat(le(b0), le(c0), le(d0)));
+  }
+
+  function hexToBytes(hex) {
+    var out = new Uint8Array(hex.length / 2);
+    for (var i = 0; i < out.length; i++) out[i] = parseInt(hex.substr(i * 2, 2), 16);
+    return out;
+  }
+
+  /* ============================================================
+   * Formatting helpers
+   * ============================================================ */
+  function bytesToHex(bytes, upper) {
+    var h = "";
+    for (var i = 0; i < bytes.length; i++) h += (bytes[i] < 16 ? "0" : "") + bytes[i].toString(16);
+    return upper ? h.toUpperCase() : h;
+  }
+  function bytesToB64(bytes) {
+    var s = "";
+    for (var i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i]);
+    return btoa(s);
+  }
+  function formatDigest(bytes) {
+    if (state.b64) return bytesToB64(bytes);
+    return bytesToHex(bytes, state.upper);
+  }
+  function fmtBytes(n) {
+    if (n < 1024) return n + " B";
+    if (n < 1048576) return (n / 1024).toFixed(1) + " KB";
+    if (n < 1073741824) return (n / 1048576).toFixed(2) + " MB";
+    return (n / 1073741824).toFixed(2) + " GB";
+  }
+  function fmtMs(ms) { return ms < 1 ? "<1 ms" : (ms < 1000 ? ms.toFixed(ms < 10 ? 1 : 0) + " ms" : (ms / 1000).toFixed(2) + " s"); }
+
+  /* ============================================================
+   * State + DOM
+   * ============================================================ */
+  var ALGOS = [
+    { id: "md5",     label: "MD5",     bits: "128" },
+    { id: "crc32",   label: "CRC32",   bits: "32" },
+    { id: "sha1",    label: "SHA-1",   bits: "160" },
+    { id: "sha256",  label: "SHA-256", bits: "256" },
+    { id: "sha384",  label: "SHA-384", bits: "384" },
+    { id: "sha512",  label: "SHA-512", bits: "512" }
+  ];
+
+  var state = {
+    mode: "text",          // 'text' | 'file'
+    upper: false,
+    b64: false,
+    fileBuf: null,         // ArrayBuffer of picked file
+    fileName: "",
+    fileSize: 0,
+    lastDigests: {},       // id -> Uint8Array
+    hmacBytes: null,
+    seq: 0                 // race guard
+  };
+
+  var els = {
+    text: document.getElementById("text-input"),
+    body: document.getElementById("digest-body"),
+    dstats: document.getElementById("digest-stats"),
+    upper: document.getElementById("opt-upper"),
+    wrapUpper: document.getElementById("wrap-upper"),
+    b64: document.getElementById("opt-b64"),
+    drop: document.getElementById("drop"),
+    fileInput: document.getElementById("file-input"),
+    filemeta: document.getElementById("filemeta"),
+    fileName: document.getElementById("file-name"),
+    fileMeta: document.getElementById("file-meta"),
+    fileClear: document.getElementById("file-clear"),
+    hmacKey: document.getElementById("hmac-key"),
+    hmacAlgo: document.getElementById("hmac-algo"),
+    hmacOut: document.getElementById("hmac-out"),
+    hmacCopy: document.getElementById("hmac-copy")
+  };
+
+  var COPY_SVG = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="4.5" y="4.5" width="7" height="7" rx="1"/><path d="M2.5 9.5V2.5h7"/></svg>';
+  var OK_SVG = '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2.5 7.5l3 3 6-7"/></svg>';
+
+  // Build digest table rows
+  ALGOS.forEach(function (a) {
+    var tr = document.createElement("tr");
+    tr.innerHTML =
+      '<td class="algo">' + a.label + ' <span class="bits">' + a.bits + '</span></td>' +
+      '<td><span class="digest pending" id="d-' + a.id + '">&mdash;</span></td>' +
+      '<td class="copycell"><button type="button" class="iconbtn" data-copy="' + a.id + '" title="Copy ' + a.label + '" aria-label="Copy ' + a.label + '" disabled>' + COPY_SVG + '</button></td>';
+    els.body.appendChild(tr);
+  });
+
+  /* ============================================================
+   * Clipboard
+   * ============================================================ */
+  function flashOk(btn) {
+    if (!btn) return;
+    btn.classList.add("ok");
+    var prev = btn.innerHTML;
+    btn.innerHTML = OK_SVG;
+    setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = prev; }, 1100);
+  }
+  function copyText(txt, btn) {
+    if (!txt) return;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(txt).then(function () { flashOk(btn); }, function () { fallbackCopy(txt, btn); });
+    } else { fallbackCopy(txt, btn); }
+  }
+  function fallbackCopy(txt, btn) {
+    var ta = document.createElement("textarea");
+    ta.value = txt; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); flashOk(btn); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  els.body.addEventListener("click", function (e) {
+    var btn = e.target.closest("[data-copy]");
+    if (!btn || btn.disabled) return;
+    var bytes = state.lastDigests[btn.getAttribute("data-copy")];
+    if (bytes) copyText(formatDigest(bytes), btn);
+  });
+  els.hmacCopy.addEventListener("click", function () {
+    if (!els.hmacCopy.disabled && state.hmacBytes) copyText(formatDigest(state.hmacBytes), els.hmacCopy);
+  });
+
+  /* ============================================================
+   * Compute
+   * ============================================================ */
+  function currentBytes() {
+    if (state.mode === "file") {
+      return state.fileBuf ? new Uint8Array(state.fileBuf) : null;
+    }
+    return new TextEncoder().encode(els.text.value);
+  }
+
+  async function recompute() {
+    var mySeq = ++state.seq;
+    var bytes = currentBytes();
+
+    // No file selected in file mode -> clear everything
+    if (state.mode === "file" && !bytes) {
+      state.lastDigests = {};
+      renderDigests(null);
+      els.dstats.textContent = "";
+      await computeHmac(null, mySeq);
+      return;
+    }
+
+    var t0 = performance.now();
+    var digests = {};
+
+    // CRC32 (zero-dep)
+    digests.crc32 = crc32Bytes(bytes);
+
+    // MD5 — blueimp for text (UTF-8 semantics), byte-level for binary files
+    if (state.mode === "text") {
+      digests.md5 = hexToBytes(window.md5(els.text.value));
+    } else {
+      digests.md5 = md5Bytes(bytes);
+    }
+
+    // SHA-1/256/384/512 via WebCrypto
+    var subtle = window.crypto && window.crypto.subtle;
+    if (subtle) {
+      var buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+      var results = await Promise.all([
+        subtle.digest("SHA-1", buf),
+        subtle.digest("SHA-256", buf),
+        subtle.digest("SHA-384", buf),
+        subtle.digest("SHA-512", buf)
+      ]);
+      if (mySeq !== state.seq) return; // stale
+      digests.sha1 = new Uint8Array(results[0]);
+      digests.sha256 = new Uint8Array(results[1]);
+      digests.sha384 = new Uint8Array(results[2]);
+      digests.sha512 = new Uint8Array(results[3]);
+    }
+    var elapsed = performance.now() - t0;
+
+    if (mySeq !== state.seq) return;
+    state.lastDigests = digests;
+    renderDigests(digests);
+
+    if (state.mode === "file") {
+      els.dstats.textContent = fmtBytes(state.fileSize) + " · " + fmtMs(elapsed);
+    } else {
+      els.dstats.textContent = bytes.length + (bytes.length === 1 ? " byte" : " bytes") + " · " + fmtMs(elapsed);
+    }
+
+    await computeHmac(bytes, mySeq);
+  }
+
+  function renderDigests(digests) {
+    ALGOS.forEach(function (a) {
+      var cell = document.getElementById("d-" + a.id);
+      var btn = els.body.querySelector('[data-copy="' + a.id + '"]');
+      if (digests && digests[a.id]) {
+        cell.textContent = formatDigest(digests[a.id]);
+        cell.classList.remove("pending");
+        btn.disabled = false;
+      } else {
+        cell.innerHTML = digests ? "unavailable" : "&mdash;";
+        cell.classList.add("pending");
+        btn.disabled = true;
+      }
+    });
+  }
+
+  /* ============================================================
+   * HMAC
+   * ============================================================ */
+  async function computeHmac(msgBytes, mySeq) {
+    var key = els.hmacKey.value;
+    var subtle = window.crypto && window.crypto.subtle;
+    if (!key || !msgBytes || !subtle) {
+      state.hmacBytes = null;
+      els.hmacOut.classList.add("pending");
+      els.hmacOut.textContent = !subtle ? "WebCrypto unavailable" : (!key ? "enter a key to compute HMAC" : "provide input to compute HMAC");
+      els.hmacCopy.disabled = true;
+      return;
+    }
+    try {
+      var algo = els.hmacAlgo.value;
+      var keyBytes = new TextEncoder().encode(key);
+      var ck = await subtle.importKey("raw", keyBytes, { name: "HMAC", hash: { name: algo } }, false, ["sign"]);
+      var mbuf = msgBytes.buffer.slice(msgBytes.byteOffset, msgBytes.byteOffset + msgBytes.byteLength);
+      var sig = await subtle.sign("HMAC", ck, mbuf);
+      if (mySeq !== state.seq) return;
+      state.hmacBytes = new Uint8Array(sig);
+      els.hmacOut.classList.remove("pending");
+      els.hmacOut.textContent = formatDigest(state.hmacBytes);
+      els.hmacCopy.disabled = false;
+    } catch (e) {
+      state.hmacBytes = null;
+      els.hmacOut.classList.add("pending");
+      els.hmacOut.textContent = "HMAC error: " + e.message;
+      els.hmacCopy.disabled = true;
+    }
+  }
+
+  function refreshFormatting() {
+    // re-render already-computed digests without recomputing hashes
+    if (Object.keys(state.lastDigests).length) renderDigests(state.lastDigests);
+    if (state.hmacBytes) els.hmacOut.textContent = formatDigest(state.hmacBytes);
+  }
+
+  /* ============================================================
+   * Wiring
+   * ============================================================ */
+  var debTimer = null;
+  function debounced() { clearTimeout(debTimer); debTimer = setTimeout(recompute, 180); }
+
+  els.text.addEventListener("input", debounced);
+
+  els.upper.addEventListener("change", function () { state.upper = els.upper.checked; refreshFormatting(); });
+  els.b64.addEventListener("change", function () {
+    state.b64 = els.b64.checked;
+    els.upper.disabled = state.b64;               // uppercase applies to hex only
+    els.wrapUpper.classList.toggle("disabled", state.b64);
+    refreshFormatting();
+  });
+
+  // mode toggle
+  document.querySelectorAll(".seg button").forEach(function (b) {
+    b.addEventListener("click", function () {
+      var mode = b.getAttribute("data-mode");
+      if (mode === state.mode) return;
+      state.mode = mode;
+      document.querySelectorAll(".seg button").forEach(function (x) {
+        x.setAttribute("aria-pressed", x === b ? "true" : "false");
+      });
+      document.getElementById("panel-text").classList.toggle("active", mode === "text");
+      document.getElementById("panel-file").classList.toggle("active", mode === "file");
+      recompute();
+    });
+  });
+
+  // sample / clear
+  document.getElementById("btn-sample").addEventListener("click", function () {
+    els.text.value = "The quick brown fox jumps over the lazy dog";
+    recompute();
+  });
+  document.getElementById("btn-clear").addEventListener("click", function () {
+    els.text.value = ""; els.text.focus(); recompute();
+  });
+
+  // file handling
+  function setFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    els.fileName.textContent = file.name;
+    els.fileMeta.textContent = "reading…";
+    els.filemeta.classList.add("show");
+    reader.onload = function () {
+      state.fileBuf = reader.result;
+      state.fileName = file.name;
+      state.fileSize = file.size;
+      els.fileMeta.textContent = fmtBytes(file.size);
+      recompute();
+    };
+    reader.onerror = function () { els.fileMeta.textContent = "read error"; };
+    reader.readAsArrayBuffer(file);
+  }
+  els.drop.addEventListener("click", function () { els.fileInput.click(); });
+  els.drop.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.fileInput.click(); } });
+  els.fileInput.addEventListener("change", function () { if (els.fileInput.files[0]) setFile(els.fileInput.files[0]); });
+  ["dragenter", "dragover"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); e.stopPropagation(); els.drop.classList.add("over"); });
+  });
+  ["dragleave", "dragend"].forEach(function (ev) {
+    els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.remove("over"); });
+  });
+  els.drop.addEventListener("drop", function (e) {
+    e.preventDefault(); e.stopPropagation(); els.drop.classList.remove("over");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  els.fileClear.addEventListener("click", function () {
+    state.fileBuf = null; state.fileName = ""; state.fileSize = 0;
+    els.fileInput.value = "";
+    els.filemeta.classList.remove("show");
+    recompute();
+  });
+
+  // hmac wiring
+  els.hmacKey.addEventListener("input", debounced);
+  els.hmacAlgo.addEventListener("change", recompute);
+
+  // initial paint
+  recompute();
+})();
+</script>
+</body>
+</html>

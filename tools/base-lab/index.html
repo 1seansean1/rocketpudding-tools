@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Zero-dependency encoder/decoder workbench. Base64, Base64URL, URL, HTML entities, Hex, Binary, Base32 (RFC 4648) and JSON string escaping — bidirectional, UTF-8 correct, with file mode and auto-decode. Runs entirely in your browser.">
+<title>Base Lab &middot; tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23c9a227'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef;
+  --fg:#191b1e;
+  --muted:#8a8d93;
+  --line:#dcd9d2;
+  --card:#ffffff;
+  --accent:#c9a227;
+  --error:#b3382e;
+  --accent-soft:rgba(201,162,39,.14);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a;
+    --fg:#eceae4;
+    --line:#2b2d31;
+    --card:#1e2024;
+    --error:#e2705d;
+    --accent-soft:rgba(201,162,39,.20);
+  }
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:14px;
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent);color:#191b1e}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+header{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:12px 20px;
+  border-bottom:1px solid var(--line);
+  flex:none;
+}
+.accent-sq{width:11px;height:11px;border-radius:2px;background:var(--accent);flex:none}
+h1{
+  margin:0;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-weight:700;
+  font-size:14px;
+  letter-spacing:.22em;
+}
+.back{
+  margin-left:auto;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  color:var(--muted);
+  text-decoration:none;
+}
+.back:hover{color:var(--accent)}
+
+main{
+  flex:1;
+  width:100%;
+  max-width:1000px;
+  margin:0 auto;
+  padding:18px 20px 8px;
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+
+/* Tabs */
+.tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  align-items:center;
+}
+.tab{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  letter-spacing:.04em;
+  padding:5px 11px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:transparent;
+  color:var(--muted);
+  cursor:pointer;
+  transition:border-color .12s,color .12s,background .12s;
+}
+.tab:hover{color:var(--fg);border-color:var(--muted)}
+.tab.active{color:var(--accent);border-color:var(--accent);background:var(--accent-soft)}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.tab.file-tab{margin-left:auto}
+
+/* Control row */
+.controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.seg{
+  display:inline-flex;
+  border:1px solid var(--line);
+  border-radius:7px;
+  overflow:hidden;
+}
+.seg button{
+  border:none;
+  border-radius:0;
+  padding:5px 14px;
+  background:transparent;
+  color:var(--muted);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  letter-spacing:.06em;
+  cursor:pointer;
+  transition:color .12s,background .12s;
+}
+.seg button + button{border-left:1px solid var(--line)}
+.seg button.active{color:var(--accent);background:var(--accent-soft)}
+.seg button:hover:not(.active){color:var(--fg)}
+.spacer{flex:1}
+
+button{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  padding:5px 10px;
+  border:1px solid var(--line);
+  border-radius:6px;
+  background:transparent;
+  color:var(--fg);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  font-size:12px;
+  font-weight:500;
+  cursor:pointer;
+  transition:border-color .12s,color .12s,background .12s;
+}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button.flash{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+button svg{flex:none;display:block}
+
+/* Cards */
+.card{
+  display:flex;
+  flex-direction:column;
+  min-width:0;
+  background:var(--card);
+  border:1px solid var(--line);
+  border-radius:8px;
+  overflow:hidden;
+}
+.card.err{border-color:var(--error)}
+.card-head{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  padding:8px 10px 8px 14px;
+  border-bottom:1px solid var(--line);
+  flex:none;
+  flex-wrap:wrap;
+}
+.card-title{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-weight:700;
+  font-size:12px;
+  letter-spacing:.12em;
+}
+.op-label{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;
+  color:var(--accent);
+  letter-spacing:.04em;
+}
+.stats{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;
+  color:var(--muted);
+  margin-left:auto;
+  white-space:nowrap;
+}
+.head-btns{display:inline-flex;gap:6px}
+textarea{
+  width:100%;
+  min-height:150px;
+  resize:vertical;
+  border:none;
+  outline:none;
+  padding:12px 14px;
+  background:transparent;
+  color:var(--fg);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:13px;
+  line-height:1.55;
+  tab-size:2;
+}
+textarea::placeholder{color:var(--muted)}
+textarea[readonly]{color:var(--fg)}
+.msg{
+  padding:0 14px 10px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;
+  color:var(--error);
+  white-space:pre-wrap;
+}
+.msg.info{color:var(--muted)}
+.msg:empty{display:none}
+
+/* File view */
+#file-view{display:none;flex-direction:column;gap:14px}
+.dropzone{
+  border:1.5px dashed var(--line);
+  border-radius:10px;
+  padding:34px 20px;
+  text-align:center;
+  color:var(--muted);
+  cursor:pointer;
+  transition:border-color .12s,color .12s,background .12s;
+  background:var(--card);
+}
+.dropzone:hover,.dropzone.drag{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.dropzone svg{margin-bottom:8px;color:inherit}
+.dropzone strong{color:var(--fg);font-weight:600}
+.dropzone .hint{display:block;margin-top:6px;font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:11px}
+.file-meta{
+  display:flex;flex-wrap:wrap;gap:8px 18px;
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;color:var(--muted);
+}
+.file-meta b{color:var(--fg);font-weight:600}
+#file-view.shown{display:flex}
+main.file-mode #text-view{display:none}
+
+footer{
+  flex:none;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:12px 20px;
+  border-top:1px solid var(--line);
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11px;
+  color:var(--muted);
+  max-width:1000px;
+  width:100%;
+  margin:14px auto 0;
+}
+footer .accent-dot{width:7px;height:7px;border-radius:2px;background:var(--accent);flex:none}
+.foot-right{margin-left:auto}
+
+@media (max-width:620px){
+  .tab.file-tab{margin-left:0}
+  header h1{letter-spacing:.14em}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <span class="accent-sq" aria-hidden="true"></span>
+  <h1>BASE LAB</h1>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<main id="main">
+
+  <div class="tabs" id="tabs" role="tablist" aria-label="Encoding"></div>
+
+  <!-- TEXT VIEW -->
+  <div id="text-view">
+    <div class="controls">
+      <div class="seg" role="group" aria-label="Direction">
+        <button id="dir-encode" class="active" type="button">ENCODE</button>
+        <button id="dir-decode" type="button">DECODE</button>
+      </div>
+      <span class="spacer"></span>
+      <button id="auto" type="button" title="Guess the encoding of the input and decode it">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 21 9-9"/><path d="M15 4V2"/><path d="M15 16v-2"/><path d="M8 9H6"/><path d="M22 9h-2"/><path d="m17.7 6.3-1.4 1.4"/><path d="m13.7 10.3-1.4 1.4"/><path d="M15 9h.01"/></svg>
+        Auto-decode
+      </button>
+    </div>
+
+    <div class="card" id="in-card">
+      <div class="card-head">
+        <span class="card-title">INPUT</span>
+        <span class="stats" id="in-stats">0 chars &middot; 0 bytes</span>
+        <span class="head-btns">
+          <button id="clear" type="button" title="Clear input">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+            Clear
+          </button>
+        </span>
+      </div>
+      <textarea id="input" spellcheck="false" autocomplete="off" placeholder="Type or paste text&hellip;"></textarea>
+    </div>
+
+    <div class="card" id="out-card">
+      <div class="card-head">
+        <span class="card-title">OUTPUT</span>
+        <span class="op-label" id="op-label">Base64 &middot; encode</span>
+        <span class="stats" id="out-stats">0 chars &middot; 0 bytes</span>
+        <span class="head-btns">
+          <button id="swap" type="button" title="Move output into the input box">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>
+            To input
+          </button>
+          <button id="copy" type="button" title="Copy output to clipboard">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+            Copy
+          </button>
+        </span>
+      </div>
+      <textarea id="output" spellcheck="false" readonly placeholder="Result appears here&hellip;"></textarea>
+      <div class="msg" id="out-msg"></div>
+    </div>
+  </div>
+
+  <!-- FILE VIEW -->
+  <div id="file-view">
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Drop a file or click to browse">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v13"/><path d="m7 8 5-5 5 5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <div><strong>Drop a file</strong> or click to browse</div>
+      <span class="hint">bytes are read in-memory &middot; capped at 5 MB &middot; nothing is uploaded</span>
+    </div>
+    <input type="file" id="file-input" hidden>
+    <div class="file-meta" id="file-meta" style="display:none">
+      <span>name <b id="fm-name">&mdash;</b></span>
+      <span>size <b id="fm-size">&mdash;</b></span>
+      <span>type <b id="fm-type">&mdash;</b></span>
+    </div>
+    <div class="msg" id="file-msg"></div>
+
+    <div class="card" id="fb64-card" style="display:none">
+      <div class="card-head">
+        <span class="card-title">BASE64</span>
+        <span class="stats" id="fb64-stats"></span>
+        <span class="head-btns">
+          <button id="fb64-copy" type="button" title="Copy Base64 to clipboard">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+            Copy
+          </button>
+        </span>
+      </div>
+      <textarea id="fb64-out" spellcheck="false" readonly></textarea>
+    </div>
+
+    <div class="card" id="fhex-card" style="display:none">
+      <div class="card-head">
+        <span class="card-title">HEX</span>
+        <span class="stats" id="fhex-stats"></span>
+        <span class="head-btns">
+          <button id="fhex-copy" type="button" title="Copy hex to clipboard">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h8"/></svg>
+            Copy
+          </button>
+        </span>
+      </div>
+      <textarea id="fhex-out" spellcheck="false" readonly></textarea>
+    </div>
+  </div>
+
+</main>
+
+<footer>
+  <span class="accent-dot" aria-hidden="true"></span>
+  <span>zero dependencies &middot; everything runs locally in your browser</span>
+  <span class="foot-right">UTF-8 correct &middot; Base32 RFC 4648</span>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---- byte / string helpers (UTF-8 correct) ---- */
+  var enc = new TextEncoder();
+  function utf8Bytes(str){ return enc.encode(str); }
+  function bytesToUtf8(bytes){ return new TextDecoder("utf-8",{fatal:true}).decode(bytes); }
+
+  /* ---- Base64 / Base64URL (hand-rolled, byte-exact) ---- */
+  var B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  var B64LUT = (function(){ var m={}; for(var i=0;i<64;i++) m[B64[i]]=i; return m; })();
+  function bytesToB64(bytes, urlSafe){
+    var out="";
+    for(var i=0;i<bytes.length;i+=3){
+      var b0=bytes[i], b1=bytes[i+1], b2=bytes[i+2];
+      var has1=(i+1)<bytes.length, has2=(i+2)<bytes.length;
+      var e0=b0>>2;
+      var e1=((b0&3)<<4)|(has1?(b1>>4):0);
+      var e2=has1?(((b1&15)<<2)|(has2?(b2>>6):0)):64;
+      var e3=has2?(b2&63):64;
+      out+=B64[e0]+B64[e1]+(e2===64?"=":B64[e2])+(e3===64?"=":B64[e3]);
+    }
+    if(urlSafe){ out=out.replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+    return out;
+  }
+  function b64ToBytes(str, urlSafe){
+    var s=str.replace(/\s/g,"");
+    if(urlSafe || /[-_]/.test(s)){ s=s.replace(/-/g,"+").replace(/_/g,"/"); }
+    s=s.replace(/=+$/,"");
+    var bytes=[], buffer=0, bits=0;
+    for(var i=0;i<s.length;i++){
+      var ch=s[i];
+      if(!(ch in B64LUT)) throw new Error("Invalid Base64 character: '"+ch+"'");
+      buffer=(buffer<<6)|B64LUT[ch]; bits+=6;
+      if(bits>=8){ bits-=8; bytes.push((buffer>>bits)&0xff); }
+    }
+    return new Uint8Array(bytes);
+  }
+
+  /* ---- Base32 (RFC 4648, hand-rolled) ---- */
+  var B32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+  var B32LUT = (function(){ var m={}; for(var i=0;i<32;i++) m[B32[i]]=i; return m; })();
+  function bytesToB32(bytes){
+    var out="", buffer=0, bits=0;
+    for(var i=0;i<bytes.length;i++){
+      buffer=(buffer<<8)|bytes[i]; bits+=8;
+      while(bits>=5){ bits-=5; out+=B32[(buffer>>bits)&31]; }
+    }
+    if(bits>0){ out+=B32[(buffer<<(5-bits))&31]; }
+    while(out.length%8!==0){ out+="="; }
+    return out;
+  }
+  function b32ToBytes(str){
+    var s=str.replace(/\s/g,"").replace(/=+$/,"").toUpperCase();
+    var bytes=[], buffer=0, bits=0;
+    for(var i=0;i<s.length;i++){
+      var ch=s[i];
+      if(!(ch in B32LUT)) throw new Error("Invalid Base32 character: '"+ch+"'");
+      buffer=(buffer<<5)|B32LUT[ch]; bits+=5;
+      if(bits>=8){ bits-=8; bytes.push((buffer>>bits)&0xff); }
+    }
+    return new Uint8Array(bytes);
+  }
+
+  /* ---- Hex ---- */
+  function bytesToHex(bytes, sep){
+    var out=[];
+    for(var i=0;i<bytes.length;i++){ out.push(bytes[i].toString(16).padStart(2,"0")); }
+    return out.join(sep||"");
+  }
+  function hexToBytes(str){
+    var s=str.replace(/0x/gi,"").replace(/[\s,]/g,"");
+    if(s.length%2!==0) throw new Error("Hex length must be even (got "+s.length+" digits)");
+    if(!/^[0-9a-fA-F]*$/.test(s)) throw new Error("Invalid hex character");
+    var bytes=new Uint8Array(s.length/2);
+    for(var i=0;i<s.length;i+=2){ bytes[i/2]=parseInt(s.substr(i,2),16); }
+    return bytes;
+  }
+
+  /* ---- Binary ---- */
+  function bytesToBin(bytes){
+    var out=[];
+    for(var i=0;i<bytes.length;i++){ out.push(bytes[i].toString(2).padStart(8,"0")); }
+    return out.join(" ");
+  }
+  function binToBytes(str){
+    var s=str.replace(/\s/g,"");
+    if(s.length%8!==0) throw new Error("Binary length must be a multiple of 8 (got "+s.length+")");
+    if(!/^[01]*$/.test(s)) throw new Error("Invalid binary digit");
+    var bytes=new Uint8Array(s.length/8);
+    for(var i=0;i<s.length;i+=8){ bytes[i/8]=parseInt(s.substr(i,8),2); }
+    return bytes;
+  }
+
+  /* ---- HTML entities ---- */
+  function htmlEncode(str){
+    var out="";
+    for(var i=0;i<str.length;){
+      var cp=str.codePointAt(i);
+      var ch=String.fromCodePoint(cp);
+      i+=ch.length;
+      if(ch==="&") out+="&amp;";
+      else if(ch==="<") out+="&lt;";
+      else if(ch===">") out+="&gt;";
+      else if(ch==='"') out+="&quot;";
+      else if(ch==="'") out+="&#39;";
+      else if(cp>126) out+="&#"+cp+";";
+      else out+=ch;
+    }
+    return out;
+  }
+  function htmlDecode(str){
+    var el=document.createElement("textarea");
+    el.innerHTML=str;
+    return el.value;
+  }
+
+  /* ---- JSON string escape / unescape ---- */
+  function jsonEncode(str){ return JSON.stringify(str); }
+  function jsonDecode(str){
+    var t=str.trim();
+    if(t.charAt(0)==='"'){ return JSON.parse(t); }
+    return JSON.parse('"'+t+'"');
+  }
+
+  /* ---- codec registry ---- */
+  var CODECS = {
+    base64:    { label:"Base64",      encode:function(s){return bytesToB64(utf8Bytes(s),false);}, decode:function(s){return bytesToUtf8(b64ToBytes(s,false));} },
+    base64url: { label:"Base64URL",   encode:function(s){return bytesToB64(utf8Bytes(s),true);},  decode:function(s){return bytesToUtf8(b64ToBytes(s,true));} },
+    url:       { label:"URL",         encode:function(s){return encodeURIComponent(s);},          decode:function(s){return decodeURIComponent(s);} },
+    html:      { label:"HTML",        encode:htmlEncode,                                          decode:htmlDecode },
+    hex:       { label:"Hex",         encode:function(s){return bytesToHex(utf8Bytes(s));},       decode:function(s){return bytesToUtf8(hexToBytes(s));} },
+    binary:    { label:"Binary",      encode:function(s){return bytesToBin(utf8Bytes(s));},       decode:function(s){return bytesToUtf8(binToBytes(s));} },
+    base32:    { label:"Base32",      encode:function(s){return bytesToB32(utf8Bytes(s));},       decode:function(s){return bytesToUtf8(b32ToBytes(s));} },
+    json:      { label:"JSON String", encode:jsonEncode,                                          decode:jsonDecode }
+  };
+  var ORDER = ["base64","base64url","url","html","hex","binary","base32","json"];
+
+  /* ---- auto-decode detection ---- */
+  function looksUrl(s){ return /%[0-9a-fA-F]{2}/.test(s); }
+  function looksHex(s){ var t=s.replace(/0x/gi,"").replace(/[\s,]/g,""); return t.length>=2 && t.length%2===0 && /^[0-9a-fA-F]+$/.test(t); }
+  function looksBin(s){ var t=s.replace(/\s/g,""); return t.length>=8 && t.length%8===0 && /^[01]+$/.test(t); }
+  function looksB64(s){ var t=s.replace(/\s/g,""); return t.length>=4 && t.length%4===0 && /^[A-Za-z0-9+/]+={0,2}$/.test(t); }
+  function looksB64Url(s){ var t=s.replace(/\s/g,""); return t.length>=4 && /^[A-Za-z0-9\-_]+={0,2}$/.test(t) && /[-_]/.test(t); }
+  function looksB32(s){ var t=s.replace(/\s/g,""); return t.length>=8 && t.length%8===0 && /^[A-Za-z2-7]+=*$/.test(t); }
+  function printableScore(str){
+    if(!str.length) return 0;
+    var ok=0, total=0;
+    for(var i=0;i<str.length;){
+      var cp=str.codePointAt(i); var ch=String.fromCodePoint(cp); i+=ch.length; total++;
+      if(cp===9||cp===10||cp===13) { ok++; continue; }
+      if(cp>=32 && cp!==127) ok++;
+    }
+    return ok/total;
+  }
+
+  /* ---- DOM ---- */
+  var $=function(id){return document.getElementById(id);};
+  var tabsEl=$("tabs"), input=$("input"), output=$("output"), opLabel=$("op-label");
+  var inStats=$("in-stats"), outStats=$("out-stats"), outMsg=$("out-msg"), outCard=$("out-card");
+  var mainEl=$("main"), fileView=$("file-view");
+
+  var state={ codec:"base64", dir:"encode", mode:"text" };
+
+  /* build tabs */
+  ORDER.forEach(function(id){
+    var b=document.createElement("button");
+    b.className="tab"+(id===state.codec?" active":"");
+    b.type="button"; b.setAttribute("role","tab"); b.dataset.codec=id;
+    b.textContent=CODECS[id].label;
+    b.addEventListener("click",function(){ selectCodec(id); });
+    tabsEl.appendChild(b);
+  });
+  var fileTab=document.createElement("button");
+  fileTab.className="tab file-tab"; fileTab.type="button"; fileTab.dataset.mode="file";
+  fileTab.textContent="File";
+  fileTab.addEventListener("click",function(){ setMode("file"); });
+  tabsEl.appendChild(fileTab);
+
+  function selectCodec(id){
+    state.codec=id;
+    if(state.mode!=="text") setMode("text");
+    refreshTabs();
+    run();
+  }
+  function refreshTabs(){
+    var btns=tabsEl.querySelectorAll(".tab");
+    for(var i=0;i<btns.length;i++){
+      var b=btns[i];
+      var active = (b.dataset.mode==="file") ? (state.mode==="file") : (state.mode==="text" && b.dataset.codec===state.codec);
+      b.classList.toggle("active", active);
+    }
+  }
+  function setMode(m){
+    state.mode=m;
+    mainEl.classList.toggle("file-mode", m==="file");
+    fileView.classList.toggle("shown", m==="file");
+    refreshTabs();
+    if(m==="text") run();
+  }
+
+  /* direction */
+  var dirEncode=$("dir-encode"), dirDecode=$("dir-decode");
+  dirEncode.addEventListener("click",function(){ setDir("encode"); });
+  dirDecode.addEventListener("click",function(){ setDir("decode"); });
+  function setDir(d){
+    state.dir=d;
+    dirEncode.classList.toggle("active", d==="encode");
+    dirDecode.classList.toggle("active", d==="decode");
+    run();
+  }
+
+  function fmtStats(str){
+    var chars=Array.from(str).length; // code-point count
+    var bytes=utf8Bytes(str).length;
+    return chars.toLocaleString()+" chars · "+bytes.toLocaleString()+" bytes";
+  }
+
+  function run(){
+    if(state.mode!=="text") return;
+    var src=input.value;
+    inStats.textContent=fmtStats(src);
+    var c=CODECS[state.codec];
+    opLabel.textContent=c.label+" · "+state.dir;
+    if(src===""){
+      output.value=""; outStats.textContent=fmtStats(""); outMsg.textContent=""; outMsg.className="msg"; outCard.classList.remove("err");
+      return;
+    }
+    try{
+      var result = state.dir==="encode" ? c.encode(src) : c.decode(src);
+      output.value=result;
+      outStats.textContent=fmtStats(result);
+      outMsg.textContent=""; outMsg.className="msg";
+      outCard.classList.remove("err");
+    }catch(e){
+      output.value="";
+      outStats.textContent=fmtStats("");
+      outMsg.textContent=(state.dir==="decode"?"Cannot decode as "+c.label+": ":"Error: ")+e.message;
+      outMsg.className="msg";
+      outCard.classList.add("err");
+    }
+  }
+
+  input.addEventListener("input", run);
+
+  /* clear */
+  $("clear").addEventListener("click",function(){ input.value=""; input.focus(); run(); });
+
+  /* copy + flash */
+  function copyFrom(text, btn){
+    var done=function(){ btn.classList.add("flash"); setTimeout(function(){ btn.classList.remove("flash"); },700); };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(done, function(){ fallbackCopy(text); done(); });
+    }else{ fallbackCopy(text); done(); }
+  }
+  function fallbackCopy(text){
+    var ta=document.createElement("textarea"); ta.value=text;
+    ta.style.position="fixed"; ta.style.opacity="0"; document.body.appendChild(ta);
+    ta.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(ta);
+  }
+  $("copy").addEventListener("click",function(){ if(output.value) copyFrom(output.value, this); });
+
+  /* swap into input */
+  $("swap").addEventListener("click",function(){
+    if(!output.value) return;
+    input.value=output.value; run(); input.focus();
+  });
+
+  /* auto-decode */
+  $("auto").addEventListener("click",function(){
+    var src=input.value.trim();
+    outMsg.className="msg";
+    if(!src){ outMsg.textContent=""; return; }
+    var tries=[
+      ["url",       looksUrl(src)],
+      ["base64url", looksB64Url(src)],
+      ["hex",       looksHex(src)],
+      ["binary",    looksBin(src)],
+      ["base64",    looksB64(src)],
+      ["base32",    looksB32(src)]
+    ];
+    var cand=[];
+    for(var i=0;i<tries.length;i++){
+      var id=tries[i][0]; if(!tries[i][1]) continue;
+      try{
+        var r=CODECS[id].decode(src);
+        if(r!==src) cand.push({ id:id, r:r, score:printableScore(r), len:r.length });
+      }catch(e){}
+    }
+    if(!cand.length){
+      outMsg.className="msg info";
+      outMsg.textContent="Could not detect a Base64 / Base32 / Hex / Binary / URL encoding.";
+      return;
+    }
+    cand.sort(function(a,b){ return (b.score-a.score) || (a.len-b.len); });
+    var best=cand[0];
+    state.codec=best.id; state.mode="text"; mainEl.classList.remove("file-mode"); fileView.classList.remove("shown");
+    setDir("decode"); refreshTabs();
+    output.value=best.r; outStats.textContent=fmtStats(best.r); outCard.classList.remove("err");
+    opLabel.textContent=CODECS[best.id].label+" · decode";
+    inStats.textContent=fmtStats(input.value);
+    var others=cand.slice(1).map(function(c){ return CODECS[c.id].label; });
+    outMsg.className="msg info";
+    outMsg.textContent="Detected: "+CODECS[best.id].label + (others.length? "   (also plausible: "+others.join(", ")+")" : "");
+  });
+
+  /* ---- File mode ---- */
+  var CAP=5*1024*1024;
+  var dz=$("dropzone"), fileInput=$("file-input"), fileMsg=$("file-msg");
+  var fmName=$("fm-name"), fmSize=$("fm-size"), fmType=$("fm-type"), fileMeta=$("file-meta");
+  var fb64Card=$("fb64-card"), fb64Out=$("fb64-out"), fb64Stats=$("fb64-stats");
+  var fhexCard=$("fhex-card"), fhexOut=$("fhex-out"), fhexStats=$("fhex-stats");
+
+  function humanSize(n){
+    if(n<1024) return n+" B";
+    if(n<1024*1024) return (n/1024).toFixed(1)+" KB";
+    return (n/1024/1024).toFixed(2)+" MB";
+  }
+  function handleFile(file){
+    if(!file) return;
+    fileMsg.className="msg";
+    fmName.textContent=file.name; fmSize.textContent=humanSize(file.size); fmType.textContent=file.type||"unknown";
+    fileMeta.style.display="flex";
+    if(file.size>CAP){
+      fb64Card.style.display="none"; fhexCard.style.display="none";
+      fileMsg.className="msg";
+      fileMsg.textContent="File is "+humanSize(file.size)+" — over the 5 MB cap. Choose a smaller file.";
+      return;
+    }
+    var fr=new FileReader();
+    fr.onerror=function(){ fileMsg.textContent="Could not read the file."; };
+    fr.onload=function(){
+      var bytes=new Uint8Array(fr.result);
+      var b64=bytesToB64(bytes,false);
+      var hex=bytesToHex(bytes,"");
+      fb64Out.value=b64; fhexOut.value=hex;
+      fb64Stats.textContent=b64.length.toLocaleString()+" chars";
+      fhexStats.textContent=hex.length.toLocaleString()+" chars · "+bytes.length.toLocaleString()+" bytes";
+      fb64Card.style.display="flex"; fhexCard.style.display="flex";
+      fileMsg.className="msg info";
+      fileMsg.textContent=bytes.length.toLocaleString()+" bytes encoded in-memory. Nothing left your browser.";
+    };
+    fr.readAsArrayBuffer(file);
+  }
+  dz.addEventListener("click",function(){ fileInput.click(); });
+  dz.addEventListener("keydown",function(e){ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); fileInput.click(); } });
+  fileInput.addEventListener("change",function(){ handleFile(fileInput.files[0]); });
+  ["dragenter","dragover"].forEach(function(ev){ dz.addEventListener(ev,function(e){ e.preventDefault(); dz.classList.add("drag"); }); });
+  ["dragleave","dragend"].forEach(function(ev){ dz.addEventListener(ev,function(e){ e.preventDefault(); dz.classList.remove("drag"); }); });
+  dz.addEventListener("drop",function(e){ e.preventDefault(); dz.classList.remove("drag"); if(e.dataTransfer && e.dataTransfer.files.length){ handleFile(e.dataTransfer.files[0]); } });
+  $("fb64-copy").addEventListener("click",function(){ if(fb64Out.value) copyFrom(fb64Out.value, this); });
+  $("fhex-copy").addEventListener("click",function(){ if(fhexOut.value) copyFrom(fhexOut.value, this); });
+  // guard against a stray file drop navigating away
+  window.addEventListener("dragover",function(e){ e.preventDefault(); });
+  window.addEventListener("drop",function(e){ if(state.mode!=="file") e.preventDefault(); });
+
+  /* init */
+  refreshTabs();
+  run();
+})();
+</script>
+</body>
+</html>

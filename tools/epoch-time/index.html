@@ -1,0 +1,959 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Epoch &amp; Time</title>
+<meta name="description" content="Zero-dependency Unix epoch and time-zone converter built entirely on native Intl. Live clock, instant parsing, unix↔date conversion, and a duration calculator.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%233f6f8f'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #3f6f8f;
+    --accent-soft: rgba(63, 111, 143, 0.10);
+    --ok: #2e8b57;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #3f6f8f;
+      --accent-soft: rgba(63, 111, 143, 0.20);
+      --ok: #5cbf82;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+  }
+  section { margin-top: 26px; }
+  section:first-child { margin-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); flex: none; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  /* ---- NOW panel ---- */
+  .now-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .now-cell {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+  .now-cell .col { min-width: 0; flex: 1; }
+  .now-label {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+  }
+  .now-value {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    word-break: break-all;
+  }
+  .now-cell.wide { grid-column: 1 / -1; }
+  .now-cell.wide .now-value { font-size: 20px; }
+
+  /* ---- copy button ---- */
+  .copy {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy.ok { border-color: var(--ok); color: var(--ok); }
+  .copy svg { pointer-events: none; }
+
+  /* ---- inputs ---- */
+  label.field-label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  input[type="text"], input[type="number"], input[type="datetime-local"], select {
+    width: 100%;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15px;
+    padding: 11px 13px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input.invalid { border-color: var(--err); }
+  #instant-input { font-size: 22px; font-weight: 500; }
+  #instant-input::placeholder { color: var(--muted); opacity: 0.7; }
+
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+    margin-top: 12px;
+  }
+  .seg button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 6px 14px;
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-right: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .seg-wrap { display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .seg-wrap.show { display: flex; }
+  .seg-wrap .hint { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .presets button, .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .presets button:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn svg { flex: none; }
+
+  #instant-error {
+    display: none;
+    margin-top: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--err);
+    background: var(--err-bg);
+    color: var(--err);
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-family: "IBM Plex Mono", monospace;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  #instant-error.show { display: flex; }
+  #instant-error svg { flex: none; margin-top: 2px; }
+
+  .detect {
+    display: none;
+    margin-top: 14px;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .detect.show { display: flex; }
+  .detect .kind { color: var(--accent); font-weight: 600; }
+  .detect .rel { color: var(--fg); }
+
+  /* ---- zone cards ---- */
+  #zone-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-top: 4px; }
+  .zcard {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 15px;
+    min-width: 0;
+    position: relative;
+  }
+  .zcard.anchor { border-color: var(--accent); }
+  .zhead { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .zname {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    color: var(--fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .zoff {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    color: var(--muted);
+    background: var(--accent-soft);
+    padding: 2px 7px;
+    border-radius: 999px;
+    flex: none;
+  }
+  .zctl { margin-left: auto; display: flex; gap: 6px; flex: none; }
+  .zremove {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border: 1px solid var(--line); background: var(--bg);
+    color: var(--muted); border-radius: 6px; cursor: pointer;
+  }
+  .zremove:hover { border-color: var(--err); color: var(--err); }
+  .zdate { font-family: "IBM Plex Mono", monospace; font-size: 15px; font-weight: 500; word-break: break-word; }
+  .zrel { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+
+  .zone-add { display: flex; gap: 10px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  .zone-add select { flex: 1; min-width: 220px; }
+  .zone-add .btn { padding: 9px 16px; }
+
+  /* ---- converter grid ---- */
+  .conv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .conv-field { min-width: 0; }
+  .conv-row { display: flex; gap: 8px; align-items: stretch; }
+  .conv-row input { flex: 1; }
+
+  /* ---- duration ---- */
+  .dur-inputs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; align-items: end; }
+  .dur-swap { align-self: end; margin-bottom: 1px; }
+  .dur-swap .btn { height: 44px; width: 44px; padding: 0; justify-content: center; }
+  .dur-btns { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 18px; }
+  .stat {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 13px 15px; min-width: 0;
+  }
+  .stat.big { grid-column: 1 / -1; border-color: var(--accent); }
+  .stat .s-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+  }
+  .stat .s-value { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 19px; word-break: break-all; }
+  .stat.big .s-value { font-size: 26px; color: var(--accent); }
+  .stat .s-head { display: flex; align-items: flex-start; gap: 8px; }
+  .stat .s-head .col { flex: 1; min-width: 0; }
+  #dur-note { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); margin-top: 12px; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 18px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 720px) {
+    .now-grid { grid-template-columns: 1fr; }
+    .now-cell.wide { grid-column: auto; }
+    #zone-cards { grid-template-columns: 1fr; }
+    .conv-grid { grid-template-columns: 1fr; }
+    .dur-inputs { grid-template-columns: 1fr; }
+    .dur-swap { justify-self: start; }
+    .stat-grid { grid-template-columns: 1fr; }
+    .now-value { font-size: 22px; }
+    #instant-input { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Epoch &amp; Time</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <!-- ================= NOW ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="8" cy="8" r="6.5"></circle>
+        <path d="M8 4.2V8l2.6 1.9"></path>
+      </svg>
+      Right now <span id="now-live" style="color:var(--accent)">&#9679;</span>
+    </div>
+    <div class="now-grid">
+      <div class="now-cell">
+        <div class="col">
+          <div class="now-label">Unix &mdash; seconds</div>
+          <div class="now-value" id="now-sec">&mdash;</div>
+        </div>
+        <button class="copy" data-copy-from="now-sec" title="Copy" aria-label="Copy Unix seconds"></button>
+      </div>
+      <div class="now-cell">
+        <div class="col">
+          <div class="now-label">Unix &mdash; milliseconds</div>
+          <div class="now-value" id="now-ms">&mdash;</div>
+        </div>
+        <button class="copy" data-copy-from="now-ms" title="Copy" aria-label="Copy Unix milliseconds"></button>
+      </div>
+      <div class="now-cell wide">
+        <div class="col">
+          <div class="now-label">ISO-8601 &mdash; UTC</div>
+          <div class="now-value mono" id="now-iso">&mdash;</div>
+        </div>
+        <button class="copy" data-copy-from="now-iso" title="Copy" aria-label="Copy ISO-8601"></button>
+      </div>
+      <div class="now-cell wide">
+        <div class="col">
+          <div class="now-label" id="now-local-label">Human &mdash; local</div>
+          <div class="now-value" id="now-local">&mdash;</div>
+        </div>
+        <button class="copy" data-copy-from="now-local" title="Copy" aria-label="Copy local time"></button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PARSE ANY INSTANT ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <circle cx="7" cy="7" r="5"></circle>
+        <path d="M11 11l3.5 3.5"></path>
+      </svg>
+      Parse any instant
+    </div>
+    <div class="card">
+      <label class="field-label" for="instant-input">Unix seconds / ms &middot; ISO-8601 &middot; RFC-2822 &middot; or any date string</label>
+      <input id="instant-input" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
+             placeholder="1752192000  ·  2026-07-11T00:00:00Z  ·  Fri, 11 Jul 2026 06:00:00 GMT">
+      <div class="seg-wrap" id="unit-wrap">
+        <div class="seg" id="unit-seg" role="group" aria-label="Numeric interpretation">
+          <button type="button" data-unit="auto" class="on">auto</button>
+          <button type="button" data-unit="s">seconds</button>
+          <button type="button" data-unit="ms">milliseconds</button>
+        </div>
+        <span class="hint" id="unit-hint"></span>
+      </div>
+      <div class="presets" id="instant-presets"></div>
+      <div class="detect" id="instant-detect">
+        <span>Detected:</span>
+        <span class="kind" id="detect-kind"></span>
+        <span class="rel" id="detect-rel"></span>
+      </div>
+      <div id="instant-error" role="alert">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.5"></circle>
+          <line x1="8" y1="4.5" x2="8" y2="8.8"></line>
+          <circle cx="8" cy="11.4" r="0.8" fill="currentColor" stroke="none"></circle>
+        </svg>
+        <span id="instant-error-text"></span>
+      </div>
+    </div>
+
+    <div id="zone-cards"></div>
+
+    <div class="zone-add">
+      <select id="zone-select" aria-label="Add a time zone"></select>
+      <button class="btn" id="zone-add-btn" type="button">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+          <line x1="8" y1="3" x2="8" y2="13"></line><line x1="3" y1="8" x2="13" y2="8"></line>
+        </svg>
+        Add zone
+      </button>
+    </div>
+  </section>
+
+  <!-- ================= CONVERTER ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 5h8l-2-2M13 11H5l2 2"></path>
+      </svg>
+      Unix &harr; date converter
+    </div>
+    <div class="card">
+      <div class="conv-grid">
+        <div class="conv-field">
+          <label class="field-label" for="conv-secs">Unix seconds</label>
+          <div class="conv-row">
+            <input id="conv-secs" type="text" inputmode="numeric" spellcheck="false" autocomplete="off">
+            <button class="copy" data-copy-input="conv-secs" title="Copy" aria-label="Copy seconds"></button>
+          </div>
+        </div>
+        <div class="conv-field">
+          <label class="field-label" for="conv-ms">Unix milliseconds</label>
+          <div class="conv-row">
+            <input id="conv-ms" type="text" inputmode="numeric" spellcheck="false" autocomplete="off">
+            <button class="copy" data-copy-input="conv-ms" title="Copy" aria-label="Copy milliseconds"></button>
+          </div>
+        </div>
+        <div class="conv-field">
+          <label class="field-label" for="conv-iso">ISO-8601 (UTC)</label>
+          <div class="conv-row">
+            <input id="conv-iso" type="text" spellcheck="false" autocomplete="off">
+            <button class="copy" data-copy-input="conv-iso" title="Copy" aria-label="Copy ISO-8601"></button>
+          </div>
+        </div>
+        <div class="conv-field">
+          <label class="field-label" for="conv-local" id="conv-local-label">Local date &amp; time</label>
+          <div class="conv-row">
+            <input id="conv-local" type="datetime-local" step="1">
+            <button class="copy" data-copy-input="conv-local" title="Copy" aria-label="Copy local datetime"></button>
+          </div>
+        </div>
+      </div>
+      <div class="presets" style="margin-top:16px">
+        <button type="button" id="conv-now">set to now</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= DURATION ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M4 2h8M4 14h8M5 2c0 3 6 4 6 6s-6 3-6 6M11 2c0 3-6 4-6 6"></path>
+      </svg>
+      Duration between two moments
+    </div>
+    <div class="card">
+      <div class="dur-inputs">
+        <div>
+          <label class="field-label" for="dur-start">Start (local)</label>
+          <input id="dur-start" type="datetime-local" step="1">
+        </div>
+        <div class="dur-swap">
+          <button class="btn" id="dur-swap" type="button" title="Swap start and end" aria-label="Swap">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M4 3v10M4 13l-2.2-2.2M4 13l2.2-2.2M12 13V3M12 3l-2.2 2.2M12 3l2.2 2.2"></path>
+            </svg>
+          </button>
+        </div>
+        <div>
+          <label class="field-label" for="dur-end">End (local)</label>
+          <input id="dur-end" type="datetime-local" step="1">
+        </div>
+      </div>
+      <div class="dur-btns">
+        <button class="btn" id="dur-start-now" type="button">start = now</button>
+        <button class="btn" id="dur-end-now" type="button">end = now</button>
+      </div>
+      <div class="stat-grid" id="dur-stats"></div>
+      <div id="dur-note"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>zero dependencies &middot; native Intl</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- small helpers ---------------- */
+  var $ = function (id) { return document.getElementById(id); };
+  function pad(n, len) { len = len || 2; var s = String(Math.abs(n)); while (s.length < len) s = "0" + s; return (n < 0 ? "-" : "") + s; }
+
+  var ICON_COPY = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>';
+  var ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.2 3.2L13 5"></path></svg>';
+
+  /* seed every copy button with the copy icon */
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"), function (b) { b.innerHTML = ICON_COPY; });
+
+  function flashCopy(btn) {
+    btn.classList.add("ok");
+    btn.innerHTML = ICON_CHECK;
+    setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = ICON_COPY; }, 950);
+  }
+  function copyText(text, btn) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove(); if (btn) flashCopy(btn);
+      } catch (e) { /* give up silently */ }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { if (btn) flashCopy(btn); }, fallback);
+    } else { fallback(); }
+  }
+
+  /* delegated copy handling for every .copy button */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest(".copy") : null;
+    if (!btn) return;
+    var text = "";
+    if (btn.hasAttribute("data-copy-from")) {
+      var src = $(btn.getAttribute("data-copy-from"));
+      text = src ? src.textContent : "";
+    } else if (btn.hasAttribute("data-copy-input")) {
+      var inp = $(btn.getAttribute("data-copy-input"));
+      text = inp ? inp.value : "";
+    } else if (btn.hasAttribute("data-copy")) {
+      text = btn.getAttribute("data-copy");
+    }
+    if (text && text !== "—") copyText(text, btn);
+  });
+
+  /* ---------------- time zones ---------------- */
+  var LOCAL_TZ = "UTC";
+  try { LOCAL_TZ = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch (e) {}
+  var IS_MOUNTAIN = LOCAL_TZ === "America/Denver" || LOCAL_TZ === "America/Boise" || LOCAL_TZ === "America/Phoenix";
+
+  var ALL_ZONES = [];
+  try { if (typeof Intl.supportedValuesOf === "function") ALL_ZONES = Intl.supportedValuesOf("timeZone"); } catch (e) {}
+  if (!ALL_ZONES || !ALL_ZONES.length) {
+    ALL_ZONES = ["UTC", "America/Denver", "America/New_York", "America/Chicago", "America/Los_Angeles",
+      "America/Sao_Paulo", "Europe/London", "Europe/Paris", "Europe/Berlin", "Europe/Moscow",
+      "Africa/Cairo", "Africa/Johannesburg", "Asia/Dubai", "Asia/Kolkata", "Asia/Shanghai",
+      "Asia/Tokyo", "Asia/Singapore", "Australia/Sydney", "Pacific/Auckland", "Pacific/Honolulu"];
+  }
+  var ZONE_SET = {};
+  ALL_ZONES.forEach(function (z) { ZONE_SET[z] = true; });
+
+  var LS_KEY = "epoch-time.zones.v1";
+  var DEFAULT_ZONES = ["America/New_York", "Europe/London", "Asia/Tokyo"];
+  function loadZones() {
+    try {
+      var v = JSON.parse(localStorage.getItem(LS_KEY));
+      if (v && v.length !== undefined) {
+        var out = [];
+        for (var i = 0; i < v.length; i++) { if (typeof v[i] === "string" && ZONE_SET[v[i]] && out.indexOf(v[i]) === -1) out.push(v[i]); }
+        return out;
+      }
+    } catch (e) {}
+    return DEFAULT_ZONES.filter(function (z) { return ZONE_SET[z]; });
+  }
+  function saveZones() { try { localStorage.setItem(LS_KEY, JSON.stringify(selectedZones)); } catch (e) {} }
+  var selectedZones = loadZones();
+
+  /* cached formatters, one per zone */
+  var fmtCache = {};
+  function zoneFmt(tz) {
+    if (!fmtCache[tz]) {
+      fmtCache[tz] = new Intl.DateTimeFormat("en-US", {
+        weekday: "short", year: "numeric", month: "short", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+        timeZone: tz, timeZoneName: "short"
+      });
+    }
+    return fmtCache[tz];
+  }
+  var offCache = {};
+  function offFmt(tz) {
+    if (offCache[tz] === undefined) {
+      try { offCache[tz] = new Intl.DateTimeFormat("en-US", { timeZone: tz, hour: "2-digit", timeZoneName: "shortOffset" }); }
+      catch (e) { offCache[tz] = null; }
+    }
+    return offCache[tz];
+  }
+  function zoneOffset(tz, date) {
+    var f = offFmt(tz);
+    if (!f) return "";
+    var parts = f.formatToParts(date);
+    for (var i = 0; i < parts.length; i++) { if (parts[i].type === "timeZoneName") return parts[i].value; }
+    return "";
+  }
+  function zoneDate(tz, date) { return zoneFmt(tz).format(date); }
+
+  /* ---------------- relative time (Intl.RelativeTimeFormat) ---------------- */
+  var RTF = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  var REL_UNITS = [["year", 31536000000], ["month", 2592000000], ["week", 604800000],
+    ["day", 86400000], ["hour", 3600000], ["minute", 60000], ["second", 1000]];
+  function relative(deltaMs) {
+    var abs = Math.abs(deltaMs);
+    for (var i = 0; i < REL_UNITS.length; i++) {
+      var unit = REL_UNITS[i][0], size = REL_UNITS[i][1];
+      if (abs >= size || unit === "second") return RTF.format(Math.round(deltaMs / size), unit);
+    }
+    return RTF.format(0, "second");
+  }
+
+  /* ================= NOW panel ================= */
+  var nowLocalFmt = new Intl.DateTimeFormat("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+    hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false,
+    timeZoneName: "short"
+  });
+  $("now-local-label").innerHTML = "Human &mdash; local (" + LOCAL_TZ + (IS_MOUNTAIN ? " &middot; Mountain Time" : "") + ")";
+  var convLocalLabel = $("conv-local-label");
+  if (convLocalLabel) convLocalLabel.textContent = "Local date & time (" + LOCAL_TZ + (IS_MOUNTAIN ? " · Mountain Time" : "") + ")";
+
+  function tickNow() {
+    var now = Date.now();
+    $("now-sec").textContent = String(Math.floor(now / 1000));
+    $("now-ms").textContent = String(now);
+    $("now-iso").textContent = new Date(now).toISOString();
+    $("now-local").textContent = nowLocalFmt.format(new Date(now));
+  }
+
+  /* ================= parse-any-instant ================= */
+  var instantInput = $("instant-input");
+  var unitWrap = $("unit-wrap");
+  var unitHint = $("unit-hint");
+  var detectEl = $("instant-detect");
+  var detectKind = $("detect-kind");
+  var detectRel = $("detect-rel");
+  var errEl = $("instant-error");
+  var errText = $("instant-error-text");
+  var zoneCardsEl = $("zone-cards");
+  var forceUnit = "auto";   // auto | s | ms
+  var parsedMs = null;      // the currently parsed instant, or null
+
+  var NUM_RE = /^[+-]?\d+(\.\d+)?$/;
+
+  function chooseUnit(intDigits) {
+    /* >= 12 integer digits (>= 1e11) can only be sane as milliseconds */
+    return intDigits >= 12 ? "ms" : "s";
+  }
+
+  function parseInstant(raw) {
+    var s = raw.trim();
+    if (!s) return { empty: true };
+    if (NUM_RE.test(s)) {
+      var num = Number(s);
+      if (!isFinite(num)) return { error: "Number is out of range." };
+      var intPart = s.replace(/^[+-]/, "").split(".")[0];
+      var autoUnit = chooseUnit(intPart.length);
+      var unit = forceUnit === "auto" ? autoUnit : forceUnit;
+      var ms = unit === "ms" ? num : num * 1000;
+      var d = new Date(ms);
+      if (isNaN(d.getTime())) return { error: "That number is outside the representable date range." };
+      return { ms: ms, kind: "Unix " + (unit === "ms" ? "milliseconds" : "seconds"), numeric: true, unit: unit, autoUnit: autoUnit };
+    }
+    var dd = new Date(s);
+    if (!isNaN(dd.getTime())) return { ms: dd.getTime(), kind: "Date string (ISO-8601 / RFC-2822 / native)", numeric: false };
+    return { error: "Could not parse this as a timestamp or date string." };
+  }
+
+  function showErr(msg) { errText.textContent = msg; errEl.classList.add("show"); }
+  function clearErr() { errEl.classList.remove("show"); }
+
+  function anchorCard(name, tz, date, extra) {
+    return renderCard(name, tz, date, false, extra);
+  }
+  function renderCard(name, tz, date, removable, extraClass) {
+    var div = document.createElement("div");
+    div.className = "zcard" + (extraClass ? " " + extraClass : "");
+    var off = zoneOffset(tz, date);
+    var head = document.createElement("div");
+    head.className = "zhead";
+    var nm = document.createElement("span");
+    nm.className = "zname"; nm.textContent = name; nm.title = tz;
+    head.appendChild(nm);
+    if (off) { var o = document.createElement("span"); o.className = "zoff"; o.textContent = off; head.appendChild(o); }
+    var ctl = document.createElement("div"); ctl.className = "zctl";
+    var dateStr = zoneDate(tz, date);
+    var cp = document.createElement("button");
+    cp.className = "copy"; cp.type = "button"; cp.title = "Copy"; cp.setAttribute("data-copy", dateStr);
+    cp.innerHTML = ICON_COPY;
+    ctl.appendChild(cp);
+    if (removable) {
+      var rm = document.createElement("button");
+      rm.className = "zremove"; rm.type = "button"; rm.title = "Remove " + tz; rm.setAttribute("aria-label", "Remove " + tz);
+      rm.innerHTML = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg>';
+      rm.addEventListener("click", function () {
+        selectedZones = selectedZones.filter(function (z) { return z !== tz; });
+        saveZones(); rebuildZoneSelect(); renderInstant();
+      });
+      ctl.appendChild(rm);
+    }
+    head.appendChild(ctl);
+    var dt = document.createElement("div"); dt.className = "zdate"; dt.textContent = dateStr;
+    var rel = document.createElement("div"); rel.className = "zrel"; rel.setAttribute("data-ms", String(date.getTime()));
+    rel.textContent = relative(date.getTime() - Date.now());
+    div.appendChild(head); div.appendChild(dt); div.appendChild(rel);
+    return div;
+  }
+
+  function renderInstant() {
+    var res = parseInstant(instantInput.value);
+    zoneCardsEl.innerHTML = "";
+    instantInput.classList.remove("invalid");
+
+    if (res.empty) {
+      clearErr(); detectEl.classList.remove("show"); unitWrap.classList.remove("show");
+      parsedMs = null; return;
+    }
+    if (res.error) {
+      showErr(res.error); detectEl.classList.remove("show");
+      unitWrap.classList.toggle("show", NUM_RE.test(instantInput.value.trim()));
+      instantInput.classList.add("invalid"); parsedMs = null; return;
+    }
+    clearErr();
+    parsedMs = res.ms;
+    var date = new Date(res.ms);
+
+    /* numeric unit toggle visibility + hint */
+    if (res.numeric) {
+      unitWrap.classList.add("show");
+      unitHint.textContent = forceUnit === "auto"
+        ? "auto-detected as " + (res.unit === "ms" ? "milliseconds" : "seconds")
+        : "forced " + (res.unit === "ms" ? "milliseconds" : "seconds");
+    } else {
+      unitWrap.classList.remove("show");
+    }
+
+    detectEl.classList.add("show");
+    detectKind.textContent = res.kind;
+    detectRel.textContent = "→ " + relative(res.ms - Date.now());
+
+    /* anchor cards: Local + UTC, then user zones */
+    zoneCardsEl.appendChild(renderCard("Local" + (IS_MOUNTAIN ? " · Mountain" : "") + " — " + LOCAL_TZ, LOCAL_TZ, date, false, "anchor"));
+    zoneCardsEl.appendChild(renderCard("UTC", "UTC", date, false, "anchor"));
+    selectedZones.forEach(function (tz) {
+      if (tz === LOCAL_TZ || tz === "UTC") return;
+      zoneCardsEl.appendChild(renderCard(tz, tz, date, true, null));
+    });
+  }
+
+  /* numeric unit segmented control */
+  Array.prototype.forEach.call($("unit-seg").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      forceUnit = b.getAttribute("data-unit");
+      Array.prototype.forEach.call($("unit-seg").querySelectorAll("button"), function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      renderInstant();
+    });
+  });
+
+  /* instant presets */
+  var PRESETS = [
+    { label: "now (unix s)", get: function () { return String(Math.floor(Date.now() / 1000)); } },
+    { label: "now (unix ms)", get: function () { return String(Date.now()); } },
+    { label: "now (ISO)", get: function () { return new Date().toISOString(); } },
+    { label: "epoch 0", get: function () { return "0"; } },
+    { label: "clear", get: function () { return ""; } }
+  ];
+  var presetsEl = $("instant-presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button"); b.type = "button"; b.textContent = p.label;
+    b.addEventListener("click", function () { instantInput.value = p.get(); instantInput.focus(); renderInstant(); });
+    presetsEl.appendChild(b);
+  });
+
+  /* zone add dropdown (grouped by region) */
+  var zoneSelect = $("zone-select");
+  function rebuildZoneSelect() {
+    zoneSelect.innerHTML = "";
+    var ph = document.createElement("option");
+    ph.value = ""; ph.textContent = "Add a time zone…"; ph.disabled = true; ph.selected = true;
+    zoneSelect.appendChild(ph);
+    var groups = {};
+    ALL_ZONES.forEach(function (tz) {
+      if (selectedZones.indexOf(tz) !== -1 || tz === LOCAL_TZ || tz === "UTC") return;
+      var region = tz.indexOf("/") !== -1 ? tz.split("/")[0] : "Other";
+      (groups[region] = groups[region] || []).push(tz);
+    });
+    Object.keys(groups).sort().forEach(function (region) {
+      var og = document.createElement("optgroup"); og.label = region;
+      groups[region].forEach(function (tz) {
+        var o = document.createElement("option"); o.value = tz; o.textContent = tz.replace(/_/g, " ");
+        og.appendChild(o);
+      });
+      zoneSelect.appendChild(og);
+    });
+  }
+  function addZone() {
+    var tz = zoneSelect.value;
+    if (!tz || !ZONE_SET[tz]) return;
+    if (selectedZones.indexOf(tz) === -1) selectedZones.push(tz);
+    saveZones(); rebuildZoneSelect(); renderInstant();
+  }
+  $("zone-add-btn").addEventListener("click", addZone);
+  zoneSelect.addEventListener("change", addZone);
+
+  instantInput.addEventListener("input", renderInstant);
+
+  /* ================= converter ================= */
+  var cSecs = $("conv-secs"), cMs = $("conv-ms"), cIso = $("conv-iso"), cLocal = $("conv-local");
+  var convMs = Date.now();
+
+  function toLocalInput(d) {
+    if (!isFinite(d.getTime())) return "";
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" +
+      pad(d.getHours()) + ":" + pad(d.getMinutes()) + ":" + pad(d.getSeconds());
+  }
+  function renderConv(except) {
+    var d = new Date(convMs);
+    if (except !== "secs") cSecs.value = String(Math.floor(convMs / 1000));
+    if (except !== "ms") cMs.value = String(Math.round(convMs));
+    if (except !== "iso") cIso.value = isFinite(convMs) ? d.toISOString() : "";
+    if (except !== "local") cLocal.value = toLocalInput(d);
+    [cSecs, cMs, cIso, cLocal].forEach(function (el) { el.classList.remove("invalid"); });
+  }
+  function bindConv(el, key, toMs) {
+    el.addEventListener("input", function () {
+      var ms = toMs(el.value);
+      if (ms === null || isNaN(ms) || !isFinite(ms)) { el.classList.add("invalid"); return; }
+      el.classList.remove("invalid"); convMs = ms; renderConv(key);
+    });
+  }
+  bindConv(cSecs, "secs", function (v) { v = v.trim(); if (!NUM_RE.test(v)) return null; return Math.round(Number(v) * 1000); });
+  bindConv(cMs, "ms", function (v) { v = v.trim(); if (!NUM_RE.test(v)) return null; return Math.round(Number(v)); });
+  bindConv(cIso, "iso", function (v) { v = v.trim(); if (!v) return null; var d = new Date(v); return isNaN(d.getTime()) ? null : d.getTime(); });
+  bindConv(cLocal, "local", function (v) { if (!v) return null; var d = new Date(v); return isNaN(d.getTime()) ? null : d.getTime(); });
+  $("conv-now").addEventListener("click", function () { convMs = Date.now(); renderConv(null); });
+
+  /* ================= duration ================= */
+  var dStart = $("dur-start"), dEnd = $("dur-end"), dStats = $("dur-stats"), dNote = $("dur-note");
+  function statTile(label, value, big) {
+    var d = document.createElement("div"); d.className = "stat" + (big ? " big" : "");
+    var head = document.createElement("div"); head.className = "s-head";
+    var col = document.createElement("div"); col.className = "col";
+    var l = document.createElement("div"); l.className = "s-label"; l.textContent = label;
+    var v = document.createElement("div"); v.className = "s-value"; v.textContent = value;
+    col.appendChild(l); col.appendChild(v);
+    var cp = document.createElement("button"); cp.className = "copy"; cp.type = "button"; cp.title = "Copy";
+    cp.setAttribute("data-copy", value); cp.innerHTML = ICON_COPY;
+    head.appendChild(col); head.appendChild(cp); d.appendChild(head); return d;
+  }
+  function fmtNum(n) { return n.toLocaleString("en-US", { maximumFractionDigits: 2 }); }
+  function renderDuration() {
+    dStats.innerHTML = "";
+    var sv = dStart.value, ev = dEnd.value;
+    if (!sv || !ev) { dNote.textContent = "Pick both a start and end moment to compute the span."; return; }
+    var s = new Date(sv), e = new Date(ev);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) { dNote.textContent = "One of the moments is not a valid date."; return; }
+    var diff = e.getTime() - s.getTime();
+    var sign = diff < 0 ? "-" : "";
+    var abs = Math.abs(diff);
+    var totalSec = Math.floor(abs / 1000);
+    var days = Math.floor(totalSec / 86400);
+    var hours = Math.floor((totalSec % 86400) / 3600);
+    var mins = Math.floor((totalSec % 3600) / 60);
+    var secs = totalSec % 60;
+    var breakdown = sign + days + "d " + hours + "h " + mins + "m " + secs + "s";
+    dStats.appendChild(statTile("Breakdown", breakdown, true));
+    dStats.appendChild(statTile("Total days", sign + fmtNum(abs / 86400000)));
+    dStats.appendChild(statTile("Total hours", sign + fmtNum(abs / 3600000)));
+    dStats.appendChild(statTile("Total minutes", sign + fmtNum(abs / 60000)));
+    dStats.appendChild(statTile("Total seconds", sign + fmtNum(abs / 1000)));
+    dStats.appendChild(statTile("Total ms", sign + fmtNum(abs)));
+    dNote.textContent = diff < 0
+      ? "End is before start — the span is shown as a negative duration."
+      : (diff === 0 ? "Start and end are the same moment." : "End is after start.");
+  }
+  dStart.addEventListener("input", renderDuration);
+  dEnd.addEventListener("input", renderDuration);
+  $("dur-swap").addEventListener("click", function () { var t = dStart.value; dStart.value = dEnd.value; dEnd.value = t; renderDuration(); });
+  $("dur-start-now").addEventListener("click", function () { dStart.value = toLocalInput(new Date()); renderDuration(); });
+  $("dur-end-now").addEventListener("click", function () { dEnd.value = toLocalInput(new Date()); renderDuration(); });
+
+  /* ================= live tick ================= */
+  function tickRelatives() {
+    var now = Date.now();
+    Array.prototype.forEach.call(document.querySelectorAll(".zrel[data-ms]"), function (el) {
+      el.textContent = relative(Number(el.getAttribute("data-ms")) - now);
+    });
+    if (parsedMs !== null) detectRel.textContent = "→ " + relative(parsedMs - now);
+  }
+  function tick() { tickNow(); tickRelatives(); }
+
+  /* ================= init ================= */
+  rebuildZoneSelect();
+  tickNow();
+  renderInstant();
+  convMs = Date.now(); renderConv(null);
+  dStart.value = toLocalInput(new Date());
+  dEnd.value = toLocalInput(new Date(Date.now() + 90 * 60000));
+  renderDuration();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>

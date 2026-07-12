@@ -1,7 +1,7 @@
 {
   "name": "Rocket Pudding Tools",
   "description": "A growing registry of self-contained web tools.",
-  "updated": "2026-07-11",
+  "updated": "2026-07-12",
   "tools": [
     {
       "slug": "dag-layout-lab",
@@ -329,6 +329,150 @@
       "added": "2026-07-11",
       "status": "live",
       "accent": "#3f6f8f",
+      "origin": "vendored"
+    },
+    {
+      "slug": "hash-forge",
+      "name": "Hash Forge",
+      "tagline": "Hash and HMAC text with MD5 and the SHA family, fully client-side.",
+      "description": "Paste text and get MD5 plus SHA-1, SHA-256, SHA-384, and SHA-512 digests, with optional HMAC output from a shared secret. MD5 is provided by vendored blueimp-md5 under MIT; SHA and HMAC use the browser Web Crypto API. No data leaves the page.",
+      "path": "tools/hash-forge/",
+      "tags": [
+        "hash",
+        "hmac",
+        "sha",
+        "md5",
+        "crypto"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#5f6f52",
+      "origin": "vendored"
+    },
+    {
+      "slug": "jsonpath-lab",
+      "name": "JSONPath Lab",
+      "tagline": "Query JSON with JSONPath and inspect values, paths, and pointers.",
+      "description": "A two-pane JSONPath workbench: paste JSON, run paths such as $.items[*].name or filters, switch result types, and inspect matched values with path and JSON Pointer metadata. Powered by vendored jsonpath-plus under MIT and runs entirely in the browser.",
+      "path": "tools/jsonpath-lab/",
+      "tags": [
+        "jsonpath",
+        "json",
+        "query",
+        "pointer",
+        "data"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#7a6cff",
+      "origin": "vendored"
+    },
+    {
+      "slug": "sql-formatter",
+      "name": "SQL Formatter",
+      "tagline": "Format SQL across common dialects with case and indentation controls.",
+      "description": "Client-side SQL formatting for PostgreSQL, MySQL, SQLite, BigQuery, Transact-SQL, Snowflake, Trino, and more. Choose dialect, keyword case, and indentation, then copy the formatted query. Uses vendored sql-formatter under MIT; queries stay local.",
+      "path": "tools/sql-formatter/",
+      "tags": [
+        "sql",
+        "formatter",
+        "database",
+        "query",
+        "mit"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#c47a2c",
+      "origin": "vendored"
+    },
+    {
+      "slug": "base-lab",
+      "name": "Base Lab",
+      "tagline": "Encode and decode Base64, Base64URL, hex, binary, Base32, URLs, HTML, and JSON strings.",
+      "description": "Zero-dependency encoding workbench with UTF-8 correct Base64/Base64URL, RFC 4648 Base32, hex, binary, URL encoding, HTML entities, and JSON string escaping. Includes file mode, auto-detect decode, and copyable outputs; all processing stays in the browser.",
+      "path": "tools/base-lab/",
+      "tags": [
+        "base64",
+        "encoding",
+        "hex",
+        "base32",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#c9a227",
+      "origin": "vendored"
+    },
+    {
+      "slug": "epoch-time",
+      "name": "Epoch & Time",
+      "tagline": "Convert Unix epochs, ISO dates, local time, time zones, and durations.",
+      "description": "Zero-dependency time workbench built on native Intl: live clock, Unix seconds and milliseconds conversion, ISO/native date parsing, saved comparison time zones, and a duration calculator. Designed for debugging logs, tokens, and scheduled jobs without sending data anywhere.",
+      "path": "tools/epoch-time/",
+      "tags": [
+        "time",
+        "epoch",
+        "timezone",
+        "duration",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#3f6f8f",
+      "origin": "vendored"
+    },
+    {
+      "slug": "id-forge",
+      "name": "ID Forge",
+      "tagline": "Generate UUID v4, UUID v7, ULID, and nanoid identifiers in batches.",
+      "description": "Zero-dependency identifier workbench with UUID v4, UUID v7, ULID, monotonic ULID, and nanoid generation, batch copy/download, uppercase options, custom nanoid alphabet, and UUID/ULID decoding. Uses browser crypto only.",
+      "path": "tools/id-forge/",
+      "tags": [
+        "uuid",
+        "ulid",
+        "nanoid",
+        "ids",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#7a6cff",
+      "origin": "vendored"
+    },
+    {
+      "slug": "diff-lab",
+      "name": "Diff Lab",
+      "tagline": "Compare two text blocks with side-by-side line diffs and unified output.",
+      "description": "Zero-dependency text diff workbench using an in-browser LCS line comparison. Paste before and after text, inspect added/removed/unchanged lines, swap inputs, and copy a unified diff-style output.",
+      "path": "tools/diff-lab/",
+      "tags": [
+        "diff",
+        "text",
+        "lcs",
+        "patch",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#2e8b57",
+      "origin": "vendored"
+    },
+    {
+      "slug": "color-lab",
+      "name": "Color Lab",
+      "tagline": "Parse, convert, compare, and generate palettes across modern color formats.",
+      "description": "Zero-dependency color workbench: parse hex, rgb, hsl, and oklch values; list every format as copyable output; check WCAG contrast with pass badges; and generate OKLCH-perceptual palettes. sRGB to/from OKLCH conversion is implemented from scratch.",
+      "path": "tools/color-lab/",
+      "tags": [
+        "color",
+        "palette",
+        "contrast",
+        "oklch",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#2e9e5b",
       "origin": "vendored"
     }
   ]

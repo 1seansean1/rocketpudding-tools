@@ -1,0 +1,907 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Diff Lab</title>
+<meta name="description" content="Zero-dependency LCS text diff: aligned side-by-side + inline views, word-level intra-line highlighting, ignore whitespace/case, copy/download unified patch.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #b05a3c;
+    --filler: #efeee9;
+    --add-bg: rgba(46, 158, 91, 0.13);
+    --add-fg: #1c7a45;
+    --add-word: rgba(46, 158, 91, 0.30);
+    --del-bg: rgba(179, 38, 30, 0.11);
+    --del-fg: #b3261e;
+    --del-word: rgba(179, 38, 30, 0.26);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #b05a3c;
+      --filler: #191a1d;
+      --add-bg: rgba(63, 185, 110, 0.15);
+      --add-fg: #5fd39a;
+      --add-word: rgba(63, 185, 110, 0.32);
+      --del-bg: rgba(255, 107, 96, 0.13);
+      --del-fg: #ff6b60;
+      --del-word: rgba(255, 107, 96, 0.30);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  code, .mono { font-family: "IBM Plex Mono", monospace; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 26px 24px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px;
+  }
+  .card-label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 9px;
+  }
+
+  /* ---- inputs ---- */
+  .duo { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 820px) { .duo { grid-template-columns: 1fr; } }
+  .pane .card-label { display: flex; align-items: baseline; justify-content: space-between; }
+  .pane .count { font-size: 11px; letter-spacing: 0.06em; color: var(--muted); text-transform: none; }
+  textarea.io {
+    width: 100%;
+    min-height: 220px;
+    resize: vertical;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    outline: none;
+    tab-size: 4;
+  }
+  textarea.io:focus { border-color: var(--accent); }
+  textarea.io::placeholder { color: var(--muted); opacity: 0.7; }
+
+  /* ---- control bar ---- */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+  }
+  .ctl-group { display: flex; align-items: center; gap: 8px; }
+  .ctl-group.right { margin-left: auto; }
+  .ctl-label { font-size: 12px; color: var(--muted); }
+  select.picker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    padding: 7px 10px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    outline: none;
+  }
+  select.picker:focus { border-color: var(--accent); }
+  .tog, .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .tog:hover, .btn:hover { border-color: var(--accent); color: var(--fg); }
+  .tog svg, .btn svg { display: block; flex: none; }
+  .tog .tick { opacity: 0; }
+  .tog[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .tog[aria-pressed="true"] .tick { opacity: 1; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled:hover { border-color: var(--line); color: var(--muted); }
+
+  /* ---- results ---- */
+  .res-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 16px;
+    margin-bottom: 12px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 7px 14px;
+    background: var(--card);
+    color: var(--muted);
+    border: none;
+    border-right: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button:hover:not([aria-pressed="true"]) { color: var(--fg); }
+  .seg button[aria-pressed="true"] { background: var(--accent); color: #fff; }
+  .legend { display: flex; align-items: center; gap: 14px; font-size: 12px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 11px; height: 11px; border-radius: 3px; border: 1px solid var(--line); }
+  .sw.add { background: var(--add-bg); border-color: var(--add-fg); }
+  .sw.del { background: var(--del-bg); border-color: var(--del-fg); }
+  .sw.eq { background: var(--bg); }
+  #stats {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    margin-left: auto;
+  }
+  #stats .st-add { color: var(--add-fg); font-weight: 600; }
+  #stats .st-del { color: var(--del-fg); font-weight: 600; }
+  #stats .dot { color: var(--muted); }
+  .res-actions { display: flex; gap: 8px; }
+  #cap-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+
+  .diff-body {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    overflow: auto;
+    max-height: 70vh;
+    background: var(--bg);
+  }
+  .empty {
+    color: var(--muted);
+    font-size: 13.5px;
+    padding: 34px 18px;
+    text-align: center;
+  }
+
+  table.dtab {
+    border-collapse: collapse;
+    width: 100%;
+    table-layout: fixed;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  table.dtab col.cn { width: 3.4em; }
+  table.dtab col.cg { width: 1.8em; }
+  table.dtab td {
+    vertical-align: top;
+    padding: 0.5px 0;
+  }
+  td.ln {
+    text-align: right;
+    padding: 0.5px 10px;
+    color: var(--muted);
+    user-select: none;
+    -webkit-user-select: none;
+    white-space: nowrap;
+    border-right: 1px solid var(--line);
+    font-size: 11.5px;
+  }
+  td.gt {
+    text-align: center;
+    color: var(--muted);
+    user-select: none;
+    -webkit-user-select: none;
+    border-right: 1px solid var(--line);
+    font-weight: 600;
+  }
+  td.tx {
+    padding: 0.5px 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+  /* split: divider before the "new" side */
+  table.dtab-split col.ct { width: auto; }
+  table.dtab-split td.ln.ln-a { border-left: 1px solid var(--line); }
+
+  td.td-del { background: var(--del-bg); }
+  td.td-add { background: var(--add-bg); }
+  td.filler { background: var(--filler); }
+  td.ln-d { color: var(--del-fg); }
+  td.ln-a { color: var(--add-fg); }
+  td.gt-d { color: var(--del-fg); background: var(--del-bg); }
+  td.gt-a { color: var(--add-fg); background: var(--add-bg); }
+  tr.r-del td.ln-d, tr.r-mod td.ln-d { background: var(--del-bg); }
+  tr.r-ins td.ln-a, tr.r-mod td.ln-a { background: var(--add-bg); }
+
+  span.w-del { background: var(--del-word); border-radius: 2px; }
+  span.w-add { background: var(--add-word); border-radius: 2px; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 14px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Diff Lab</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+
+  <section class="card" aria-label="Inputs">
+    <div class="duo">
+      <div class="pane">
+        <label class="card-label" for="orig">Original <span class="count" id="orig-count"></span></label>
+        <textarea id="orig" class="io" spellcheck="false" autocomplete="off" placeholder="Paste the original text&#8230;"></textarea>
+      </div>
+      <div class="pane">
+        <label class="card-label" for="chg">Changed <span class="count" id="chg-count"></span></label>
+        <textarea id="chg" class="io" spellcheck="false" autocomplete="off" placeholder="Paste the changed text&#8230;"></textarea>
+      </div>
+    </div>
+
+    <div class="controls" style="margin-top:14px;">
+      <div class="ctl-group">
+        <label class="ctl-label" for="samples">sample</label>
+        <select id="samples" class="picker" aria-label="Load a sample pair">
+          <option value="">choose&#8230;</option>
+          <option value="prose">prose edit</option>
+          <option value="config">config change</option>
+          <option value="code">code refactor</option>
+        </select>
+      </div>
+      <div class="ctl-group">
+        <button id="opt-ws" class="tog" type="button" aria-pressed="false" title="Ignore whitespace differences when comparing">
+          <svg class="tick" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          ignore whitespace
+        </button>
+        <button id="opt-case" class="tog" type="button" aria-pressed="false" title="Ignore letter case when comparing">
+          <svg class="tick" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          ignore case
+        </button>
+      </div>
+      <div class="ctl-group right">
+        <button id="swap" class="btn" type="button" title="Swap Original and Changed">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+          swap
+        </button>
+        <button id="clear" class="btn" type="button" title="Clear both inputs">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"></path></svg>
+          clear
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="Diff">
+    <div class="res-head">
+      <div class="seg" role="group" aria-label="Diff view">
+        <button id="view-split" type="button" aria-pressed="true">side-by-side</button>
+        <button id="view-inline" type="button" aria-pressed="false">inline</button>
+      </div>
+      <div class="legend" aria-hidden="true">
+        <span><i class="sw eq"></i>unchanged</span>
+        <span><i class="sw del"></i>removed</span>
+        <span><i class="sw add"></i>added</span>
+      </div>
+      <div id="stats" aria-live="polite"></div>
+      <div class="res-actions">
+        <button id="copy-patch" class="btn" type="button" title="Copy unified diff patch to clipboard">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          <span id="copy-label">copy patch</span>
+        </button>
+        <button id="dl-patch" class="btn" type="button" title="Download unified diff as .patch">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          .patch
+        </button>
+      </div>
+    </div>
+    <div id="cap-note" hidden></div>
+    <div id="diff-body" class="diff-body"></div>
+  </section>
+
+</main>
+
+<footer>
+  <span>zero dependencies</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var MAX_LINES = 5000;        // per-side alignment cap
+  var MAX_CELLS = 16000000;    // LCS DP cell cap before approximate fallback
+  var WORD_TOKEN_CAP = 600;    // skip intra-line word diff on very long lines
+  var WORD_ROW_CAP = 1500;     // skip word diff when too many changed lines
+  var DEBOUNCE_MS = 150;
+  var STORE_KEY = "diff-lab.v1";
+  var TOKRE = /\s+|\w+|[^\s\w]+/g;
+
+  var $orig = document.getElementById("orig");
+  var $chg = document.getElementById("chg");
+  var $origCount = document.getElementById("orig-count");
+  var $chgCount = document.getElementById("chg-count");
+  var $samples = document.getElementById("samples");
+  var $optWs = document.getElementById("opt-ws");
+  var $optCase = document.getElementById("opt-case");
+  var $swap = document.getElementById("swap");
+  var $clear = document.getElementById("clear");
+  var $viewSplit = document.getElementById("view-split");
+  var $viewInline = document.getElementById("view-inline");
+  var $stats = document.getElementById("stats");
+  var $capNote = document.getElementById("cap-note");
+  var $body = document.getElementById("diff-body");
+  var $copyBtn = document.getElementById("copy-patch");
+  var $copyLabel = document.getElementById("copy-label");
+  var $dlBtn = document.getElementById("dl-patch");
+
+  var view = "split";
+  var last = null;
+
+  /* ---------- samples ---------- */
+  var SAMPLES = {
+    prose: {
+      o: "The quick brown fox jumps over the lazy dog.\n" +
+         "Diffing tools compare two versions of a text.\n" +
+         "This line stays exactly the same.\n" +
+         "We will remove this sentence entirely.\n" +
+         "Numbers: 1, 2, 3, 4, 5.",
+      c: "The quick red fox leaps over the lazy dog.\n" +
+         "Diffing tools compare two revisions of a document.\n" +
+         "This line stays exactly the same.\n" +
+         "Numbers: 1, 2, 3, 5, 8.\n" +
+         "A brand new closing line appears here."
+    },
+    config: {
+      o: "name: diff-lab\n" +
+         "version: 1.0.0\n" +
+         "debug: false\n" +
+         "retries: 3\n" +
+         "timeout: 30\n" +
+         "features:\n" +
+         "  - compare\n" +
+         "  - export",
+      c: "name: diff-lab\n" +
+         "version: 1.1.0\n" +
+         "debug: true\n" +
+         "retries: 5\n" +
+         "timeout: 30\n" +
+         "features:\n" +
+         "  - compare\n" +
+         "  - export\n" +
+         "  - highlight"
+    },
+    code: {
+      o: "function sum(list) {\n" +
+         "  var total = 0;\n" +
+         "  for (var i = 0; i < list.length; i++) {\n" +
+         "    total += list[i];\n" +
+         "  }\n" +
+         "  return total;\n" +
+         "}",
+      c: "function sum(list) {\n" +
+         "  return list.reduce(function (total, n) {\n" +
+         "    return total + n;\n" +
+         "  }, 0);\n" +
+         "}"
+    }
+  };
+
+  /* ---------- helpers ---------- */
+  function esc(s) {
+    return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function cell(s) {
+    var e = esc(s);
+    return e === "" ? " " : e;
+  }
+  function ignoreWs() { return $optWs.getAttribute("aria-pressed") === "true"; }
+  function ignoreCase() { return $optCase.getAttribute("aria-pressed") === "true"; }
+
+  function splitLines(t) {
+    if (t.length === 0) return { lines: [], nl: true };
+    var nl = /(\r\n|\r|\n)$/.test(t);
+    var lines = t.split(/\r\n|\r|\n/);
+    if (nl) lines.pop();
+    return { lines: lines, nl: nl };
+  }
+
+  function lineKey(s) {
+    var k = s;
+    if (ignoreWs()) k = k.replace(/\s+/g, " ").trim();
+    if (ignoreCase()) k = k.toLowerCase();
+    return k;
+  }
+  function tokenize(s) { return s.match(TOKRE) || []; }
+  function tokKey(tok) {
+    var k = tok;
+    if (ignoreWs() && /^\s+$/.test(tok)) k = " ";
+    if (ignoreCase()) k = k.toLowerCase();
+    return k;
+  }
+
+  /* ---------- LCS diff (generic) ----------
+     Longest common subsequence over key arrays ka, kb.
+     Strips common prefix/suffix, then a forward DP LCS table (Uint16)
+     with forward backtrack. Returns ordered ops with absolute indices.
+     If the middle block exceeds maxCells, approximate (delete-then-insert). */
+  function diffSequences(ka, kb, maxCells) {
+    var n = ka.length, m = kb.length;
+    var ops = [];
+    var i, j;
+
+    var start = 0;
+    while (start < n && start < m && ka[start] === kb[start]) start++;
+    var endA = n, endB = m;
+    while (endA > start && endB > start && ka[endA - 1] === kb[endB - 1]) { endA--; endB--; }
+
+    for (i = 0; i < start; i++) ops.push({ t: "=", ai: i, bi: i });
+
+    var nm = endA - start, mm = endB - start;
+    var fellBack = false;
+
+    if (nm === 0) {
+      for (j = start; j < endB; j++) ops.push({ t: "+", bi: j });
+    } else if (mm === 0) {
+      for (i = start; i < endA; i++) ops.push({ t: "-", ai: i });
+    } else if (maxCells && (nm + 1) * (mm + 1) > maxCells) {
+      for (i = start; i < endA; i++) ops.push({ t: "-", ai: i });
+      for (j = start; j < endB; j++) ops.push({ t: "+", bi: j });
+      fellBack = true;
+    } else {
+      var w = mm + 1;
+      var C = new Uint16Array((nm + 1) * w);
+      for (i = nm - 1; i >= 0; i--) {
+        var rowBase = i * w, nextBase = (i + 1) * w;
+        var kai = ka[start + i];
+        for (j = mm - 1; j >= 0; j--) {
+          if (kai === kb[start + j]) {
+            C[rowBase + j] = C[nextBase + j + 1] + 1;
+          } else {
+            var d1 = C[nextBase + j], d2 = C[rowBase + j + 1];
+            C[rowBase + j] = d1 >= d2 ? d1 : d2;
+          }
+        }
+      }
+      i = 0; j = 0;
+      while (i < nm && j < mm) {
+        if (ka[start + i] === kb[start + j]) {
+          ops.push({ t: "=", ai: start + i, bi: start + j }); i++; j++;
+        } else if (C[(i + 1) * w + j] >= C[i * w + (j + 1)]) {
+          ops.push({ t: "-", ai: start + i }); i++;
+        } else {
+          ops.push({ t: "+", bi: start + j }); j++;
+        }
+      }
+      while (i < nm) { ops.push({ t: "-", ai: start + i }); i++; }
+      while (j < mm) { ops.push({ t: "+", bi: start + j }); j++; }
+    }
+
+    for (var s = 0; s < (n - endA); s++) ops.push({ t: "=", ai: endA + s, bi: endB + s });
+    return { ops: ops, fellBack: fellBack };
+  }
+
+  /* ---------- side-by-side row model ---------- */
+  function buildRows(ops) {
+    var rows = [], pd = [], pi = [], modCount = 0;
+    function flush() {
+      var p = Math.min(pd.length, pi.length), k;
+      for (k = 0; k < p; k++) { rows.push({ type: "mod", ai: pd[k], bi: pi[k] }); modCount++; }
+      for (; k < pd.length; k++) rows.push({ type: "del", ai: pd[k] });
+      for (var k2 = p; k2 < pi.length; k2++) rows.push({ type: "ins", bi: pi[k2] });
+      pd = []; pi = [];
+    }
+    for (var i = 0; i < ops.length; i++) {
+      var o = ops[i];
+      if (o.t === "=") { flush(); rows.push({ type: "eq", ai: o.ai, bi: o.bi }); }
+      else if (o.t === "-") pd.push(o.ai);
+      else pi.push(o.bi);
+    }
+    flush();
+    return { rows: rows, modCount: modCount };
+  }
+
+  /* ---------- word-level intra-line diff ---------- */
+  function wordDiff(al, bl) {
+    var at = tokenize(al), bt = tokenize(bl);
+    if (at.length > WORD_TOKEN_CAP || bt.length > WORD_TOKEN_CAP) {
+      return {
+        o: '<span class="w-del">' + (esc(al) || " ") + "</span>",
+        n: '<span class="w-add">' + (esc(bl) || " ") + "</span>"
+      };
+    }
+    var ka = [], kb = [], i;
+    for (i = 0; i < at.length; i++) ka.push(tokKey(at[i]));
+    for (i = 0; i < bt.length; i++) kb.push(tokKey(bt[i]));
+    var ops = diffSequences(ka, kb, 0).ops;
+    var o = "", n = "";
+    for (i = 0; i < ops.length; i++) {
+      var op = ops[i];
+      if (op.t === "=") { o += esc(at[op.ai]); n += esc(bt[op.bi]); }
+      else if (op.t === "-") o += '<span class="w-del">' + esc(at[op.ai]) + "</span>";
+      else n += '<span class="w-add">' + esc(bt[op.bi]) + "</span>";
+    }
+    return { o: o || " ", n: n || " " };
+  }
+
+  /* ---------- renderers ---------- */
+  function renderSplit(L, wordEnabled) {
+    var rows = L.rows, a = L.aLines, b = L.bLines;
+    var out = ['<table class="dtab dtab-split"><colgroup><col class="cn"><col class="ct"><col class="cn"><col class="ct"></colgroup><tbody>'];
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      if (r.type === "eq") {
+        out.push('<tr class="r-eq"><td class="ln">' + (r.ai + 1) + '</td><td class="tx">' + cell(a[r.ai]) +
+                 '</td><td class="ln">' + (r.bi + 1) + '</td><td class="tx">' + cell(b[r.bi]) + "</td></tr>");
+      } else if (r.type === "mod") {
+        var oH, nH;
+        if (wordEnabled) { var wd = wordDiff(a[r.ai], b[r.bi]); oH = wd.o; nH = wd.n; }
+        else { oH = '<span class="w-del">' + cell(a[r.ai]) + "</span>"; nH = '<span class="w-add">' + cell(b[r.bi]) + "</span>"; }
+        out.push('<tr class="r-mod"><td class="ln ln-d">' + (r.ai + 1) + '</td><td class="tx td-del">' + oH +
+                 '</td><td class="ln ln-a">' + (r.bi + 1) + '</td><td class="tx td-add">' + nH + "</td></tr>");
+      } else if (r.type === "del") {
+        out.push('<tr class="r-del"><td class="ln ln-d">' + (r.ai + 1) + '</td><td class="tx td-del">' + cell(a[r.ai]) +
+                 '</td><td class="ln ln-a"></td><td class="tx filler"></td></tr>');
+      } else {
+        out.push('<tr class="r-ins"><td class="ln"></td><td class="tx filler"></td><td class="ln ln-a">' +
+                 (r.bi + 1) + '</td><td class="tx td-add">' + cell(b[r.bi]) + "</td></tr>");
+      }
+    }
+    out.push("</tbody></table>");
+    return out.join("");
+  }
+
+  function renderInline(L) {
+    var ops = L.ops, a = L.aLines, b = L.bLines;
+    var out = ['<table class="dtab dtab-inline"><colgroup><col class="cn"><col class="cn"><col class="cg"><col class="ct"></colgroup><tbody>'];
+    for (var i = 0; i < ops.length; i++) {
+      var o = ops[i];
+      if (o.t === "=") {
+        out.push('<tr class="r-eq"><td class="ln">' + (o.ai + 1) + '</td><td class="ln">' + (o.bi + 1) +
+                 '</td><td class="gt"> </td><td class="tx">' + cell(a[o.ai]) + "</td></tr>");
+      } else if (o.t === "-") {
+        out.push('<tr class="r-del"><td class="ln ln-d">' + (o.ai + 1) + '</td><td class="ln"></td>' +
+                 '<td class="gt gt-d">−</td><td class="tx td-del">' + cell(a[o.ai]) + "</td></tr>");
+      } else {
+        out.push('<tr class="r-ins"><td class="ln"></td><td class="ln ln-a">' + (o.bi + 1) +
+                 '</td><td class="gt gt-a">+</td><td class="tx td-add">' + cell(b[o.bi]) + "</td></tr>");
+      }
+    }
+    out.push("</tbody></table>");
+    return out.join("");
+  }
+
+  /* ---------- unified patch text ---------- */
+  function buildUnified(ops, aLines, bLines, aNL, bNL) {
+    var i, changed = false;
+    for (i = 0; i < ops.length; i++) { if (ops[i].t !== "=") { changed = true; break; } }
+    if (!changed) return "";
+
+    var CTX = 3;
+    var include = new Array(ops.length);
+    for (i = 0; i < ops.length; i++) include[i] = false;
+    for (i = 0; i < ops.length; i++) {
+      if (ops[i].t !== "=") {
+        var lo = i - CTX; if (lo < 0) lo = 0;
+        var hi = i + CTX; if (hi > ops.length - 1) hi = ops.length - 1;
+        for (var d = lo; d <= hi; d++) include[d] = true;
+      }
+    }
+
+    var lines = ["--- original", "+++ changed"];
+    i = 0;
+    while (i < ops.length) {
+      if (!include[i]) { i++; continue; }
+      var rlo = i;
+      while (i < ops.length && include[i]) i++;
+      var rhi = i; // [rlo, rhi)
+
+      var oldCount = 0, newCount = 0, firstA = -1, firstB = -1, k, o;
+      for (k = rlo; k < rhi; k++) {
+        o = ops[k];
+        if (o.t === "=" || o.t === "-") { oldCount++; if (firstA < 0) firstA = o.ai; }
+        if (o.t === "=" || o.t === "+") { newCount++; if (firstB < 0) firstB = o.bi; }
+      }
+      var oldStart = oldCount > 0 ? firstA + 1 : 0;
+      var newStart = newCount > 0 ? firstB + 1 : 0;
+      lines.push("@@ -" + oldStart + "," + oldCount + " +" + newStart + "," + newCount + " @@");
+
+      for (k = rlo; k < rhi; k++) {
+        o = ops[k];
+        if (o.t === "=") {
+          lines.push(" " + aLines[o.ai]);
+          if (o.ai === aLines.length - 1 && !aNL) lines.push("\\ No newline at end of file");
+        } else if (o.t === "-") {
+          lines.push("-" + aLines[o.ai]);
+          if (o.ai === aLines.length - 1 && !aNL) lines.push("\\ No newline at end of file");
+        } else {
+          lines.push("+" + bLines[o.bi]);
+          if (o.bi === bLines.length - 1 && !bNL) lines.push("\\ No newline at end of file");
+        }
+      }
+    }
+    return lines.join("\n") + "\n";
+  }
+
+  /* ---------- compute + render ---------- */
+  function recompute() {
+    var aInfo = splitLines($orig.value), bInfo = splitLines($chg.value);
+    var aFull = aInfo.lines, bFull = bInfo.lines;
+    var capA = aFull.length, capB = bFull.length, capped = false;
+    var aLines = aFull, bLines = bFull;
+    if (aLines.length > MAX_LINES) { aLines = aLines.slice(0, MAX_LINES); capped = true; }
+    if (bLines.length > MAX_LINES) { bLines = bLines.slice(0, MAX_LINES); capped = true; }
+
+    var ka = [], kb = [], i;
+    for (i = 0; i < aLines.length; i++) ka.push(lineKey(aLines[i]));
+    for (i = 0; i < bLines.length; i++) kb.push(lineKey(bLines[i]));
+
+    var res = diffSequences(ka, kb, MAX_CELLS);
+    var ops = res.ops;
+
+    var added = 0, removed = 0, equal = 0;
+    for (i = 0; i < ops.length; i++) {
+      if (ops[i].t === "+") added++;
+      else if (ops[i].t === "-") removed++;
+      else equal++;
+    }
+
+    var rm = buildRows(ops);
+    var patch = buildUnified(ops, aLines, bLines, aInfo.nl, bInfo.nl);
+
+    last = {
+      ops: ops, rows: rm.rows, modCount: rm.modCount,
+      aLines: aLines, bLines: bLines,
+      added: added, removed: removed, equal: equal,
+      capped: capped, capA: capA, capB: capB,
+      fellBack: res.fellBack, patch: patch
+    };
+
+    renderStats();
+    renderView();
+    updateCounts();
+    save();
+  }
+
+  function renderView() {
+    if (!last) { $body.innerHTML = '<div class="empty">Enter or load text on both sides to see the diff.</div>'; syncActions(); return; }
+    if (last.aLines.length === 0 && last.bLines.length === 0) {
+      $body.innerHTML = '<div class="empty">Both inputs are empty.</div>'; syncActions(); return;
+    }
+    if (last.added === 0 && last.removed === 0) {
+      $body.innerHTML = '<div class="empty">The two inputs are identical.</div>'; syncActions(); return;
+    }
+    var wordEnabled = last.modCount <= WORD_ROW_CAP;
+    $body.innerHTML = (view === "inline") ? renderInline(last) : renderSplit(last, wordEnabled);
+    syncActions();
+  }
+
+  function renderStats() {
+    if (!last) { $stats.innerHTML = ""; $capNote.hidden = true; return; }
+    var a = last.added, r = last.removed;
+    var denom = a + r + last.equal;
+    var pct = denom === 0 ? 0 : Math.round((a + r) / denom * 100);
+    $stats.innerHTML = '<span class="st-add">+' + a + '</span> <span class="st-del">−' + r +
+                       '</span> lines <span class="dot">·</span> ' + pct + "% changed";
+    var notes = [];
+    if (last.capped) notes.push("alignment capped at " + MAX_LINES.toLocaleString() + " lines (original " +
+                                last.capA.toLocaleString() + ", changed " + last.capB.toLocaleString() + ")");
+    if (last.fellBack) notes.push("a change block exceeded the exact-LCS budget — approximated");
+    if (last.modCount > WORD_ROW_CAP) notes.push("word-level highlighting off above " +
+                                WORD_ROW_CAP.toLocaleString() + " changed lines");
+    $capNote.hidden = notes.length === 0;
+    $capNote.textContent = notes.join(" · ");
+  }
+
+  function syncActions() {
+    var has = !!(last && last.patch);
+    $copyBtn.disabled = !has;
+    $dlBtn.disabled = !has;
+  }
+
+  function updateCounts() {
+    var a = splitLines($orig.value), b = splitLines($chg.value);
+    $origCount.textContent = a.lines.length + (a.lines.length === 1 ? " line" : " lines");
+    $chgCount.textContent = b.lines.length + (b.lines.length === 1 ? " line" : " lines");
+  }
+
+  /* ---------- persistence ---------- */
+  var saveTimer = null;
+  function save() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({
+          o: $orig.value, c: $chg.value,
+          ws: ignoreWs(), cs: ignoreCase(), v: view
+        }));
+      } catch (e) { /* ignore */ }
+    }, 200);
+  }
+  function load() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STORE_KEY)); } catch (e) { saved = null; }
+    if (saved && typeof saved === "object" && typeof saved.o === "string") {
+      $orig.value = saved.o;
+      $chg.value = saved.c || "";
+      setPressed($optWs, !!saved.ws);
+      setPressed($optCase, !!saved.cs);
+      setView(saved.v === "inline" ? "inline" : "split");
+      return true;
+    }
+    return false;
+  }
+
+  function setPressed(el, on) { el.setAttribute("aria-pressed", on ? "true" : "false"); }
+  function setView(v) {
+    view = v;
+    setPressed($viewSplit, v === "split");
+    setPressed($viewInline, v === "inline");
+  }
+
+  function applySample(key) {
+    var s = SAMPLES[key];
+    if (!s) return;
+    $orig.value = s.o;
+    $chg.value = s.c;
+  }
+
+  /* ---------- clipboard / download ---------- */
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, function () { fallback(); });
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+  }
+
+  /* ---------- wiring ---------- */
+  var debTimer = null;
+  function scheduleRecompute() {
+    if (debTimer) clearTimeout(debTimer);
+    updateCounts();
+    debTimer = setTimeout(recompute, DEBOUNCE_MS);
+  }
+  $orig.addEventListener("input", scheduleRecompute);
+  $chg.addEventListener("input", scheduleRecompute);
+
+  function toggleOpt(el) {
+    setPressed(el, el.getAttribute("aria-pressed") !== "true");
+    recompute();
+  }
+  $optWs.addEventListener("click", function () { toggleOpt($optWs); });
+  $optCase.addEventListener("click", function () { toggleOpt($optCase); });
+
+  $viewSplit.addEventListener("click", function () { setView("split"); renderView(); save(); });
+  $viewInline.addEventListener("click", function () { setView("inline"); renderView(); save(); });
+
+  $samples.addEventListener("change", function () {
+    if ($samples.value) { applySample($samples.value); recompute(); $samples.value = ""; }
+  });
+
+  $swap.addEventListener("click", function () {
+    var t = $orig.value; $orig.value = $chg.value; $chg.value = t; recompute();
+  });
+  $clear.addEventListener("click", function () {
+    $orig.value = ""; $chg.value = ""; recompute();
+  });
+
+  $copyBtn.addEventListener("click", function () {
+    if (!last || !last.patch) return;
+    copyText(last.patch, function (ok) {
+      $copyLabel.textContent = ok ? "copied" : "copy failed";
+      setTimeout(function () { $copyLabel.textContent = "copy patch"; }, 1200);
+    });
+  });
+  $dlBtn.addEventListener("click", function () {
+    if (!last || !last.patch) return;
+    var blob = new Blob([last.patch], { type: "text/x-patch" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "diff.patch";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+
+  /* ---------- init ---------- */
+  if (!load()) applySample("prose");
+  recompute();
+})();
+</script>
+
+</body>
+</html>
