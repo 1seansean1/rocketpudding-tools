@@ -706,6 +706,30 @@
         "version": "vendored",
         "url": "https://github.com/101arrowz/fflate"
       }
+    },
+    {
+      "slug": "text-toolkit",
+      "name": "Text Toolkit",
+      "tagline": "Sort, dedupe, reverse, trim, wrap, number, filter, prefix, and suffix text lines.",
+      "description": "Zero-dependency line operations bench for everyday text cleanup: paste a block, sort, dedupe, reverse, trim, remove blanks, wrap paragraphs, number lines, prefix or suffix each line, filter by substring, emit CSV lines, and copy the result. All processing stays local.",
+      "path": "tools/text-toolkit/",
+      "tags": [
+        "text",
+        "lines",
+        "sort",
+        "dedupe",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#5ee38a",
+      "origin": "original",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

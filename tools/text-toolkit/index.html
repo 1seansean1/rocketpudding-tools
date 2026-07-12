@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Text Toolkit</title>
+<meta name="description" content="Zero-dependency text operations bench: sort, dedupe, reverse, trim, wrap, number, prefix, suffix, filter, count, and copy line-based text transformations.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#08060f;--fg:#f4f1fc;--muted:#9c93c2;--faint:#5c5686;--line:#292041;--card:#120e20;--accent:#5ee38a;--accent2:#22d3ee;--bad:#ff5b7d;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:radial-gradient(900px 520px at 2% -8%,rgba(94,227,138,.16),transparent 60%),radial-gradient(760px 460px at 105% 0%,rgba(34,211,238,.14),transparent 58%),var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+header{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:rgba(18,14,32,.88);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:3;backdrop-filter:blur(10px)}
+.sq{width:12px;height:12px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+.brand{font:700 13px var(--mono);letter-spacing:1.4px}
+.back{margin-left:auto;color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:6px 10px;text-decoration:none;font:700 10px var(--mono);letter-spacing:.7px}
+.back:hover{color:var(--accent);border-color:var(--accent)}
+main{max-width:1280px;margin:0 auto;padding:22px 18px}
+.hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:16px}
+h1{margin:0;font-size:28px;letter-spacing:-.015em}
+.hero p{max-width:760px;margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.55}
+.badge{border:1px solid var(--line);border-radius:16px;padding:7px 10px;font:700 10px var(--mono);color:var(--muted);white-space:nowrap}
+.grid{display:grid;grid-template-columns:minmax(330px,1fr) minmax(330px,1fr);gap:14px}
+.panel{background:rgba(18,14,32,.9);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
+.panel h2{margin:0;padding:11px 12px;border-bottom:1px solid var(--line);font:700 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+textarea{width:100%;min-height:410px;margin:0;border:0;background:#0d0a19;color:var(--fg);font:400 12px/1.55 var(--mono);padding:13px;resize:vertical;outline:none;tab-size:2}
+.tools{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:14px 0}
+button,input{height:30px;border:1px solid var(--line);border-radius:15px;background:#18122b;color:var(--fg);font:700 10px var(--mono);letter-spacing:.45px}
+button{padding:0 10px;cursor:pointer}
+button:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08060f}
+input{padding:0 10px;width:100%}
+.opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.opt{background:rgba(18,14,32,.9);border:1px solid var(--line);border-radius:8px;padding:10px}
+.opt label{display:block;font:700 9px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
+.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+.metric{background:rgba(18,14,32,.9);border:1px solid var(--line);border-radius:8px;padding:11px}
+.metric .k{font:700 9px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.metric .v{margin-top:5px;font:700 19px var(--mono)}
+.log{min-height:42px;color:var(--muted);font:600 10px var(--mono);padding:10px 12px;border-top:1px solid var(--line)}
+footer{padding:16px 18px 22px;text-align:center;color:var(--muted);font:500 10px var(--mono)}
+@media(max-width:980px){.grid,.opts{grid-template-columns:1fr}.tools{grid-template-columns:repeat(3,1fr)}.metrics{grid-template-columns:repeat(2,1fr)}.hero{display:block}.badge{display:inline-flex;margin-top:12px}textarea{min-height:280px}}
+</style>
+</head>
+<body>
+<header><span class="sq"></span><div class="brand">ROCKET PUDDING / TEXT TOOLKIT</div><a class="back" href="../../">ALL TOOLS</a></header>
+<main>
+  <section class="hero">
+    <div>
+      <h1>Line surgery without ceremony.</h1>
+      <p>Paste a messy block, run line operations, and copy the result. Sort, dedupe, reverse, trim, wrap, number, prefix, suffix, filter, split, join, and count without a server.</p>
+    </div>
+    <div class="badge" id="status">zero dependency</div>
+  </section>
+
+  <section class="opts">
+    <div class="opt"><label for="prefix">Prefix</label><input id="prefix" placeholder="> "></div>
+    <div class="opt"><label for="suffix">Suffix</label><input id="suffix" placeholder=","></div>
+    <div class="opt"><label for="filter">Filter contains</label><input id="filter" placeholder="needle"></div>
+    <div class="opt"><label for="wrap">Wrap width</label><input id="wrap" type="number" min="10" max="200" value="72"></div>
+  </section>
+
+  <section class="tools">
+    <button class="primary" data-op="trim">Trim</button>
+    <button data-op="sort">Sort</button>
+    <button data-op="dedupe">Dedupe</button>
+    <button data-op="reverse">Reverse</button>
+    <button data-op="number">Number</button>
+    <button data-op="prefix">Prefix</button>
+    <button data-op="suffix">Suffix</button>
+    <button data-op="filter">Filter</button>
+    <button data-op="blank">No blanks</button>
+    <button data-op="wrap">Wrap</button>
+    <button data-op="csv">CSV lines</button>
+    <button data-op="copy">Copy</button>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Input</h2>
+      <textarea id="input" spellcheck="false"></textarea>
+      <div class="log" id="inLog"></div>
+    </div>
+    <div class="panel">
+      <h2>Output</h2>
+      <textarea id="output" spellcheck="false"></textarea>
+      <div class="log" id="outLog"></div>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <div class="metric"><div class="k">Lines</div><div class="v" id="mLines">0</div></div>
+    <div class="metric"><div class="k">Words</div><div class="v" id="mWords">0</div></div>
+    <div class="metric"><div class="k">Chars</div><div class="v" id="mChars">0</div></div>
+    <div class="metric"><div class="k">Unique</div><div class="v" id="mUnique">0</div></div>
+    <div class="metric"><div class="k">Bytes</div><div class="v" id="mBytes">0</div></div>
+  </section>
+</main>
+<footer>Original zero-dependency Rocket Pudding text bench. All processing happens in the browser.</footer>
+<script>
+const $ = id => document.getElementById(id);
+const sample = `delta
+alpha
+beta
+alpha
+
+  trim me
+error: retry
+warn: disk
+info: done`;
+function lines(text){ return text.split(/\r?\n/); }
+function setStatus(text){ $('status').textContent = text; }
+function stats(text, prefix){
+  const ls = text.length ? lines(text) : [];
+  const words = (text.match(/\S+/g) || []).length;
+  const unique = new Set(ls.filter(Boolean)).size;
+  $(prefix+'Log').textContent = `${ls.length} lines / ${words} words / ${text.length} chars`;
+  $('mLines').textContent = ls.length;
+  $('mWords').textContent = words;
+  $('mChars').textContent = text.length;
+  $('mUnique').textContent = unique;
+  $('mBytes').textContent = new TextEncoder().encode(text).length;
+}
+function wrapText(text, width){
+  width = Math.max(10, Number(width) || 72);
+  return text.split(/\n\s*\n/).map(p => {
+    const out = [];
+    let line = '';
+    for(const word of p.replace(/\s+/g,' ').trim().split(' ').filter(Boolean)){
+      if((line + ' ' + word).trim().length > width){ if(line) out.push(line); line = word; }
+      else line = (line + ' ' + word).trim();
+    }
+    if(line) out.push(line);
+    return out.join('\n');
+  }).join('\n\n');
+}
+function csvLine(s){
+  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
+  return s;
+}
+function transform(op){
+  const input = $('input').value;
+  let ls = lines(input);
+  let out = input;
+  if(op === 'trim') out = ls.map(x => x.trim()).join('\n');
+  if(op === 'sort') out = ls.slice().sort((a,b)=>a.localeCompare(b)).join('\n');
+  if(op === 'dedupe'){ const seen = new Set(); out = ls.filter(x => !seen.has(x) && seen.add(x)).join('\n'); }
+  if(op === 'reverse') out = ls.reverse().join('\n');
+  if(op === 'number') out = ls.map((x,i)=>String(i+1).padStart(String(ls.length).length,'0') + ': ' + x).join('\n');
+  if(op === 'prefix') out = ls.map(x => $('prefix').value + x).join('\n');
+  if(op === 'suffix') out = ls.map(x => x + $('suffix').value).join('\n');
+  if(op === 'filter'){ const f = $('filter').value; out = f ? ls.filter(x => x.includes(f)).join('\n') : input; }
+  if(op === 'blank') out = ls.filter(x => x.trim()).join('\n');
+  if(op === 'wrap') out = wrapText(input, $('wrap').value);
+  if(op === 'csv') out = ls.map(csvLine).join(',');
+  if(op === 'copy'){ navigator.clipboard && navigator.clipboard.writeText($('output').value || input); setStatus('copied'); return; }
+  $('output').value = out;
+  stats(out, 'out');
+  setStatus(op);
+}
+document.querySelectorAll('button[data-op]').forEach(b => b.addEventListener('click', () => transform(b.dataset.op)));
+$('input').addEventListener('input', () => stats($('input').value, 'in'));
+$('output').addEventListener('input', () => stats($('output').value, 'out'));
+$('input').value = sample;
+$('output').value = sample;
+stats(sample, 'in');
+stats(sample, 'out');
+</script>
+</body>
+</html>
