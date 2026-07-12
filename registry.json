@@ -754,6 +754,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "number-base",
+      "name": "Number Base",
+      "tagline": "Convert bases, inspect bits, and run BigInt bitwise operations.",
+      "description": "Zero-dependency base and bitwise workbench: convert between binary, octal, decimal, hex, and any base 2-36; toggle bits on a 64-bit grid; run AND, OR, XOR, NOT, NAND, NOR, and shifts; inspect signed versus unsigned two's-complement values and endianness. Runs entirely in the browser on BigInt.",
+      "path": "tools/number-base/",
+      "tags": [
+        "number",
+        "base",
+        "binary",
+        "hex",
+        "bitwise"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#2e9e5b",
+      "origin": "original",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

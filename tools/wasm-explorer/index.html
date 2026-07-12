@@ -4,265 +4,835 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>WASM Explorer</title>
-<meta name="description" content="Client-side WebAssembly workbench: assemble WAT to WASM, disassemble WASM to WAT, inspect bytes, exports, imports, sections, and run simple zero-argument exports. Powered by vendored WABT.">
+<meta name="description" content="Assemble WebAssembly text (WAT) to binary and back, inspect sections and a hexdump, validate and instantiate the module live, and call its exports — all in your browser, no server. Powered by vendored WABT.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#08060f;--fg:#f4f1fc;--muted:#9c93c2;--faint:#5c5686;--line:#292041;--card:#120e20;--accent:#22d3ee;--accent2:#c24bff;--bad:#ff5b7d;--ok:#5ee38a;--warn:#ffd166;--mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
-*{box-sizing:border-box}
-html,body{min-height:100%}
-body{margin:0;background:
-radial-gradient(900px 460px at 5% -10%,rgba(34,211,238,.16),transparent 58%),
-radial-gradient(860px 520px at 105% 2%,rgba(194,75,255,.18),transparent 58%),
-var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
-a{color:inherit}
-header{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:rgba(18,14,32,.86);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4;backdrop-filter:blur(10px)}
-.sq{width:12px;height:12px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
-.brand{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:1.4px}
-.back{margin-left:auto;color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:6px 10px;text-decoration:none;font:600 10px var(--mono);letter-spacing:.7px}
-.back:hover{color:var(--accent);border-color:var(--accent)}
-main{max-width:1280px;margin:0 auto;padding:22px 18px 18px}
-.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:16px}
-h1{margin:0;font-size:28px;letter-spacing:-.015em}
-.hero p{max-width:740px;margin:8px 0 0;color:var(--muted);line-height:1.55;font-size:14px}
-.status{font:600 11px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:16px;padding:7px 10px;white-space:nowrap}
-.grid{display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,1fr);gap:14px}
-.panel{background:rgba(18,14,32,.88);border:1px solid var(--line);border-radius:8px;min-width:0;overflow:hidden}
-.panel h2{margin:0;padding:11px 12px;border-bottom:1px solid var(--line);font:700 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
-.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
-button,label.file{border:1px solid var(--line);background:#18122b;color:var(--fg);height:30px;border-radius:15px;padding:0 11px;font:700 10px var(--mono);letter-spacing:.5px;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
-button:hover,label.file:hover{border-color:var(--accent);color:var(--accent)}
-button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08060f;border:0}
-button:disabled{opacity:.45;cursor:wait}
-select,input[type="number"]{height:30px;border:1px solid var(--line);border-radius:15px;background:#18122b;color:var(--fg);font:600 10px var(--mono);padding:0 9px}
-input[type="file"]{display:none}
-textarea,pre{width:100%;min-height:470px;margin:0;border:0;background:#0d0a19;color:var(--fg);font:400 12px/1.55 var(--mono);padding:13px;resize:vertical;tab-size:2;outline:none;overflow:auto}
-pre{white-space:pre-wrap;word-break:break-word}
-.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
-.tab{height:28px;border-radius:14px}
-.tab.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px rgba(34,211,238,.25)}
-.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
-.metric{background:rgba(18,14,32,.88);border:1px solid var(--line);border-radius:8px;padding:12px}
-.metric .k{font:700 9px var(--mono);letter-spacing:.9px;color:var(--muted);text-transform:uppercase}
-.metric .v{margin-top:6px;font:700 20px var(--mono);color:var(--fg)}
-.metric .s{margin-top:4px;font:500 10px var(--mono);color:var(--faint)}
-.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.small{min-height:210px;max-height:360px}
-.log{color:var(--muted)}
-.error{color:var(--bad)}
-.ok{color:var(--ok)}
-.pillrow{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line)}
-.pill{border:1px solid var(--line);border-radius:14px;padding:6px 9px;font:600 10px var(--mono);color:var(--muted);background:#0d0a19}
-footer{padding:16px 18px 22px;text-align:center;color:var(--muted);font:500 10px var(--mono)}
-footer a{color:var(--accent)}
-@media(max-width:900px){.grid,.split{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.hero{display:block}.status{display:inline-flex;margin-top:12px}textarea,pre{min-height:320px}}
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #2f6fed;
+  --ok: #2e9e57;
+  --warn: #b26a00;
+  --err: #cf3b34;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --ok: #58c07d;
+    --warn: #d9a13b;
+    --err: #e8615a;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 20px 24px;
+  gap: 14px;
+}
+header { display: flex; align-items: center; gap: 12px; }
+.accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; }
+h1 {
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+#engine-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+header .spacer { flex: 1; }
+a.back { color: var(--muted); text-decoration: none; font-size: 13px; }
+a.back:hover { color: var(--accent); }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 6px; }
+/* ---------- toolbar ---------- */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 10px 14px;
+}
+.tool { display: flex; align-items: center; gap: 7px; }
+.tool > span.lbl {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.toolbar .spacer { flex: 1; }
+.toolbar .note { color: var(--muted); font: 11px "IBM Plex Mono", monospace; }
+select {
+  font: 500 13px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 7px;
+  cursor: pointer;
+}
+select:focus-visible, input:focus-visible, button:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+button.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12px "IBM Plex Sans", sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+button.btn:hover { border-color: var(--accent); color: var(--accent); }
+button.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+button.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.btn.primary:hover { filter: brightness(1.08); color: #fff; }
+button.btn svg { display: block; }
+/* ---------- panes ---------- */
+main.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+.pane { display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  min-height: 42px;
+}
+.pane-head .title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.pane-head .spacer { flex: 1; }
+textarea#wat {
+  flex: 1;
+  width: 100%;
+  min-height: 320px;
+  border: none;
+  resize: none;
+  background: transparent;
+  color: var(--fg);
+  font: 13px/1.55 "IBM Plex Mono", monospace;
+  padding: 12px 14px;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+textarea#wat.drag { outline: 2px dashed var(--accent); outline-offset: -6px; }
+.out-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.out-scroll.stale { opacity: 0.4; }
+/* ---------- summary ---------- */
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; font: 13px "IBM Plex Mono", monospace; }
+.summary .size { font-size: 20px; font-weight: 600; }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 12px "IBM Plex Mono", monospace;
+  padding: 2px 8px;
+  border-radius: 100px;
+  border: 1px solid var(--line);
+}
+.badge.ok { color: var(--ok); }
+.badge.err { color: var(--err); }
+/* ---------- section blocks ---------- */
+.block h2 {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--muted);
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.block h2 .hint { font-weight: 400; text-transform: none; letter-spacing: 0; }
+table.sections { width: 100%; border-collapse: collapse; font: 12px "IBM Plex Mono", monospace; }
+table.sections th {
+  text-align: left;
+  color: var(--muted);
+  font-weight: 500;
+  padding: 3px 8px 6px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+table.sections td { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); vertical-align: middle; }
+table.sections td.num { text-align: right; color: var(--muted); }
+table.sections .name { color: var(--fg); font-weight: 500; }
+table.sections .bar-cell { width: 30%; }
+.bar { height: 7px; background: var(--bg); border: 1px solid var(--line); border-radius: 100px; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: var(--accent); }
+/* ---------- run panel ---------- */
+.run-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line);
+  font: 12.5px "IBM Plex Mono", monospace;
+}
+.run-row:last-child { border-bottom: none; }
+.run-row .fn { color: var(--accent); font-weight: 600; }
+.run-row .sig { color: var(--muted); }
+.run-row input.arg {
+  width: 62px;
+  font: 12.5px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+.run-row .eq { color: var(--muted); }
+.run-row .res { font-weight: 600; }
+.run-row .res.ok { color: var(--ok); }
+.run-row .res.trap { color: var(--err); font-weight: 500; }
+.run-row .spacer { flex: 1; }
+.run-note { color: var(--muted); font: 12px "IBM Plex Mono", monospace; }
+pre.hex {
+  font: 12px/1.5 "IBM Plex Mono", monospace;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 10px 12px;
+  overflow: auto;
+  max-height: 340px;
+  white-space: pre;
+}
+pre.hex .off { color: var(--muted); }
+/* ---------- problems ---------- */
+#problems { display: none; padding: 10px 14px; }
+#problems.visible { display: block; }
+#problems h2 {
+  font-size: 12px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.08em; color: var(--err); margin-bottom: 6px;
+}
+#problems pre { font: 12.5px/1.5 "IBM Plex Mono", monospace; color: var(--fg); white-space: pre-wrap; word-break: break-word; }
+footer { color: var(--muted); font: 12px "IBM Plex Mono", monospace; text-align: center; padding-top: 2px; }
+footer a { color: var(--muted); text-decoration: none; }
+footer a:hover { color: var(--accent); }
+@media (max-width: 900px) {
+  body { padding: 14px; }
+  main.grid { grid-template-columns: 1fr; }
+  textarea#wat { min-height: 240px; }
+}
 </style>
 </head>
 <body>
-<header><span class="sq"></span><div class="brand">ROCKET PUDDING / WASM EXPLORER</div><a class="back" href="../../">ALL TOOLS</a></header>
-<main>
-  <section class="hero">
-    <div>
-      <h1>WAT to WASM, WASM to WAT.</h1>
-      <p>Assemble WebAssembly text into real binary bytes, disassemble uploaded modules, inspect imports/exports/sections, and run simple zero-argument exports. Everything runs in this browser tab.</p>
+
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>WASM EXPLORER</h1>
+  <span id="engine-status">loading engine&hellip;</span>
+  <div class="spacer"></div>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<section class="toolbar card" aria-label="Controls">
+  <div class="tool">
+    <span class="lbl">example</span>
+    <select id="example" aria-label="Load example module">
+      <option value="add">add</option>
+      <option value="fib">fib (recursion)</option>
+      <option value="sum">memory + loop</option>
+      <option value="dispatch">table / call_indirect</option>
+    </select>
+  </div>
+  <button class="btn primary" id="btn-assemble" title="Assemble WAT to a WebAssembly binary">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M4 3.5 11 8 4 12.5z"></path></svg>
+    Assemble
+  </button>
+  <div class="spacer"></div>
+  <button class="btn" id="btn-open" title="Disassemble: load a .wasm file back to text">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 10.5V2m0 0L5 5m3-3 3 3"></path><path d="M2.5 10.5v2A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-2"></path></svg>
+    Load .wasm
+  </button>
+  <input type="file" id="file" accept=".wasm,application/wasm" hidden>
+  <button class="btn" id="btn-dl-wasm" title="Download the current binary">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2v8m0 0 3-3m-3 3L5 7"></path><path d="M2.5 11.5v1A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-1"></path></svg>
+    .wasm
+  </button>
+  <button class="btn" id="btn-dl-wat" title="Download the WAT text">
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 2v8m0 0 3-3m-3 3L5 7"></path><path d="M2.5 11.5v1A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-1"></path></svg>
+    .wat
+  </button>
+</section>
+
+<main class="grid">
+  <section class="pane card" aria-label="WAT editor">
+    <div class="pane-head">
+      <span class="title">WAT &middot; WebAssembly text</span>
+      <div class="spacer"></div>
+      <span class="run-note" id="wat-hint">edit &rarr; live assemble &middot; drop a .wasm to disassemble</span>
     </div>
-    <div class="status" id="status">loading WABT</div>
+    <textarea id="wat" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="WebAssembly text input"></textarea>
   </section>
 
-  <section class="grid">
-    <div class="panel">
-      <h2>Source</h2>
-      <div class="toolbar">
-        <button class="primary" id="assemble">Assemble</button>
-        <button id="sample">Sample</button>
-        <label class="file">Load .wasm<input type="file" id="file" accept=".wasm,application/wasm"></label>
-        <button id="download">Download WASM</button>
-        <select id="mode"><option value="wat">WAT source</option><option value="wasm">Uploaded WASM</option></select>
+  <section class="pane card" aria-label="Binary output">
+    <div class="pane-head">
+      <span class="title">Binary &middot; wasm</span>
+      <div class="spacer"></div>
+      <span class="run-note" id="src-tag"></span>
+    </div>
+    <div class="out-scroll" id="output">
+      <div class="summary block">
+        <span class="size" id="size">&mdash;</span>
+        <span class="badge" id="valid-badge" hidden></span>
       </div>
-      <textarea id="source" spellcheck="false"></textarea>
-      <div class="pillrow">
-        <span class="pill">no network</span>
-        <span class="pill">vendored WABT</span>
-        <span class="pill">local bytes only</span>
+
+      <div class="block" id="sections-block">
+        <h2>Sections <span class="hint" id="sections-hint"></span></h2>
+        <table class="sections">
+          <thead><tr><th>#</th><th>section</th><th class="num">bytes</th><th class="num">%</th><th class="bar-cell"></th></tr></thead>
+          <tbody id="sections-body"></tbody>
+        </table>
+      </div>
+
+      <div class="block" id="run-block">
+        <h2>Run <span class="hint" id="run-hint"></span></h2>
+        <div id="run-panel"></div>
+      </div>
+
+      <div class="block">
+        <h2>Hexdump <span class="hint">offset &middot; hex &middot; ascii</span></h2>
+        <pre class="hex" id="hex"></pre>
       </div>
     </div>
-
-    <div class="panel">
-      <h2>Output</h2>
-      <div class="tabs">
-        <button class="tab active" data-tab="watOut">WAT</button>
-        <button class="tab" data-tab="hexOut">HEX</button>
-        <button class="tab" data-tab="metaOut">META</button>
-        <button class="tab" data-tab="runOut">RUN</button>
-      </div>
-      <pre id="watOut"></pre>
-      <pre id="hexOut" hidden></pre>
-      <pre id="metaOut" hidden></pre>
-      <pre id="runOut" hidden></pre>
-    </div>
-  </section>
-
-  <section class="metrics">
-    <div class="metric"><div class="k">WASM bytes</div><div class="v" id="mBytes">0</div><div class="s">binary module size</div></div>
-    <div class="metric"><div class="k">WAT chars</div><div class="v" id="mChars">0</div><div class="s">current text output</div></div>
-    <div class="metric"><div class="k">Exports</div><div class="v" id="mExports">0</div><div class="s">module interface</div></div>
-    <div class="metric"><div class="k">Sections</div><div class="v" id="mSections">0</div><div class="s">binary layout</div></div>
   </section>
 </main>
-<footer>WABT is vendored locally under Apache-2.0. See <a href="LICENSE-wabt.txt">license</a> and <a href="NOTICE.txt">notice</a>.</footer>
+
+<section id="problems" class="card" aria-live="polite">
+  <h2>Problem</h2>
+  <pre id="problems-text"></pre>
+</section>
+
+<footer>
+  <a href="vendor/LICENSE-wabt.txt">wabt</a> &middot; Apache-2.0
+  &nbsp;&middot;&nbsp;
+  <span title="Binaryen size-optimize (-O/-Os/-Oz) was evaluated but omitted: its 13 MB build exceeds this repo's per-tool asset budget.">size-optimize omitted (Binaryen &gt; asset budget)</span>
+</footer>
+
 <script src="vendor/wabt.js"></script>
 <script>
-const $ = id => document.getElementById(id);
-const sampleWat = `(module
-  (func $add (param $a i32) (param $b i32) (result i32)
-    local.get $a
-    local.get $b
-    i32.add)
-  (func $answer (result i32)
-    i32.const 42)
-  (memory (export "memory") 1)
-  (export "add" (func $add))
-  (export "answer" (func $answer)))`;
-let wabt = null;
-let currentBytes = new Uint8Array();
-let currentText = "";
-let lastModule = null;
+(function () {
+  "use strict";
+  var $ = function (id) { return document.getElementById(id); };
 
-function setStatus(text, cls=''){
-  $('status').textContent = text;
-  $('status').className = 'status ' + cls;
-}
-function bytesToHex(bytes){
-  return Array.from(bytes, (b,i) => (i && i % 16 === 0 ? '\n' : '') + b.toString(16).padStart(2,'0')).join(' ');
-}
-function formatBytes(n){ return n.toLocaleString() + ' B'; }
-function readU32(bytes, offset){
-  let result = 0, shift = 0, pos = offset;
-  while(pos < bytes.length){
-    const b = bytes[pos++];
-    result |= (b & 0x7f) << shift;
-    if(!(b & 0x80)) break;
-    shift += 7;
+  // ---------- example modules ----------
+  var EXAMPLES = {
+    add: {
+      wat:
+"(module\n" +
+"  ;; Add two 32-bit integers.\n" +
+"  (func (export \"add\") (param $a i32) (param $b i32) (result i32)\n" +
+"    (i32.add (local.get $a) (local.get $b))))\n",
+      defaults: { add: [2, 3] }
+    },
+    fib: {
+      wat:
+"(module\n" +
+"  ;; Recursive Fibonacci.\n" +
+"  (func $fib (export \"fib\") (param $n i32) (result i32)\n" +
+"    (if (result i32) (i32.lt_s (local.get $n) (i32.const 2))\n" +
+"      (then (local.get $n))\n" +
+"      (else\n" +
+"        (i32.add\n" +
+"          (call $fib (i32.sub (local.get $n) (i32.const 1)))\n" +
+"          (call $fib (i32.sub (local.get $n) (i32.const 2))))))))\n",
+      defaults: { fib: [10] }
+    },
+    sum: {
+      wat:
+"(module\n" +
+"  ;; Sum 1..n with a loop, store the total into linear memory.\n" +
+"  (memory (export \"mem\") 1)\n" +
+"  (func (export \"sum_to\") (param $n i32) (result i32)\n" +
+"    (local $i i32) (local $acc i32)\n" +
+"    (local.set $i (i32.const 1))\n" +
+"    (block $done\n" +
+"      (loop $loop\n" +
+"        (br_if $done (i32.gt_s (local.get $i) (local.get $n)))\n" +
+"        (local.set $acc (i32.add (local.get $acc) (local.get $i)))\n" +
+"        (local.set $i (i32.add (local.get $i) (i32.const 1)))\n" +
+"        (br $loop)))\n" +
+"    (i32.store (i32.const 0) (local.get $acc))\n" +
+"    (local.get $acc)))\n",
+      defaults: { sum_to: [100] }
+    },
+    dispatch: {
+      wat:
+"(module\n" +
+"  ;; Dispatch through a function table with call_indirect.\n" +
+"  ;; op: 0 = add, 1 = sub, 2 = mul\n" +
+"  (type $binop (func (param i32 i32) (result i32)))\n" +
+"  (func $add (param i32 i32) (result i32) (i32.add (local.get 0) (local.get 1)))\n" +
+"  (func $sub (param i32 i32) (result i32) (i32.sub (local.get 0) (local.get 1)))\n" +
+"  (func $mul (param i32 i32) (result i32) (i32.mul (local.get 0) (local.get 1)))\n" +
+"  (table 3 funcref)\n" +
+"  (elem (i32.const 0) $add $sub $mul)\n" +
+"  (func (export \"dispatch\") (param $op i32) (param $a i32) (param $b i32) (result i32)\n" +
+"    (call_indirect (type $binop) (local.get $a) (local.get $b) (local.get $op))))\n",
+      defaults: { dispatch: [2, 6, 7] }
+    }
+  };
+
+  // ---------- state ----------
+  var wabt = null;
+  var rawWasm = null;           // Uint8Array from assemble / load
+  var activeWasm = null;        // current bytes shown & downloaded
+  var currentDefaults = {};     // fn name -> default args
+  var debounceTimer = null;
+
+  // ---------- element refs ----------
+  var watEl = $("wat"), outEl = $("output"), sizeEl = $("size");
+  var validBadge = $("valid-badge");
+  var sectionsBody = $("sections-body"), sectionsHint = $("sections-hint");
+  var runPanel = $("run-panel"), runHint = $("run-hint");
+  var hexEl = $("hex"), problemsEl = $("problems"), problemsText = $("problems-text");
+  var statusEl = $("engine-status"), srcTag = $("src-tag");
+  var exampleSel = $("example");
+
+  // ---------- helpers ----------
+  function fmtBytes(n) { return n < 1024 ? n + " B" : (n / 1024).toFixed(2) + " KB"; }
+
+  function features() {
+    var f = {};
+    if (wabt && wabt.FEATURES) { for (var k in wabt.FEATURES) f[k] = true; }
+    return f;
   }
-  return [result >>> 0, pos];
-}
-function sectionName(id){
-  return ['custom','type','import','function','table','memory','global','export','start','element','code','data','data_count'][id] || ('section_' + id);
-}
-function inspectSections(bytes){
-  if(bytes.length < 8) return [];
-  let pos = 8, rows = [];
-  while(pos < bytes.length){
-    const id = bytes[pos++];
-    const len = readU32(bytes, pos); const size = len[0]; pos = len[1];
-    rows.push({id, name:sectionName(id), offset:pos, size});
-    pos += size;
+
+  function showProblem(msg) {
+    problemsText.textContent = msg;
+    problemsEl.classList.add("visible");
+    outEl.classList.add("stale");
   }
-  return rows;
-}
-async function describe(bytes){
-  const mod = await WebAssembly.compile(bytes);
-  const imports = WebAssembly.Module.imports(mod);
-  const exports = WebAssembly.Module.exports(mod);
-  const sections = inspectSections(bytes);
-  $('mExports').textContent = exports.length;
-  $('mSections').textContent = sections.length;
-  const parts = [];
-  parts.push('Imports');
-  parts.push(imports.length ? imports.map(x => `  ${x.module}.${x.name} : ${x.kind}`).join('\n') : '  none');
-  parts.push('\nExports');
-  parts.push(exports.length ? exports.map(x => `  ${x.name} : ${x.kind}`).join('\n') : '  none');
-  parts.push('\nSections');
-  parts.push(sections.length ? sections.map(s => `  ${String(s.id).padStart(2,'0')} ${s.name.padEnd(10)} offset=${s.offset} size=${s.size}`).join('\n') : '  none');
-  $('metaOut').textContent = parts.join('\n');
-  return {mod, exports};
-}
-async function runExports(bytes){
-  const mod = await WebAssembly.compile(bytes);
-  const exports = WebAssembly.Module.exports(mod).filter(x => x.kind === 'function');
-  if(!exports.length){ $('runOut').textContent = 'No function exports.'; return; }
-  const imports = WebAssembly.Module.imports(mod);
-  if(imports.length){ $('runOut').textContent = 'Module has imports; automatic run is skipped.\n' + imports.map(i => `needs ${i.module}.${i.name}`).join('\n'); return; }
-  const inst = await WebAssembly.instantiate(mod, {});
-  const lines = [];
-  for(const ex of exports){
-    try{
-      const fn = inst.exports[ex.name];
-      if(typeof fn !== 'function') continue;
-      lines.push(`${ex.name}() => ${String(fn())}`);
-    }catch(err){
-      lines.push(`${ex.name}() skipped: ${err.message}`);
+  function clearProblem() {
+    problemsEl.classList.remove("visible");
+    outEl.classList.remove("stale");
+  }
+
+  var SECTION_NAMES = {
+    0: "custom", 1: "type", 2: "import", 3: "function", 4: "table",
+    5: "memory", 6: "global", 7: "export", 8: "start", 9: "element",
+    10: "code", 11: "data", 12: "data count", 13: "tag"
+  };
+  var VALTYPE = {
+    0x7f: "i32", 0x7e: "i64", 0x7d: "f32", 0x7c: "f64",
+    0x7b: "v128", 0x70: "funcref", 0x6f: "externref"
+  };
+  function valName(code) { return VALTYPE[code] || ("0x" + code.toString(16)); }
+
+  // ---------- minimal wasm binary reader ----------
+  function Reader(bytes) { this.b = bytes; this.i = 0; }
+  Reader.prototype.u32 = function () {
+    var r = 0, s = 0, byte;
+    do { byte = this.b[this.i++]; r |= (byte & 0x7f) << s; s += 7; } while (byte & 0x80);
+    return r >>> 0;
+  };
+  Reader.prototype.byte = function () { return this.b[this.i++]; };
+  Reader.prototype.name = function () {
+    var len = this.u32(), start = this.i, out = "";
+    for (var j = 0; j < len; j++) out += String.fromCharCode(this.b[start + j]);
+    this.i += len;
+    try { return decodeURIComponent(escape(out)); } catch (e) { return out; }
+  };
+  function readLimits(r) { var flags = r.u32(), min = r.u32(), max = null; if (flags & 1) max = r.u32(); return { min: min, max: max }; }
+
+  // Parse into sections + the type/import/function/export data the run panel needs.
+  function parseModule(bytes) {
+    var res = { ok: false, sections: [], types: [], importedFuncTypes: [], funcTypes: [], exports: [], imports: [], error: null };
+    try {
+      if (bytes.length < 8 || bytes[0] !== 0x00 || bytes[1] !== 0x61 || bytes[2] !== 0x73 || bytes[3] !== 0x6d) {
+        throw new Error("not a wasm binary (bad magic)");
+      }
+      var i = 8;
+      while (i < bytes.length) {
+        var secStart = i;
+        var id = bytes[i++];
+        var hdr = new Reader(bytes); hdr.i = i;
+        var payloadLen = hdr.u32();
+        var payloadStart = hdr.i;
+        i = payloadStart + payloadLen;
+        var nm = SECTION_NAMES[id] || ("id " + id);
+        if (id === 0) { try { var cr = new Reader(bytes); cr.i = payloadStart; nm = "custom \"" + cr.name() + "\""; } catch (e) {} }
+        res.sections.push({ id: id, name: nm, total: i - secStart, payload: payloadLen, offset: secStart });
+
+        var pr = new Reader(bytes); pr.i = payloadStart;
+        if (id === 1) {
+          var tc = pr.u32();
+          for (var t = 0; t < tc; t++) {
+            pr.byte();
+            var pc = pr.u32(), params = [];
+            for (var p = 0; p < pc; p++) params.push(valName(pr.byte()));
+            var rc = pr.u32(), results = [];
+            for (var q = 0; q < rc; q++) results.push(valName(pr.byte()));
+            res.types.push({ params: params, results: results });
+          }
+        } else if (id === 2) {
+          var ic = pr.u32();
+          for (var im = 0; im < ic; im++) {
+            var mod = pr.name(), fld = pr.name(), kind = pr.byte();
+            var entry = { module: mod, field: fld, kind: kind };
+            if (kind === 0) { entry.typeIndex = pr.u32(); res.importedFuncTypes.push(entry.typeIndex); }
+            else if (kind === 1) { entry.elemType = valName(pr.byte()); entry.limits = readLimits(pr); }
+            else if (kind === 2) { entry.limits = readLimits(pr); }
+            else if (kind === 3) { entry.valtype = valName(pr.byte()); entry.mutable = pr.byte() === 1; }
+            res.imports.push(entry);
+          }
+        } else if (id === 3) {
+          var fc = pr.u32();
+          for (var fn = 0; fn < fc; fn++) res.funcTypes.push(pr.u32());
+        } else if (id === 7) {
+          var ec = pr.u32();
+          for (var ex = 0; ex < ec; ex++) {
+            var enm = pr.name(), ekind = pr.byte(), eidx = pr.u32();
+            res.exports.push({ name: enm, kind: ekind, index: eidx });
+          }
+        }
+      }
+      res.ok = true;
+    } catch (e) {
+      res.error = e && e.message ? e.message : String(e);
+    }
+    return res;
+  }
+
+  function sigOfFunc(parsed, funcIndex) {
+    var nImp = parsed.importedFuncTypes.length;
+    var typeIdx = funcIndex < nImp ? parsed.importedFuncTypes[funcIndex] : parsed.funcTypes[funcIndex - nImp];
+    return parsed.types[typeIdx] || null;
+  }
+
+  // ---------- rendering ----------
+  function renderSummary(bytes, valid) {
+    sizeEl.textContent = fmtBytes(bytes.length);
+    validBadge.hidden = false;
+    validBadge.textContent = valid ? "valid ✓" : "invalid ✗";
+    validBadge.className = "badge " + (valid ? "ok" : "err");
+  }
+
+  function renderSections(parsed) {
+    sectionsBody.textContent = "";
+    var total = parsed.sections.reduce(function (a, s) { return a + s.total; }, 0) || 1;
+    parsed.sections.forEach(function (s, idx) {
+      var tr = document.createElement("tr");
+      var pctNum = (s.total / total * 100);
+      tr.innerHTML =
+        "<td class=\"num\">" + idx + "</td>" +
+        "<td class=\"name\"></td>" +
+        "<td class=\"num\">" + s.total + "</td>" +
+        "<td class=\"num\">" + pctNum.toFixed(0) + "</td>" +
+        "<td class=\"bar-cell\"><div class=\"bar\"><i style=\"width:" + pctNum.toFixed(1) + "%\"></i></div></td>";
+      tr.children[1].textContent = s.name;
+      sectionsBody.appendChild(tr);
+    });
+    sectionsHint.textContent = parsed.sections.length + " section" + (parsed.sections.length === 1 ? "" : "s") +
+      (parsed.error ? " · parse note: " + parsed.error : "");
+  }
+
+  function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function renderHex(bytes) {
+    var CAP = 65536;
+    var n = Math.min(bytes.length, CAP);
+    var lines = [];
+    for (var off = 0; off < n; off += 16) {
+      var hex = "", ascii = "";
+      for (var j = 0; j < 16; j++) {
+        if (off + j < n) {
+          var b = bytes[off + j];
+          hex += (b < 16 ? "0" : "") + b.toString(16) + " ";
+          ascii += (b >= 32 && b < 127) ? String.fromCharCode(b) : ".";
+        } else { hex += "   "; }
+        if (j === 7) hex += " ";
+      }
+      lines.push('<span class="off">' + off.toString(16).padStart(8, "0") + "</span>  " + esc(hex) + " " + esc(ascii));
+    }
+    var html = lines.join("\n");
+    if (bytes.length > CAP) html += "\n… " + (bytes.length - CAP) + " more bytes not shown";
+    hexEl.innerHTML = html;
+  }
+
+  // ---------- instantiate + run ----------
+  function buildImportStub(parsed) {
+    var obj = {};
+    parsed.imports.forEach(function (im) {
+      obj[im.module] = obj[im.module] || {};
+      if (im.kind === 0) {
+        var sig = parsed.types[im.typeIndex];
+        var returnsI64 = sig && sig.results[0] === "i64";
+        obj[im.module][im.field] = function () { return returnsI64 ? 0n : 0; };
+      } else if (im.kind === 1) {
+        obj[im.module][im.field] = new WebAssembly.Table({ initial: im.limits.min, maximum: im.limits.max == null ? undefined : im.limits.max, element: "anyfunc" });
+      } else if (im.kind === 2) {
+        obj[im.module][im.field] = new WebAssembly.Memory({ initial: im.limits.min, maximum: im.limits.max == null ? undefined : im.limits.max });
+      } else if (im.kind === 3) {
+        try { obj[im.module][im.field] = new WebAssembly.Global({ value: im.valtype, mutable: im.mutable }, im.valtype === "i64" ? 0n : 0); }
+        catch (e) { obj[im.module][im.field] = 0; }
+      }
+    });
+    return obj;
+  }
+
+  function runInvoke(exportsObj, name, sig, inputs) {
+    var args = [];
+    for (var k = 0; k < inputs.length; k++) {
+      var raw = inputs[k].value.trim();
+      var ty = sig && sig.params[k];
+      if (ty === "i64") { try { args.push(BigInt(raw === "" ? "0" : raw)); } catch (e) { args.push(0n); } }
+      else { args.push(raw === "" ? 0 : Number(raw)); }
+    }
+    try {
+      var v = exportsObj[name].apply(null, args);
+      return { ok: true, text: v === undefined ? "(void)" : (typeof v === "bigint" ? v.toString() : String(v)) };
+    } catch (e) { return { ok: false, text: (e && e.message) ? e.message : String(e) }; }
+  }
+
+  function renderRun(bytes, parsed) {
+    runPanel.textContent = "";
+    var buf = bytes.slice().buffer;
+    WebAssembly.instantiate(buf, buildImportStub(parsed)).then(function (r) {
+      var exp = r.instance.exports;
+      var funcExports = parsed.exports.filter(function (e) { return e.kind === 0; });
+      var memExports = parsed.exports.filter(function (e) { return e.kind === 2; });
+      runHint.textContent = "instantiated ✓ " + funcExports.length + " function export" + (funcExports.length === 1 ? "" : "s");
+
+      memExports.forEach(function (e) {
+        var mem = exp[e.name];
+        if (mem && mem.buffer) {
+          var note = document.createElement("div");
+          note.className = "run-note";
+          note.textContent = "memory \"" + e.name + "\": " + (mem.buffer.byteLength / 65536) + " page(s), " + fmtBytes(mem.buffer.byteLength);
+          runPanel.appendChild(note);
+        }
+      });
+
+      if (funcExports.length === 0) {
+        var none = document.createElement("div");
+        none.className = "run-note";
+        none.textContent = "no function exports to call.";
+        runPanel.appendChild(none);
+        return;
+      }
+
+      funcExports.forEach(function (e) {
+        var sig = sigOfFunc(parsed, e.index);
+        var row = document.createElement("div");
+        row.className = "run-row";
+
+        var fn = document.createElement("span"); fn.className = "fn"; fn.textContent = e.name;
+        row.appendChild(fn);
+
+        var params = sig ? sig.params : [];
+        var open = document.createElement("span"); open.className = "sig"; open.textContent = "(";
+        row.appendChild(open);
+        var inputs = [];
+        var defaults = currentDefaults[e.name] || [];
+        params.forEach(function (pty, idx) {
+          if (idx > 0) { var comma = document.createElement("span"); comma.className = "sig"; comma.textContent = ", "; row.appendChild(comma); }
+          var inp = document.createElement("input");
+          inp.className = "arg"; inp.type = "text"; inp.spellcheck = false;
+          inp.setAttribute("aria-label", e.name + " arg " + idx + " (" + pty + ")");
+          inp.title = pty;
+          inp.value = defaults[idx] != null ? String(defaults[idx]) : "0";
+          inputs.push(inp);
+          row.appendChild(inp);
+        });
+        var close = document.createElement("span"); close.className = "sig";
+        close.textContent = ")" + (sig && sig.results.length ? " : " + sig.results.join(", ") : "");
+        row.appendChild(close);
+
+        var eq = document.createElement("span"); eq.className = "eq"; eq.textContent = "=";
+        row.appendChild(eq);
+        var res = document.createElement("span"); res.className = "res";
+        row.appendChild(res);
+
+        var sp = document.createElement("span"); sp.className = "spacer"; row.appendChild(sp);
+        var callBtn = document.createElement("button");
+        callBtn.className = "btn"; callBtn.textContent = "call";
+        row.appendChild(callBtn);
+
+        function doCall() {
+          var out = runInvoke(exp, e.name, sig, inputs);
+          res.textContent = out.text;
+          res.className = "res " + (out.ok ? "ok" : "trap");
+        }
+        callBtn.addEventListener("click", doCall);
+        inputs.forEach(function (inp) {
+          inp.addEventListener("keydown", function (ev) { if (ev.key === "Enter") doCall(); });
+        });
+        runPanel.appendChild(row);
+        doCall(); // prove it runs on load
+      });
+    }).catch(function (err) {
+      runHint.textContent = "instantiate failed";
+      var d = document.createElement("div");
+      d.className = "run-note";
+      d.textContent = (err && err.message) ? err.message : String(err);
+      runPanel.appendChild(d);
+    });
+  }
+
+  function renderAll(bytes) {
+    var valid = false;
+    try { valid = WebAssembly.validate(bytes.slice().buffer); } catch (e) { valid = false; }
+    var parsed = parseModule(bytes);
+    renderSummary(bytes, valid);
+    renderSections(parsed);
+    renderHex(bytes);
+    renderRun(bytes, parsed);
+  }
+
+  // ---------- assemble ----------
+  function assemble() {
+    if (!wabt) return;
+    var text = watEl.value;
+    var mod = null;
+    try {
+      var feats = features();
+      mod = wabt.parseWat("module.wat", text, feats);
+      mod.resolveNames();
+      mod.validate();
+      var result = mod.toBinary({ log: false, canonicalize_lebs: true, write_debug_names: false });
+      rawWasm = result.buffer;
+      activeWasm = rawWasm;
+      srcTag.textContent = "from WAT";
+      clearProblem();
+      renderAll(activeWasm);
+    } catch (e) {
+      showProblem(e && e.message ? e.message : String(e));
+    } finally {
+      if (mod) { try { mod.destroy(); } catch (e) {} }
     }
   }
-  $('runOut').textContent = lines.join('\n') || 'No callable exports.';
-}
-function showError(err){
-  setStatus('error', 'error');
-  $('watOut').textContent = String(err && err.message || err);
-  $('watOut').className = 'error';
-}
-async function renderBytes(bytes, textHint=''){
-  currentBytes = bytes;
-  $('mBytes').textContent = formatBytes(bytes.length);
-  $('hexOut').textContent = bytesToHex(bytes);
-  const module = wabt.readWasm(bytes, {readDebugNames:true});
-  module.generateNames();
-  module.applyNames();
-  currentText = module.toText({foldExprs:false, inlineExport:false});
-  module.destroy();
-  $('watOut').className = '';
-  $('watOut').textContent = currentText;
-  $('mChars').textContent = currentText.length.toLocaleString();
-  lastModule = await describe(bytes);
-  await runExports(bytes);
-  setStatus(textHint || 'ready', 'ok');
-}
-async function assemble(){
-  if(!wabt) return;
-  try{
-    const module = wabt.parseWat('input.wat', $('source').value);
-    module.validate();
-    const out = module.toBinary({log:true, canonicalize_lebs:true, write_debug_names:true});
-    module.destroy();
-    $('mode').value = 'wat';
-    await renderBytes(out.buffer, 'assembled');
-    if(out.log && out.log.trim()) $('metaOut').textContent += '\n\nWABT log\n' + out.log;
-  }catch(err){ showError(err); }
-}
-function download(){
-  if(!currentBytes.length) return;
-  const blob = new Blob([currentBytes], {type:'application/wasm'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = 'module.wasm'; a.click();
-  URL.revokeObjectURL(url);
-}
-function switchTab(id){
-  for(const btn of document.querySelectorAll('.tab')){
-    const active = btn.dataset.tab === id;
-    btn.classList.toggle('active', active);
-    $(btn.dataset.tab).hidden = !active;
+
+  function scheduleAssemble() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(assemble, 300);
   }
-}
-async function loadFile(file){
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  $('mode').value = 'wasm';
-  $('source').value = `;; loaded ${file.name}\n;; ${bytes.length} bytes\n;; disassembly is shown in the output pane`;
-  await renderBytes(bytes, 'loaded wasm');
-}
-document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
-$('assemble').addEventListener('click', assemble);
-$('sample').addEventListener('click', () => { $('source').value = sampleWat; assemble(); });
-$('download').addEventListener('click', download);
-$('file').addEventListener('change', e => e.target.files[0] && loadFile(e.target.files[0]).catch(showError));
-$('source').value = sampleWat;
-(async function init(){
-  try{
-    wabt = await WabtModule();
-    setStatus('ready', 'ok');
-    await assemble();
-  }catch(err){ showError(err); }
+
+  // ---------- disassemble (load .wasm) ----------
+  function loadWasm(file) {
+    var reader = new FileReader();
+    reader.onload = function () {
+      var bytes = new Uint8Array(reader.result);
+      if (!wabt) { showProblem("engine still loading, try again in a moment"); return; }
+      var mod = null;
+      try {
+        mod = wabt.readWasm(bytes, { readDebugNames: true });
+        try { mod.generateNames(); mod.applyNames(); } catch (e) {}
+        var text = mod.toText({ foldExprs: false, inlineExport: false });
+        watEl.value = text;
+        rawWasm = bytes;
+        activeWasm = bytes;
+        currentDefaults = {};
+        srcTag.textContent = "from " + file.name;
+        clearProblem();
+        renderAll(bytes);
+      } catch (e) {
+        showProblem("could not read " + file.name + ": " + (e && e.message ? e.message : e));
+      } finally {
+        if (mod) { try { mod.destroy(); } catch (e) {} }
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  // ---------- downloads ----------
+  function download(bytes, name, mime) {
+    var blob = new Blob([bytes], { type: mime });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+  }
+
+  // ---------- example loading ----------
+  function loadExample(key) {
+    var ex = EXAMPLES[key];
+    if (!ex) return;
+    watEl.value = ex.wat;
+    currentDefaults = ex.defaults || {};
+    assemble();
+  }
+
+  // ---------- wiring ----------
+  watEl.addEventListener("input", scheduleAssemble);
+  $("btn-assemble").addEventListener("click", assemble);
+  exampleSel.addEventListener("change", function () { loadExample(exampleSel.value); });
+
+  $("btn-open").addEventListener("click", function () { $("file").click(); });
+  $("file").addEventListener("change", function () {
+    if (this.files && this.files[0]) loadWasm(this.files[0]);
+    this.value = "";
+  });
+
+  watEl.addEventListener("dragover", function (e) { e.preventDefault(); watEl.classList.add("drag"); });
+  watEl.addEventListener("dragleave", function () { watEl.classList.remove("drag"); });
+  watEl.addEventListener("drop", function (e) {
+    e.preventDefault(); watEl.classList.remove("drag");
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) loadWasm(e.dataTransfer.files[0]);
+  });
+
+  $("btn-dl-wasm").addEventListener("click", function () { if (activeWasm) download(activeWasm, "module.wasm", "application/wasm"); });
+  $("btn-dl-wat").addEventListener("click", function () { download(watEl.value, "module.wat", "text/plain"); });
+
+  // ---------- init ----------
+  watEl.value = EXAMPLES.add.wat;
+  currentDefaults = EXAMPLES.add.defaults;
+
+  WabtModule().then(function (w) {
+    wabt = w;
+    statusEl.textContent = "wabt 1.0.39 · ready";
+    assemble();
+  }).catch(function (err) {
+    statusEl.textContent = "engine failed to load";
+    showProblem("wabt failed to initialize: " + (err && err.message ? err.message : err));
+  });
 })();
 </script>
 </body>

@@ -1,0 +1,924 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Number Base</title>
+<meta name="description" content="Zero-dependency base and bitwise workbench. Convert between binary, octal, decimal, hex and any base 2-36; toggle bits on a 64-bit grid; run AND/OR/XOR/NOT/NAND/NOR and shifts; inspect two's-complement signed vs unsigned and endianness — all on BigInt, entirely in your browser.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232e9e5b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #2e9e5b;
+    --accent-soft: rgba(46, 158, 91, 0.10);
+    --ok: #2e8b57;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #2e9e5b;
+      --accent-soft: rgba(46, 158, 91, 0.20);
+      --ok: #5cbf82;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+  }
+  section { margin-top: 30px; }
+  section:first-child { margin-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); flex: none; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  /* ---- copy button ---- */
+  .copy {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy.ok { border-color: var(--ok); color: var(--ok); }
+  .copy svg { pointer-events: none; }
+  .copy.sm { width: 26px; height: 26px; border-radius: 6px; }
+
+  /* ---- converter ---- */
+  .conv-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .conv-field { min-width: 0; }
+  .conv-label {
+    display: flex; align-items: baseline; gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 8px;
+  }
+  .conv-label .base-tag { color: var(--accent); font-weight: 600; }
+  .conv-row { display: flex; gap: 8px; align-items: stretch; }
+  .conv-row input {
+    flex: 1; min-width: 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 16px;
+    padding: 11px 13px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+  }
+  .conv-field.dec .conv-row input { font-size: 20px; font-weight: 500; }
+  input:focus, select:focus { border-color: var(--accent); }
+  input.invalid { border-color: var(--err); }
+  .base-picker {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px; padding: 4px 6px;
+    background: var(--bg); color: var(--fg);
+    border: 1px solid var(--line); border-radius: 6px; outline: none;
+    width: 62px;
+  }
+  select.base-picker { width: auto; }
+  .ferr {
+    display: none;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px; color: var(--err);
+    margin-top: 6px;
+  }
+  .ferr.show { display: block; }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .presets button, .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .presets button:hover, .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---- width selector ---- */
+  .width-bar {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    margin-bottom: 14px;
+  }
+  .seg {
+    display: inline-flex;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .seg button {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    padding: 7px 15px;
+    background: transparent;
+    color: var(--muted);
+    border: none;
+    border-right: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  .width-note { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+
+  /* ---- bit grid ---- */
+  .bit-meta {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: baseline;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px;
+    margin-bottom: 16px;
+  }
+  .bit-meta .k { color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; font-size: 10px; }
+  .bit-meta .v { color: var(--fg); font-weight: 600; }
+  .bit-meta .v.pos { color: var(--accent); word-break: break-word; }
+  .bitgrid { display: flex; flex-wrap: wrap; gap: 12px; }
+  .byte-group {
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 9px 9px 8px;
+    background: var(--bg);
+  }
+  .byte-head {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
+    font-family: "IBM Plex Mono", monospace; font-size: 10px;
+    color: var(--muted); margin-bottom: 7px; letter-spacing: 0.04em;
+  }
+  .byte-head .bh { color: var(--accent); font-weight: 600; }
+  .byte-bits { display: flex; gap: 4px; }
+  .bit {
+    width: 30px; height: 40px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px;
+    border: 1px solid var(--line); border-radius: 6px;
+    background: var(--card); cursor: pointer;
+    user-select: none;
+    transition: background .1s, border-color .1s;
+  }
+  .bit:hover { border-color: var(--accent); }
+  .bit .bv { font-family: "IBM Plex Mono", monospace; font-size: 16px; font-weight: 600; }
+  .bit .bi { font-family: "IBM Plex Mono", monospace; font-size: 9px; color: var(--muted); }
+  .bit.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .bit.on .bi { color: rgba(255,255,255,0.72); }
+
+  /* ---- interpretation tiles ---- */
+  .tile-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .tile {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+    padding: 13px 15px; min-width: 0;
+  }
+  .tile.accent { border-color: var(--accent); }
+  .tile .t-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 5px;
+  }
+  .tile .t-head { display: flex; align-items: flex-start; gap: 8px; }
+  .tile .t-head .col { flex: 1; min-width: 0; }
+  .tile .t-value { font-family: "IBM Plex Mono", monospace; font-weight: 600; font-size: 18px; word-break: break-all; }
+  .tile.accent .t-value { color: var(--accent); }
+  .tile .t-sub { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); margin-top: 4px; word-break: break-all; }
+
+  /* ---- endianness ---- */
+  .endian-row { display: grid; grid-template-columns: 90px 1fr auto; gap: 12px; align-items: center; margin-top: 10px; }
+  .endian-row:first-child { margin-top: 0; }
+  .endian-lab { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); letter-spacing: 0.06em; }
+  .endian-bytes {
+    font-family: "IBM Plex Mono", monospace; font-size: 16px; font-weight: 600;
+    letter-spacing: 0.04em; overflow-x: auto; white-space: nowrap; padding-bottom: 2px;
+  }
+  .endian-bytes .b0 { color: var(--muted); }
+
+  /* ---- bitwise ---- */
+  .ops-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .op-field .conv-label { margin-bottom: 6px; }
+  .shift-bar { display: flex; align-items: center; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+  .shift-bar label { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--muted); }
+  .shift-bar input { width: 80px; font-family: "IBM Plex Mono", monospace; font-size: 14px; padding: 7px 10px;
+    background: var(--bg); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; outline: none; }
+  .table-wrap { overflow-x: auto; margin-top: 18px; border: 1px solid var(--line); border-radius: 10px; }
+  table.ops { border-collapse: collapse; width: 100%; font-family: "IBM Plex Mono", monospace; font-size: 13px; }
+  table.ops th, table.ops td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  table.ops thead th { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  table.ops tbody tr:last-child td { border-bottom: none; }
+  table.ops .op-name { color: var(--accent); font-weight: 600; }
+  table.ops .c-bin { color: var(--fg); }
+  table.ops .c-dec .u { font-weight: 600; }
+  table.ops .c-dec .s { color: var(--muted); font-size: 11px; }
+  table.ops tr.divider td { border-top: 2px solid var(--line); }
+  table.ops td.copycell { text-align: right; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 18px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 720px) {
+    .conv-grid { grid-template-columns: 1fr; }
+    .tile-grid { grid-template-columns: 1fr; }
+    .ops-grid { grid-template-columns: 1fr; }
+    .endian-row { grid-template-columns: 74px 1fr; }
+    .endian-row .copy { display: none; }
+    .conv-field.dec .conv-row input { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Number Base</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <!-- ================= CONVERTER ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 5h8l-2-2M13 11H5l2 2"></path>
+      </svg>
+      Base converter &mdash; every field is editable
+    </div>
+    <div class="card">
+      <div class="conv-grid">
+        <div class="conv-field" data-base="2">
+          <div class="conv-label">Binary <span class="base-tag">base 2</span></div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" data-field-base="2" aria-label="Binary value">
+            <button class="copy" data-copy-field="2" title="Copy" aria-label="Copy binary"></button>
+          </div>
+          <div class="ferr" data-err="2"></div>
+        </div>
+        <div class="conv-field" data-base="8">
+          <div class="conv-label">Octal <span class="base-tag">base 8</span></div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" data-field-base="8" aria-label="Octal value">
+            <button class="copy" data-copy-field="8" title="Copy" aria-label="Copy octal"></button>
+          </div>
+          <div class="ferr" data-err="8"></div>
+        </div>
+        <div class="conv-field dec" data-base="10">
+          <div class="conv-label">Decimal <span class="base-tag">base 10</span></div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" data-field-base="10" aria-label="Decimal value">
+            <button class="copy" data-copy-field="10" title="Copy" aria-label="Copy decimal"></button>
+          </div>
+          <div class="ferr" data-err="10"></div>
+        </div>
+        <div class="conv-field" data-base="16">
+          <div class="conv-label">Hexadecimal <span class="base-tag">base 16</span></div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" data-field-base="16" aria-label="Hexadecimal value">
+            <button class="copy" data-copy-field="16" title="Copy" aria-label="Copy hexadecimal"></button>
+          </div>
+          <div class="ferr" data-err="16"></div>
+        </div>
+        <div class="conv-field" data-base="custom">
+          <div class="conv-label">
+            Arbitrary base
+            <input class="base-picker" id="custom-base" type="number" min="2" max="36" step="1" value="36" aria-label="Custom base (2 to 36)">
+          </div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" data-field-base="custom" aria-label="Value in custom base">
+            <button class="copy" data-copy-field="custom" title="Copy" aria-label="Copy custom base value"></button>
+          </div>
+          <div class="ferr" data-err="custom"></div>
+        </div>
+      </div>
+      <div class="presets" id="value-presets"></div>
+    </div>
+  </section>
+
+  <!-- ================= BIT GRID ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <rect x="2" y="2" width="5" height="5" rx="1"></rect><rect x="9" y="2" width="5" height="5" rx="1"></rect>
+        <rect x="2" y="9" width="5" height="5" rx="1"></rect><rect x="9" y="9" width="5" height="5" rx="1"></rect>
+      </svg>
+      Bit grid &mdash; click a bit to toggle
+    </div>
+    <div class="card">
+      <div class="width-bar">
+        <div class="seg" id="width-seg" role="group" aria-label="Bit width">
+          <button type="button" data-width="8">8</button>
+          <button type="button" data-width="16">16</button>
+          <button type="button" data-width="32" class="on">32</button>
+          <button type="button" data-width="64">64</button>
+        </div>
+        <span class="width-note" id="width-note"></span>
+      </div>
+      <div class="bit-meta">
+        <span><span class="k">set bits (popcount)</span> &nbsp;<span class="v" id="popcount">0</span></span>
+        <span><span class="k">positions</span> &nbsp;<span class="v pos" id="setpos">&mdash;</span></span>
+      </div>
+      <div class="bitgrid" id="bitgrid"></div>
+    </div>
+  </section>
+
+  <!-- ================= SIGNED / UNSIGNED ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 8h4M11 6v4M9 8h4M9 8H9"></path><circle cx="8" cy="8" r="6.5"></circle>
+      </svg>
+      Interpretation at <span style="color:var(--accent);margin-left:4px" id="interp-width">32</span>-bit &mdash; two's complement
+    </div>
+    <div class="card">
+      <div class="tile-grid">
+        <div class="tile accent">
+          <div class="t-head">
+            <div class="col">
+              <div class="t-label">Unsigned</div>
+              <div class="t-value" id="u-dec">0</div>
+              <div class="t-sub" id="u-range"></div>
+            </div>
+            <button class="copy sm" data-copy-el="u-dec" title="Copy" aria-label="Copy unsigned"></button>
+          </div>
+        </div>
+        <div class="tile accent">
+          <div class="t-head">
+            <div class="col">
+              <div class="t-label">Signed (two's complement)</div>
+              <div class="t-value" id="s-dec">0</div>
+              <div class="t-sub" id="s-range"></div>
+            </div>
+            <button class="copy sm" data-copy-el="s-dec" title="Copy" aria-label="Copy signed"></button>
+          </div>
+        </div>
+        <div class="tile">
+          <div class="t-head">
+            <div class="col">
+              <div class="t-label">Hex (width-masked)</div>
+              <div class="t-value" id="m-hex">0x0</div>
+              <div class="t-sub" id="signbit-note"></div>
+            </div>
+            <button class="copy sm" data-copy-el="m-hex" title="Copy" aria-label="Copy masked hex"></button>
+          </div>
+        </div>
+        <div class="tile">
+          <div class="t-head">
+            <div class="col">
+              <div class="t-label">Binary (width-masked)</div>
+              <div class="t-value mono" id="m-bin" style="font-size:14px">0</div>
+            </div>
+            <button class="copy sm" data-copy-el="m-bin" title="Copy" aria-label="Copy masked binary"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ENDIANNESS ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="2" y="5" width="3" height="6" rx="0.6"></rect><rect x="6.5" y="5" width="3" height="6" rx="0.6"></rect>
+        <rect x="11" y="5" width="3" height="6" rx="0.6"></rect>
+      </svg>
+      Endianness &mdash; byte order in memory
+    </div>
+    <div class="card" id="endian-card">
+      <div class="endian-row">
+        <span class="endian-lab">big-endian</span>
+        <span class="endian-bytes" id="be-bytes"></span>
+        <button class="copy sm" data-copy-el="be-bytes" title="Copy" aria-label="Copy big-endian bytes"></button>
+      </div>
+      <div class="endian-row">
+        <span class="endian-lab">little-endian</span>
+        <span class="endian-bytes" id="le-bytes"></span>
+        <button class="copy sm" data-copy-el="le-bytes" title="Copy" aria-label="Copy little-endian bytes"></button>
+      </div>
+      <div class="width-note" id="endian-note" style="margin-top:12px"></div>
+    </div>
+  </section>
+
+  <!-- ================= BITWISE ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M4 3v4a4 4 0 0 0 4 4h4M12 8l2 3-2-0M12 8l0 3"></path>
+      </svg>
+      Bitwise &mdash; operands A &amp; B at current width
+    </div>
+    <div class="card">
+      <div class="ops-grid">
+        <div class="op-field">
+          <div class="conv-label">Operand A
+            <select class="base-picker" id="a-base" aria-label="Base of operand A">
+              <option value="2">bin</option><option value="8">oct</option>
+              <option value="10">dec</option><option value="16" selected>hex</option>
+            </select>
+          </div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" id="a-input" aria-label="Operand A value">
+            <button class="copy" data-copy-el="a-input" data-copy-input="1" title="Copy" aria-label="Copy operand A"></button>
+          </div>
+          <div class="ferr" id="a-err"></div>
+        </div>
+        <div class="op-field">
+          <div class="conv-label">Operand B
+            <select class="base-picker" id="b-base" aria-label="Base of operand B">
+              <option value="2">bin</option><option value="8">oct</option>
+              <option value="10">dec</option><option value="16" selected>hex</option>
+            </select>
+          </div>
+          <div class="conv-row">
+            <input type="text" spellcheck="false" autocomplete="off" autocapitalize="off" id="b-input" aria-label="Operand B value">
+            <button class="copy" data-copy-el="b-input" data-copy-input="1" title="Copy" aria-label="Copy operand B"></button>
+          </div>
+          <div class="ferr" id="b-err"></div>
+        </div>
+      </div>
+      <div class="shift-bar">
+        <label for="shift-amt">shift amount (n)</label>
+        <input id="shift-amt" type="number" min="0" max="255" step="1" value="1">
+        <span class="width-note">applies to A &laquo; n and A &raquo; n (logical)</span>
+      </div>
+      <div class="table-wrap">
+        <table class="ops">
+          <thead>
+            <tr><th>Operation</th><th>Binary</th><th>Octal</th><th>Decimal</th><th>Hex</th><th></th></tr>
+          </thead>
+          <tbody id="ops-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>zero dependencies &middot; BigInt</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  /* ---------------- icons ---------------- */
+  var ICON_COPY = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>';
+  var ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.2 3.2L13 5"></path></svg>';
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"), function (b) { if (!b.innerHTML.trim()) b.innerHTML = ICON_COPY; });
+
+  function flashCopy(btn) {
+    btn.classList.add("ok");
+    var prev = btn.innerHTML;
+    btn.innerHTML = ICON_CHECK;
+    setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = ICON_COPY; }, 950);
+  }
+  function copyText(text, btn) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove(); if (btn) flashCopy(btn);
+      } catch (e) { /* ignore */ }
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { if (btn) flashCopy(btn); }, fallback);
+    } else { fallback(); }
+  }
+
+  /* ---------------- BigInt / base helpers ---------------- */
+  function digitVal(ch) {
+    var c = ch.toLowerCase().charCodeAt(0);
+    if (c >= 48 && c <= 57) return c - 48;        /* 0-9 */
+    if (c >= 97 && c <= 122) return c - 97 + 10;  /* a-z */
+    return -1;
+  }
+  var DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
+
+  /* parse a string in a given base (2-36) -> BigInt, sign aware, forgiving of _/space and 0x/0b/0o prefixes */
+  function parseInBase(raw, base) {
+    var s = String(raw).trim();
+    if (s === "") return { empty: true };
+    var neg = false;
+    if (s[0] === "+") s = s.slice(1);
+    else if (s[0] === "-") { neg = true; s = s.slice(1); }
+    s = s.replace(/[_\s]/g, "");
+    if (base === 16 && /^0x/i.test(s)) s = s.slice(2);
+    else if (base === 2 && /^0b/i.test(s)) s = s.slice(2);
+    else if (base === 8 && /^0o/i.test(s)) s = s.slice(2);
+    if (s === "") return { error: "No digits." };
+    var B = BigInt(base);
+    var val = 0n;
+    for (var i = 0; i < s.length; i++) {
+      var d = digitVal(s[i]);
+      if (d < 0 || d >= base) {
+        return { error: "“" + s[i] + "” is not a base-" + base + " digit." };
+      }
+      val = val * B + BigInt(d);
+    }
+    return { value: neg ? -val : val };
+  }
+
+  /* BigInt -> string in base (native, sign preserved, lowercase) */
+  function toBase(v, base) { return v.toString(base); }
+
+  function maskOf(w) { return (1n << BigInt(w)) - 1n; }
+  function toUnsigned(v, w) { return v & maskOf(w); }              /* two's complement of low w bits */
+  function toSigned(u, w) {                                        /* u already unsigned within width */
+    var signBit = 1n << BigInt(w - 1);
+    return (u & signBit) ? u - (1n << BigInt(w)) : u;
+  }
+  function popcount(u) { var c = 0; while (u > 0n) { c += Number(u & 1n); u >>= 1n; } return c; }
+  function padBin(u, w) {
+    var s = u.toString(2);
+    while (s.length < w) s = "0" + s;
+    return s;
+  }
+
+  /* ---------------- state ---------------- */
+  var state = { value: 255n, width: 32, customBase: 36 };
+  var ops = { a: 12n, b: 10n, aBase: 16, bBase: 16, shift: 1n };
+
+  var convInputs = {};   /* base -> input element */
+  Array.prototype.forEach.call(document.querySelectorAll("[data-field-base]"), function (el) {
+    convInputs[el.getAttribute("data-field-base")] = el;
+  });
+  var customBaseInput = $("custom-base");
+
+  function fieldErr(key, msg) {
+    var el = document.querySelector('.ferr[data-err="' + key + '"]');
+    if (!el) return;
+    if (msg) { el.textContent = msg; el.classList.add("show"); }
+    else { el.textContent = ""; el.classList.remove("show"); }
+  }
+
+  /* ---------------- render: converter ---------------- */
+  function renderConverter(exceptKey) {
+    Object.keys(convInputs).forEach(function (key) {
+      if (key === exceptKey) return;
+      var base = key === "custom" ? state.customBase : parseInt(key, 10);
+      convInputs[key].value = toBase(state.value, base);
+      convInputs[key].classList.remove("invalid");
+      fieldErr(key, "");
+    });
+  }
+
+  /* ---------------- render: bit grid ---------------- */
+  function renderGrid() {
+    var w = state.width;
+    var u = toUnsigned(state.value, w);
+    var grid = $("bitgrid");
+    grid.innerHTML = "";
+    var nbytes = w / 8;
+    for (var k = 0; k < nbytes; k++) {
+      var high = w - 1 - k * 8;   /* MSB byte first */
+      var low = high - 7;
+      var byteVal = (u >> BigInt(low)) & 0xFFn;
+      var group = document.createElement("div");
+      group.className = "byte-group";
+      var head = document.createElement("div");
+      head.className = "byte-head";
+      head.innerHTML = '<span>bits ' + high + '..' + low + '</span><span class="bh">0x' +
+        byteVal.toString(16).toUpperCase().padStart(2, "0") + '</span>';
+      group.appendChild(head);
+      var bitsWrap = document.createElement("div");
+      bitsWrap.className = "byte-bits";
+      for (var idx = high; idx >= low; idx--) {
+        var on = ((u >> BigInt(idx)) & 1n) === 1n;
+        var cell = document.createElement("div");
+        cell.className = "bit" + (on ? " on" : "");
+        cell.setAttribute("data-bit", String(idx));
+        cell.setAttribute("role", "button");
+        cell.setAttribute("tabindex", "0");
+        cell.setAttribute("aria-label", "bit " + idx + " is " + (on ? 1 : 0));
+        cell.innerHTML = '<span class="bv">' + (on ? "1" : "0") + '</span><span class="bi">' + idx + '</span>';
+        bitsWrap.appendChild(cell);
+      }
+      group.appendChild(bitsWrap);
+      grid.appendChild(group);
+    }
+    /* popcount + positions */
+    var pc = popcount(u);
+    $("popcount").textContent = String(pc);
+    var positions = [];
+    for (var i = 0; i < w; i++) { if (((u >> BigInt(i)) & 1n) === 1n) positions.push(i); }
+    $("setpos").textContent = positions.length ? positions.join(", ") : "— (none)";
+    $("width-note").textContent = "value masked to " + w + " bits · " + nbytes + " byte" + (nbytes > 1 ? "s" : "");
+  }
+
+  function toggleBit(idx) {
+    var w = state.width;
+    var u = toUnsigned(state.value, w);
+    u = u ^ (1n << BigInt(idx));          /* flip within width */
+    state.value = u;                       /* value becomes the unsigned width view */
+    renderAll(null);
+  }
+
+  /* ---------------- render: interpretation ---------------- */
+  function renderInterp() {
+    var w = state.width;
+    var u = toUnsigned(state.value, w);
+    var s = toSigned(u, w);
+    $("interp-width").textContent = String(w);
+    $("u-dec").textContent = u.toString(10);
+    $("s-dec").textContent = s.toString(10);
+    $("u-range").textContent = "range 0 … " + maskOf(w).toString(10);
+    var sMax = (1n << BigInt(w - 1)) - 1n;
+    var sMin = -(1n << BigInt(w - 1));
+    $("s-range").textContent = "range " + sMin.toString(10) + " … " + sMax.toString(10);
+    $("m-hex").textContent = "0x" + u.toString(16).toUpperCase();
+    $("m-bin").textContent = padBin(u, w);
+    var signSet = ((u >> BigInt(w - 1)) & 1n) === 1n;
+    $("signbit-note").textContent = "sign bit (bit " + (w - 1) + ") = " + (signSet ? "1 → negative if signed" : "0 → non-negative");
+  }
+
+  /* ---------------- render: endianness ---------------- */
+  function renderEndian() {
+    var w = state.width;
+    var u = toUnsigned(state.value, w);
+    var nbytes = w / 8;
+    var msbFirst = [];   /* index 0 = most significant byte */
+    for (var k = 0; k < nbytes; k++) {
+      var shift = BigInt(8 * (nbytes - 1 - k));
+      msbFirst.push(((u >> shift) & 0xFFn).toString(16).toUpperCase().padStart(2, "0"));
+    }
+    var be = msbFirst.slice();          /* big-endian: MSB stored first */
+    var le = msbFirst.slice().reverse(); /* little-endian: LSB stored first */
+    $("be-bytes").textContent = be.join(" ");
+    $("le-bytes").textContent = le.join(" ");
+    $("endian-note").textContent = nbytes === 1
+      ? "single byte — byte order is identical."
+      : "same " + nbytes + " bytes, reversed order. e.g. 0x" + msbFirst.join("") +
+        " stored LE as " + le.join(" ") + ".";
+  }
+
+  /* ---------------- render: bitwise ---------------- */
+  function opsRow(name, u, w, extraClass) {
+    var bin = padBin(u, w);
+    var oct = u.toString(8);
+    var dec = u.toString(10);
+    var hex = "0x" + u.toString(16).toUpperCase();
+    var signed = toSigned(u, w).toString(10);
+    var tr = document.createElement("tr");
+    if (extraClass) tr.className = extraClass;
+    var decCell = signed === dec
+      ? '<span class="u">' + dec + '</span>'
+      : '<span class="u">' + dec + '</span> <span class="s">/ ' + signed + ' signed</span>';
+    tr.innerHTML =
+      '<td class="op-name">' + name + '</td>' +
+      '<td class="c-bin">' + bin + '</td>' +
+      '<td>' + oct + '</td>' +
+      '<td class="c-dec">' + decCell + '</td>' +
+      '<td>' + hex + '</td>' +
+      '<td class="copycell"><button class="copy sm" data-copy-text="' + hex + '" title="Copy hex" aria-label="Copy hex ' + name + '"></button></td>';
+    return tr;
+  }
+  function renderBitwise() {
+    var w = state.width;
+    var m = maskOf(w);
+    var A = toUnsigned(ops.a, w);
+    var B = toUnsigned(ops.b, w);
+    var n = ops.shift;
+    var body = $("ops-body");
+    body.innerHTML = "";
+    body.appendChild(opsRow("A", A, w));
+    body.appendChild(opsRow("B", B, w));
+    body.appendChild(opsRow("A AND B", (A & B) & m, w, "divider"));
+    body.appendChild(opsRow("A OR B", (A | B) & m, w));
+    body.appendChild(opsRow("A XOR B", (A ^ B) & m, w));
+    body.appendChild(opsRow("NOT A (~A)", (~A) & m, w));
+    body.appendChild(opsRow("NOT B (~B)", (~B) & m, w));
+    body.appendChild(opsRow("A NAND B", (~(A & B)) & m, w));
+    body.appendChild(opsRow("A NOR B", (~(A | B)) & m, w));
+    body.appendChild(opsRow("A « " + n + " (left)", (A << n) & m, w, "divider"));
+    body.appendChild(opsRow("A » " + n + " (right)", (A >> n) & m, w));
+    Array.prototype.forEach.call(body.querySelectorAll(".copy"), function (b) { b.innerHTML = ICON_COPY; });
+  }
+
+  /* ---------------- render all ---------------- */
+  function renderAll(exceptKey) {
+    renderConverter(exceptKey);
+    renderGrid();
+    renderInterp();
+    renderEndian();
+    renderBitwise();
+  }
+
+  /* ---------------- events: converter fields ---------------- */
+  Object.keys(convInputs).forEach(function (key) {
+    convInputs[key].addEventListener("input", function () {
+      var base = key === "custom" ? state.customBase : parseInt(key, 10);
+      var res = parseInBase(convInputs[key].value, base);
+      if (res.empty) {
+        state.value = 0n; convInputs[key].classList.remove("invalid"); fieldErr(key, "");
+        renderConverter(key); renderGrid(); renderInterp(); renderEndian(); renderBitwise();
+        return;
+      }
+      if (res.error) {
+        convInputs[key].classList.add("invalid"); fieldErr(key, res.error);
+        return;
+      }
+      convInputs[key].classList.remove("invalid"); fieldErr(key, "");
+      state.value = res.value;
+      renderConverter(key); renderGrid(); renderInterp(); renderEndian(); renderBitwise();
+    });
+  });
+
+  customBaseInput.addEventListener("input", function () {
+    var b = parseInt(customBaseInput.value, 10);
+    if (isNaN(b) || b < 2 || b > 36) { fieldErr("custom", "Base must be 2–36."); return; }
+    state.customBase = b;
+    fieldErr("custom", "");
+    convInputs.custom.value = toBase(state.value, b);
+    convInputs.custom.classList.remove("invalid");
+  });
+
+  /* value presets */
+  var PRESETS = [
+    { label: "0", v: function () { return 0n; } },
+    { label: "1", v: function () { return 1n; } },
+    { label: "255", v: function () { return 255n; } },
+    { label: "0xDEADBEEF", v: function () { return 0xDEADBEEFn; } },
+    { label: "2^40", v: function () { return 2n ** 40n; } },
+    { label: "max (width)", v: function () { return maskOf(state.width); } },
+    { label: "-1", v: function () { return -1n; } }
+  ];
+  var presetsEl = $("value-presets");
+  PRESETS.forEach(function (p) {
+    var b = document.createElement("button"); b.type = "button"; b.textContent = p.label;
+    b.addEventListener("click", function () { state.value = p.v(); renderAll(null); });
+    presetsEl.appendChild(b);
+  });
+
+  /* ---------------- events: width ---------------- */
+  Array.prototype.forEach.call($("width-seg").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      state.width = parseInt(b.getAttribute("data-width"), 10);
+      Array.prototype.forEach.call($("width-seg").querySelectorAll("button"), function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      renderAll(null);
+    });
+  });
+
+  /* ---------------- events: bit grid clicks (delegated) ---------------- */
+  $("bitgrid").addEventListener("click", function (e) {
+    var cell = e.target.closest ? e.target.closest(".bit") : null;
+    if (!cell) return;
+    toggleBit(parseInt(cell.getAttribute("data-bit"), 10));
+  });
+  $("bitgrid").addEventListener("keydown", function (e) {
+    if (e.key !== "Enter" && e.key !== " ") return;
+    var cell = e.target.closest ? e.target.closest(".bit") : null;
+    if (!cell) return;
+    e.preventDefault();
+    toggleBit(parseInt(cell.getAttribute("data-bit"), 10));
+  });
+
+  /* ---------------- events: bitwise operands ---------------- */
+  function bindOperand(inputId, baseId, errId, target) {
+    var inp = $(inputId), sel = $(baseId), err = $(errId);
+    function reparse() {
+      var base = parseInt(sel.value, 10);
+      var res = parseInBase(inp.value, base);
+      if (res.empty) { ops[target] = 0n; inp.classList.remove("invalid"); err.classList.remove("show"); renderBitwise(); return; }
+      if (res.error) { inp.classList.add("invalid"); err.textContent = res.error; err.classList.add("show"); return; }
+      inp.classList.remove("invalid"); err.classList.remove("show");
+      ops[target] = res.value;
+      renderBitwise();
+    }
+    inp.addEventListener("input", reparse);
+    sel.addEventListener("change", function () {
+      /* re-render the operand's text in the newly selected base, keep the value */
+      inp.value = toBase(ops[target], parseInt(sel.value, 10));
+      inp.classList.remove("invalid"); err.classList.remove("show");
+      renderBitwise();
+    });
+  }
+  bindOperand("a-input", "a-base", "a-err", "a");
+  bindOperand("b-input", "b-base", "b-err", "b");
+
+  $("shift-amt").addEventListener("input", function () {
+    var n = parseInt($("shift-amt").value, 10);
+    if (isNaN(n) || n < 0) n = 0;
+    if (n > 255) n = 255;
+    ops.shift = BigInt(n);
+    renderBitwise();
+  });
+
+  /* ---------------- delegated copy handling ---------------- */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest(".copy") : null;
+    if (!btn) return;
+    var text = "";
+    if (btn.hasAttribute("data-copy-field")) {
+      var el = convInputs[btn.getAttribute("data-copy-field")];
+      text = el ? el.value : "";
+    } else if (btn.hasAttribute("data-copy-input")) {
+      var idi = btn.getAttribute("data-copy-el");
+      var ie = idi ? $(idi) : null; text = ie ? ie.value : "";
+    } else if (btn.hasAttribute("data-copy-el")) {
+      var se = $(btn.getAttribute("data-copy-el")); text = se ? se.textContent : "";
+    } else if (btn.hasAttribute("data-copy-text")) {
+      text = btn.getAttribute("data-copy-text");
+    }
+    if (text !== "" && text !== "—") copyText(text, btn);
+  });
+
+  /* ---------------- init ---------------- */
+  $("a-input").value = toBase(ops.a, ops.aBase);
+  $("b-input").value = toBase(ops.b, ops.bBase);
+  renderAll(null);
+})();
+</script>
+</body>
+</html>
