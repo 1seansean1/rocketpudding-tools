@@ -1,0 +1,1191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gantt Maker</title>
+<meta name="description" content="Zero-dependency project timeline builder. Define tasks in an editable table or a compact text DSL, paste from CSV, and render a crisp SVG Gantt chart with an auto day/week/month time axis, section grouping, dependency arrows, a today line and per-task progress fill. Computes and highlights the critical path and project end date, lets you drag bars to reschedule, zoom the time scale, and export SVG / PNG / CSV / JSON / DSL. One file, no libraries.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%232e9e5b'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #2e9e5b;
+    --accent-soft: rgba(46, 158, 91, 0.10);
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+    --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #2e9e5b;
+      --accent-soft: rgba(46, 158, 91, 0.18);
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.10);
+      --shadow: 0 1px 2px rgba(0,0,0,0.30), 0 10px 30px rgba(0,0,0,0.35);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px 22px;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back svg { width: 15px; height: 15px; }
+  header .back:hover { color: var(--accent); }
+
+  /* ---------- layout ---------- */
+  main { flex: 1; display: flex; flex-direction: column; min-height: 0; width: 100%; }
+
+  .toolbar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap; flex: none;
+  }
+  .sep { width: 1px; align-self: stretch; background: var(--line); margin: 2px 4px; }
+  .spacer { flex: 1; }
+
+  /* ---------- buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: "IBM Plex Sans", sans-serif;
+    font-size: 13px; font-weight: 500;
+    color: var(--fg);
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 6px 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color .12s, background .12s, color .12s;
+  }
+  .btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.solid { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.solid:hover { filter: brightness(1.06); color: #fff; }
+  .btn.icon { padding: 6px 8px; }
+  .btn.small { padding: 5px 9px; font-size: 12.5px; }
+  .btn.danger:hover { border-color: var(--err); color: var(--err); }
+
+  /* ---------- stats strip ---------- */
+  .stats {
+    display: flex; align-items: center; gap: 18px;
+    padding: 9px 18px;
+    border-bottom: 1px solid var(--line);
+    flex-wrap: wrap; flex: none;
+    font-size: 12.5px;
+  }
+  .stat { display: inline-flex; align-items: baseline; gap: 6px; min-width: 0; }
+  .stat .k { font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+  .stat .v { font-family: "IBM Plex Mono", monospace; font-weight: 500; color: var(--fg); }
+  .stat.cp { flex: 1 1 240px; min-width: 0; }
+  .stat.cp .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--accent); }
+  .legend { margin-left: auto; display: inline-flex; align-items: center; gap: 14px; color: var(--muted); font-size: 11.5px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch-crit { width: 20px; height: 3px; border-radius: 2px; background: var(--accent); }
+  .swatch-today { width: 0; height: 12px; border-left: 1.5px dashed var(--accent); }
+  .swatch-prog { width: 14px; height: 9px; border-radius: 2px; background: var(--accent); opacity: .32; position: relative; }
+  .swatch-prog::after { content:""; position:absolute; left:0; top:0; bottom:0; width:55%; background: var(--accent); border-radius: 2px; }
+
+  /* ---------- chart ---------- */
+  .chart-host {
+    flex: 1; min-height: 220px;
+    overflow: auto;
+    background: var(--card);
+    position: relative;
+  }
+  .chart-host svg { display: block; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  body.dragging { cursor: grabbing; user-select: none; }
+  body.dragging .bardrag { cursor: grabbing !important; }
+
+  /* ---------- bottom panel ---------- */
+  .panel {
+    flex: none;
+    display: flex;
+    border-top: 1px solid var(--line);
+    max-height: 46vh;
+    min-height: 210px;
+  }
+  .tablewrap { flex: 1.7; min-width: 0; overflow: auto; }
+  .io {
+    flex: 1; min-width: 288px; max-width: 460px;
+    border-left: 1px solid var(--line);
+    display: flex; flex-direction: column;
+    overflow: auto;
+  }
+
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  thead th {
+    position: sticky; top: 0; z-index: 2;
+    background: var(--bg);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 9.5px; letter-spacing: 0.11em; text-transform: uppercase;
+    color: var(--muted); font-weight: 600;
+    text-align: left; padding: 8px 8px;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  tbody td { padding: 3px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  tbody tr:hover { background: var(--accent-soft); }
+  td.id { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); white-space: nowrap; }
+  td.crit-dot { text-align: center; width: 14px; }
+  .cdot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); display: inline-block; }
+  .cell-in {
+    width: 100%; border: 1px solid transparent; background: transparent;
+    font-family: "IBM Plex Sans", sans-serif; font-size: 13px; color: var(--fg);
+    padding: 4px 5px; border-radius: 6px; outline: none;
+  }
+  .cell-in:hover { border-color: var(--line); }
+  .cell-in:focus { border-color: var(--accent); background: var(--card); }
+  .cell-in.mono { font-family: "IBM Plex Mono", monospace; font-size: 12px; }
+  .cell-in.invalid { border-color: var(--err); color: var(--err); }
+  input[type=date].cell-in { min-width: 128px; }
+  input.w-name { min-width: 130px; }
+  input.w-sec { min-width: 92px; }
+  input.w-dur { width: 62px; }
+  input.w-prog { width: 54px; }
+  input.w-deps { min-width: 92px; }
+  input.color-in { width: 30px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 6px; background: none; cursor: pointer; }
+  input.color-in::-webkit-color-swatch-wrapper { padding: 2px; }
+  input.color-in::-webkit-color-swatch { border: none; border-radius: 4px; }
+  .rm-btn {
+    border: 1px solid transparent; background: transparent; color: var(--muted);
+    width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .rm-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  .rm-btn:hover { color: var(--err); background: var(--err-bg); }
+
+  .io-box { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+  .io-box:last-child { border-bottom: none; }
+  .io-head { display: flex; align-items: center; gap: 8px; }
+  .io-title {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600;
+  }
+  .io-head .btn { margin-left: auto; }
+  textarea {
+    width: 100%; resize: vertical;
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; line-height: 1.55;
+    color: var(--fg); background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 9px 10px; outline: none;
+  }
+  textarea:focus { border-color: var(--accent); }
+  textarea#dsl { min-height: 118px; }
+  textarea#imp { min-height: 78px; }
+  .hint { font-size: 11.5px; color: var(--muted); line-height: 1.5; }
+  .hint code { font-family: "IBM Plex Mono", monospace; font-size: 11px; background: var(--accent-soft); color: var(--fg); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---------- footer ---------- */
+  footer {
+    flex: none; text-align: center; padding: 11px;
+    border-top: 1px solid var(--line);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px; letter-spacing: 0.12em; color: var(--muted);
+  }
+
+  @media (max-width: 820px) {
+    .panel { flex-direction: column; max-height: none; }
+    .io { max-width: none; border-left: none; border-top: 1px solid var(--line); }
+    .legend { display: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <span class="accent-square"></span>
+  <h1>Gantt Maker</h1>
+  <a class="back" href="../../" aria-label="Back to tools">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+    tools
+  </a>
+</header>
+
+<main>
+  <div class="toolbar">
+    <button class="btn small" id="sampleBtn" title="Load the sample project">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h10"/></svg> Sample
+    </button>
+    <button class="btn small" id="addBtn" title="Add a task">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg> Add task
+    </button>
+    <button class="btn small danger" id="clearBtn" title="Remove all tasks">
+      <svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/></svg> Clear
+    </button>
+    <div class="sep"></div>
+    <button class="btn icon small" id="zoomOut" title="Zoom out (wider time span)" aria-label="Zoom out">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M8 11h6"/></svg>
+    </button>
+    <button class="btn icon small" id="zoomIn" title="Zoom in (finer time span)" aria-label="Zoom in">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>
+    </button>
+    <button class="btn small" id="fitBtn" title="Fit the whole timeline to the view">
+      <svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg> Fit
+    </button>
+    <button class="btn small" id="todayBtn" title="Scroll to today">
+      <svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg> Today
+    </button>
+    <div class="spacer"></div>
+    <button class="btn small" id="expSvg" title="Export the chart as SVG">
+      <svg viewBox="0 0 24 24"><path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg> SVG
+    </button>
+    <button class="btn small" id="expPng" title="Export the chart as PNG">
+      <svg viewBox="0 0 24 24"><path d="M12 4v10m0 0l-4-4m4 4l4-4M5 19h14"/></svg> PNG
+    </button>
+    <button class="btn small" id="expCsv" title="Export tasks as CSV">
+      <svg viewBox="0 0 24 24"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/></svg> CSV
+    </button>
+    <button class="btn small" id="expJson" title="Export tasks as JSON">
+      <svg viewBox="0 0 24 24"><path d="M8 3C6 3 6 6 6 8s0 4-2 4c2 0 2 2 2 4s0 4 2 4M16 3c2 0 2 3 2 5s0 4 2 4c-2 0-2 2-2 4s0 4-2 4"/></svg> JSON
+    </button>
+    <button class="btn small solid" id="expDsl" title="Export the shareable text DSL">
+      <svg viewBox="0 0 24 24" stroke="#fff"><path d="M4 7h16M4 12h11M4 17h7"/></svg> DSL
+    </button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><span class="k">Start</span><span class="v" id="stStart">—</span></div>
+    <div class="stat"><span class="k">End</span><span class="v" id="stEnd">—</span></div>
+    <div class="stat"><span class="k">Span</span><span class="v" id="stDur">—</span></div>
+    <div class="stat"><span class="k">Tasks</span><span class="v" id="stCount">0</span></div>
+    <div class="stat cp"><span class="k">Critical path</span><span class="v" id="stCp">—</span></div>
+    <div class="legend">
+      <span><i class="swatch-crit"></i> critical</span>
+      <span><i class="swatch-prog"></i> progress</span>
+      <span><i class="swatch-today"></i> today</span>
+    </div>
+  </div>
+
+  <div class="chart-host" id="chart"></div>
+
+  <div class="panel">
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th title="On the critical path"></th>
+            <th>ID</th>
+            <th>Task</th>
+            <th>Section</th>
+            <th>Start</th>
+            <th>Dur</th>
+            <th>%</th>
+            <th>Deps</th>
+            <th>Color</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+    <div class="io">
+      <div class="io-box">
+        <div class="io-head">
+          <span class="io-title">Text DSL</span>
+          <button class="btn small" id="applyDsl" title="Replace tasks from the DSL below">
+            <svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg> Apply
+          </button>
+        </div>
+        <textarea id="dsl" spellcheck="false" autocomplete="off"></textarea>
+        <div class="hint">One task per line: <code>Name: start, duration[, %][, after Dep]</code>. Start is an ISO date or <code>after OtherTask</code>. Duration is <code>5d</code>, <code>2w</code>, or an end date. Lines starting with <code>#</code> set the section.</div>
+      </div>
+      <div class="io-box">
+        <div class="io-head">
+          <span class="io-title">Import CSV / JSON</span>
+          <button class="btn small" id="impCsv" title="Import as CSV">CSV</button>
+          <button class="btn small" id="impJson" title="Import as JSON">JSON</button>
+        </div>
+        <textarea id="imp" spellcheck="false" autocomplete="off" placeholder="id,name,section,start,duration,progress,deps,color&#10;t1,Design,Planning,2026-01-05,5,40,,"></textarea>
+        <div class="hint">Paste a CSV (header row) or a JSON array of task objects, then choose a format. <code>deps</code> reference task ids or names, separated by <code>;</code>.</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>zero dependencies</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* =========================================================================
+     ==== ENGINE START ====
+     DOM-free scheduling core: date math, duration parsing, CPM scheduler with
+     critical-path extraction, and the DSL / CSV / JSON codecs. Exported for a
+     node sanity slice; the browser skips the export and runs the UI below.
+     ========================================================================= */
+
+  var DAYMS = 86400000;
+  var MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  function pad2(n) { n = Math.floor(n); return (n < 10 ? "0" : "") + n; }
+
+  // ISO "YYYY-MM-DD" -> integer day count since the Unix epoch (UTC), or null.
+  function dateToDay(iso) {
+    if (iso == null) return null;
+    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(iso).trim());
+    if (!m) return null;
+    var y = +m[1], mo = +m[2], d = +m[3];
+    if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
+    return Math.round(Date.UTC(y, mo - 1, d) / DAYMS);
+  }
+  function dayToDate(day) {
+    var dt = new Date(day * DAYMS);
+    return dt.getUTCFullYear() + "-" + pad2(dt.getUTCMonth() + 1) + "-" + pad2(dt.getUTCDate());
+  }
+  function addDays(iso, n) { var d = dateToDay(iso); return d == null ? null : dayToDate(d + n); }
+  function daysInclusive(a, b) {
+    var da = dateToDay(a), db = dateToDay(b);
+    if (da == null || db == null) return null;
+    return db - da + 1;
+  }
+  // Documented calendar-day rule: an N-day task covers N consecutive calendar
+  // days, so its inclusive end date = start + (N - 1) days. (5d from 2026-01-05
+  // ends 2026-01-09.) The exclusive finish boundary used for scheduling is
+  // start + N days, i.e. the successor's first eligible day (finish-to-start).
+  function endInclusive(startISO, dur) { return addDays(startISO, Math.max(1, dur) - 1); }
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate());
+  }
+  function normDate(s) {
+    var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(s).trim());
+    return m ? (m[1] + "-" + pad2(+m[2]) + "-" + pad2(+m[3])) : "";
+  }
+
+  // Parse a duration cell -> integer days >= 1, or null. Accepts "5", "5d",
+  // "2w", or an ISO end date (converted against startISO, inclusive).
+  function parseDuration(val, startISO) {
+    if (val == null) return null;
+    var s = String(val).trim().toLowerCase();
+    if (!s) return null;
+    var m;
+    if ((m = /^(\d+(?:\.\d+)?)\s*w$/.exec(s))) return Math.max(1, Math.round(parseFloat(m[1]) * 7));
+    if ((m = /^(\d+(?:\.\d+)?)\s*d?$/.exec(s))) return Math.max(1, Math.round(parseFloat(m[1])));
+    if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(s) && startISO) {
+      var di = daysInclusive(startISO, s);
+      return di && di >= 1 ? di : 1;
+    }
+    return null;
+  }
+
+  // Forward + backward critical-path pass over a task list.
+  //   task = { id, name, section, start(iso|""), duration(int>=1), progress,
+  //            deps:[id], color }
+  // A task's early start = max(its declared start, latest dependency finish);
+  // rootless/startless tasks fall back to the project start day. Returns per-id
+  // schedule facts plus the project window and the critical path (the longest
+  // dependency chain, by summed duration).
+  function schedule(tasks) {
+    var byId = {}, ids = [], i;
+    for (i = 0; i < tasks.length; i++) { byId[tasks[i].id] = tasks[i]; ids.push(tasks[i].id); }
+
+    var deps = {}, succ = {}, indeg = {};
+    ids.forEach(function (id) { deps[id] = []; succ[id] = []; indeg[id] = 0; });
+    ids.forEach(function (id) {
+      var seen = {};
+      (byId[id].deps || []).forEach(function (d) {
+        if (byId[d] && d !== id && !seen[d]) { seen[d] = 1; deps[id].push(d); }
+      });
+    });
+    ids.forEach(function (id) { deps[id].forEach(function (d) { succ[d].push(id); indeg[id]++; }); });
+
+    // Kahn topological sort; any nodes left over sit on a cycle -> appended so
+    // scheduling still terminates (the back-edge constraint is simply relaxed).
+    var queue = [], order = [], seenOrder = {};
+    ids.forEach(function (id) { if (indeg[id] === 0) queue.push(id); });
+    while (queue.length) {
+      var u = queue.shift(); order.push(u); seenOrder[u] = 1;
+      succ[u].forEach(function (v) { if (--indeg[v] === 0) queue.push(v); });
+    }
+    if (order.length < ids.length) ids.forEach(function (id) { if (!seenOrder[id]) order.push(id); });
+
+    var starts = [];
+    ids.forEach(function (id) { var d = dateToDay(byId[id].start); if (d != null) starts.push(d); });
+    var projStart = starts.length ? Math.min.apply(null, starts) : dateToDay(todayISO());
+
+    var ES = {}, EF = {};
+    order.forEach(function (id) {
+      var dur = Math.max(1, byId[id].duration || 1);
+      var depMax = null;
+      deps[id].forEach(function (d) { if (EF[d] != null) depMax = depMax == null ? EF[d] : Math.max(depMax, EF[d]); });
+      var declared = dateToDay(byId[id].start);
+      var es;
+      if (declared != null && depMax != null) es = Math.max(declared, depMax);
+      else if (declared != null) es = declared;
+      else if (depMax != null) es = depMax;
+      else es = projStart;
+      ES[id] = es; EF[id] = es + dur;
+    });
+    var finish = ids.length ? Math.max.apply(null, ids.map(function (id) { return EF[id]; })) : projStart;
+
+    var LS = {}, LF = {};
+    for (i = order.length - 1; i >= 0; i--) {
+      var id = order[i], dur2 = Math.max(1, byId[id].duration || 1);
+      var lf = null;
+      succ[id].forEach(function (v) { if (LS[v] != null) lf = lf == null ? LS[v] : Math.min(lf, LS[v]); });
+      if (lf == null) lf = finish;
+      LF[id] = lf; LS[id] = lf - dur2;
+    }
+
+    var res = {};
+    ids.forEach(function (id) {
+      var dur = Math.max(1, byId[id].duration || 1);
+      var slack = LS[id] - ES[id];
+      res[id] = {
+        es: ES[id], ef: EF[id], ls: LS[id], lf: LF[id], slack: slack, critical: slack === 0,
+        startDay: ES[id], endDayExcl: EF[id], endDayIncl: EF[id] - 1,
+        startISO: dayToDate(ES[id]), endISO: dayToDate(EF[id] - 1), duration: dur
+      };
+    });
+
+    // Critical path = longest weighted chain over binding critical dep-edges
+    // (dep -> task where both are critical and the dep's finish binds the
+    // task's start). Memoised longest-path DP; ties resolve to the first found.
+    var critEdge = {};
+    ids.forEach(function (id) { critEdge[id] = []; });
+    ids.forEach(function (id) {
+      if (!res[id].critical) return;
+      deps[id].forEach(function (d) {
+        if (res[d] && res[d].critical && EF[d] === ES[id]) critEdge[d].push(id);
+      });
+    });
+    var best = {}, nextOf = {};
+    function longest(id) {
+      if (best[id] != null) return best[id];
+      var bl = res[id].duration, bn = null;
+      critEdge[id].forEach(function (v) {
+        var cand = res[id].duration + longest(v);
+        if (cand > bl) { bl = cand; bn = v; }
+      });
+      best[id] = bl; nextOf[id] = bn; return bl;
+    }
+    var chainStart = null, chainLen = -1;
+    ids.forEach(function (id) {
+      if (!res[id].critical) return;
+      var hasIn = false;
+      deps[id].forEach(function (d) { if (res[d] && res[d].critical && EF[d] === ES[id]) hasIn = true; });
+      if (hasIn) return;
+      var l = longest(id);
+      if (l > chainLen) { chainLen = l; chainStart = id; }
+    });
+    var criticalPath = [], cur = chainStart;
+    while (cur != null) { criticalPath.push(cur); cur = nextOf[cur]; }
+
+    return {
+      tasks: res, order: order, deps: deps, succ: succ,
+      projectStartDay: projStart, projectFinishDay: finish,
+      projectStartISO: dayToDate(projStart), projectEndISO: dayToDate(finish - 1),
+      durationDays: finish - projStart, criticalPath: criticalPath
+    };
+  }
+
+  /* ---------------- text DSL codec ---------------- */
+  function parseDSL(text, idGen) {
+    var mk = idGen || (function () { var n = 0; return function () { return "t" + (++n); }; })();
+    var lines = String(text).split(/\r?\n/);
+    var out = [], pending = [], section = "";
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li].trim();
+      if (!line || line.indexOf("//") === 0) continue;
+      if (line.charAt(0) === "#") {
+        section = line.replace(/^#+/, "").replace(/^\s*section\s*:?/i, "").trim();
+        continue;
+      }
+      var ci = line.indexOf(":");
+      if (ci < 0) continue;
+      var name = line.slice(0, ci).trim();
+      if (!name) continue;
+      var rest = line.slice(ci + 1).trim();
+      var fields = rest.length ? rest.split(",").map(function (s) { return s.trim(); }).filter(function (s) { return s.length; }) : [];
+      var t = { id: mk(), name: name, section: section, start: "", duration: null, progress: 0, deps: [], color: "" };
+      var depNames = [], haveStart = false, haveDur = false;
+      fields.forEach(function (fld) {
+        var m;
+        if (/^after\b/i.test(fld)) {
+          fld.replace(/^after\s+/i, "").split(/[\s;&]+/).forEach(function (r) { if (r) depNames.push(r); });
+          return;
+        }
+        if (fld.charAt(0) === "@") { fld.split(/\s+/).forEach(function (r) { r = r.replace(/^@/, ""); if (r) depNames.push(r); }); return; }
+        if ((m = /^(\d{1,3})\s*%$/.exec(fld))) { t.progress = Math.max(0, Math.min(100, +m[1])); return; }
+        if (/^#[0-9a-f]{3,8}$/i.test(fld)) { t.color = fld; return; }
+        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(fld)) {
+          if (!haveStart) { t.start = normDate(fld); haveStart = true; }
+          else if (!haveDur) { var dd = parseDuration(fld, t.start); if (dd) { t.duration = dd; haveDur = true; } }
+          return;
+        }
+        var dur = parseDuration(fld, t.start);
+        if (dur != null) { t.duration = dur; haveDur = true; }
+      });
+      if (t.duration == null) t.duration = 1;
+      out.push(t);
+      pending.push({ t: t, depNames: depNames });
+    }
+    var byName = {}, byIdKey = {};
+    out.forEach(function (t) { byName[t.name.toLowerCase()] = t.id; byIdKey[t.id.toLowerCase()] = t.id; });
+    pending.forEach(function (p) {
+      p.depNames.forEach(function (nm) {
+        var id = byName[nm.toLowerCase()] || byIdKey[nm.toLowerCase()];
+        if (id && id !== p.t.id && p.t.deps.indexOf(id) < 0) p.t.deps.push(id);
+      });
+    });
+    return out;
+  }
+
+  function serializeDSL(tasks) {
+    var byId = {};
+    tasks.forEach(function (t) { byId[t.id] = t; });
+    function nameOf(id) { return byId[id] ? byId[id].name : id; }
+    var lines = [], lastSec = null;
+    tasks.forEach(function (t) {
+      var sec = t.section || "";
+      if (sec !== lastSec) { if (lines.length) lines.push(""); lines.push("# " + (sec || "Tasks")); lastSec = sec; }
+      var parts = [];
+      var hasDeps = t.deps && t.deps.length;
+      if (t.start) parts.push(t.start);
+      else if (hasDeps) parts.push("after " + t.deps.map(nameOf).join(" "));
+      else parts.push(todayISO());
+      parts.push((t.duration || 1) + "d");
+      if (t.progress) parts.push(t.progress + "%");
+      if (t.start && hasDeps) parts.push("after " + t.deps.map(nameOf).join(" "));
+      lines.push(t.name + ": " + parts.join(", "));
+    });
+    return lines.join("\n");
+  }
+
+  /* ---------------- CSV codec ---------------- */
+  function parseCSV(text) {
+    var rows = [], row = [], cur = "", inq = false, i = 0, c;
+    text = String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+    while (i < text.length) {
+      c = text[i];
+      if (inq) {
+        if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i += 2; continue; } inq = false; i++; continue; }
+        cur += c; i++; continue;
+      }
+      if (c === '"') { inq = true; i++; continue; }
+      if (c === ",") { row.push(cur); cur = ""; i++; continue; }
+      if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; i++; continue; }
+      cur += c; i++;
+    }
+    row.push(cur); rows.push(row);
+    return rows.filter(function (r) { return !(r.length === 1 && r[0].trim() === ""); });
+  }
+
+  function tasksFromCSV(text, idGen) {
+    var mk = idGen || (function () { var n = 0; return function () { return "t" + (++n); }; })();
+    var rows = parseCSV(text);
+    if (!rows.length) return [];
+    var header = rows[0].map(function (h) { return h.trim().toLowerCase(); });
+    function col(names) { for (var k = 0; k < names.length; k++) { var idx = header.indexOf(names[k]); if (idx >= 0) return idx; } return -1; }
+    var ci = {
+      id: col(["id"]), name: col(["name", "task"]), section: col(["section", "group"]),
+      start: col(["start", "start date", "begin"]), duration: col(["duration", "dur", "days"]),
+      end: col(["end", "end date", "finish"]), progress: col(["progress", "percent", "%", "complete"]),
+      deps: col(["deps", "dependencies", "depends", "after"]), color: col(["color", "colour"])
+    };
+    var out = [];
+    for (var r = 1; r < rows.length; r++) {
+      var cells = rows[r];
+      var get = function (k) { return ci[k] >= 0 ? (cells[ci[k]] || "").trim() : ""; };
+      var name = get("name");
+      if (!name) continue;
+      var start = get("start"); start = /^\d{4}-\d{1,2}-\d{1,2}$/.test(start) ? normDate(start) : "";
+      var dur = parseDuration(get("duration"), start);
+      if (dur == null) { var ev = get("end"); if (start && /^\d{4}-\d{1,2}-\d{1,2}$/.test(ev)) dur = daysInclusive(start, normDate(ev)); }
+      if (dur == null || dur < 1) dur = 1;
+      out.push({
+        id: get("id") || mk(), name: name, section: get("section"), start: start,
+        duration: dur, progress: Math.max(0, Math.min(100, parseInt(get("progress"), 10) || 0)),
+        deps: get("deps") ? get("deps").split(/[;|,\s]+/).filter(function (x) { return x; }) : [],
+        color: /^#[0-9a-f]{3,8}$/i.test(get("color")) ? get("color") : ""
+      });
+    }
+    var byName = {}, byIdKey = {};
+    out.forEach(function (t) { byName[t.name.toLowerCase()] = t.id; byIdKey[t.id] = t.id; });
+    out.forEach(function (t) {
+      t.deps = t.deps.map(function (d) { return byIdKey[d] || byName[d.toLowerCase()] || d; })
+                     .filter(function (d) { return byIdKey[d]; });
+    });
+    return out;
+  }
+
+  function tasksToCSV(tasks) {
+    var head = ["id", "name", "section", "start", "duration", "progress", "deps", "color"];
+    function q(v) { v = v == null ? "" : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+    var lines = [head.join(",")];
+    tasks.forEach(function (t) {
+      lines.push([t.id, t.name, t.section, t.start, t.duration, t.progress, (t.deps || []).join(";"), t.color].map(q).join(","));
+    });
+    return lines.join("\n");
+  }
+
+  var ENGINE = {
+    dateToDay: dateToDay, dayToDate: dayToDate, addDays: addDays, daysInclusive: daysInclusive,
+    endInclusive: endInclusive, parseDuration: parseDuration, todayISO: todayISO,
+    schedule: schedule, parseDSL: parseDSL, serializeDSL: serializeDSL,
+    parseCSV: parseCSV, tasksFromCSV: tasksFromCSV, tasksToCSV: tasksToCSV
+  };
+  if (typeof module !== "undefined" && module.exports) module.exports = ENGINE;
+  /* ==== ENGINE END ==== */
+
+  if (typeof document === "undefined") return;
+
+  /* =========================================================================
+     ==== UI / SVG RENDER ====
+     ========================================================================= */
+  var SECTION_PALETTE = ["#2e9e5b", "#1c7ed6", "#e8590c", "#7048e8", "#e64980", "#0ca678", "#f59f00", "#9c36b5"];
+  var LABEL_W = 200, HEADER_H = 50, ROW_H = 32, SEC_H = 30, BAR_H = 15, RPAD = 30;
+
+  var state = { tasks: [], pxPerDay: 22 };
+  var idCounter = 0;
+  var lastLayout = { minDay: 0, pxPerDay: 22 };
+
+  function mkid() { return "t" + (++idCounter); }
+  function bumpCounter(tasks) {
+    tasks.forEach(function (t) { var m = /^t(\d+)$/.exec(t.id); if (m) idCounter = Math.max(idCounter, +m[1]); });
+  }
+  function taskById(id) { for (var i = 0; i < state.tasks.length; i++) if (state.tasks[i].id === id) return state.tasks[i]; return null; }
+
+  var els = {
+    chart: document.getElementById("chart"),
+    tbody: document.getElementById("tbody"),
+    dsl: document.getElementById("dsl"),
+    imp: document.getElementById("imp"),
+    stStart: document.getElementById("stStart"),
+    stEnd: document.getElementById("stEnd"),
+    stDur: document.getElementById("stDur"),
+    stCount: document.getElementById("stCount"),
+    stCp: document.getElementById("stCp")
+  };
+
+  function theme() {
+    var cs = getComputedStyle(document.documentElement);
+    function g(n) { return cs.getPropertyValue(n).trim(); }
+    return { bg: g("--bg"), fg: g("--fg"), muted: g("--muted"), line: g("--line"), card: g("--card"), accent: g("--accent") };
+  }
+  function hexToRgba(hex, a) {
+    var m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex || "").trim());
+    if (!m) return hex;
+    var h = m[1];
+    if (h.length === 3) h = h[0] + h[0] + h[1] + h[1] + h[2] + h[2];
+    return "rgba(" + parseInt(h.slice(0, 2), 16) + "," + parseInt(h.slice(2, 4), 16) + "," + parseInt(h.slice(4, 6), 16) + "," + a + ")";
+  }
+  function f(n) { return Math.round(n * 100) / 100; }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"); }
+  var MONO = "IBM Plex Mono, monospace";
+
+  function rect(x, y, w, h, fill, rx) {
+    return '<rect x="' + f(x) + '" y="' + f(y) + '" width="' + f(w) + '" height="' + f(h) + '"' + (rx ? ' rx="' + rx + '"' : '') + ' fill="' + fill + '"/>';
+  }
+  function line(x1, y1, x2, y2, stroke, sw, dash) {
+    return '<line x1="' + f(x1) + '" y1="' + f(y1) + '" x2="' + f(x2) + '" y2="' + f(y2) + '" stroke="' + stroke + '" stroke-width="' + (sw || 1) + '"' + (dash ? ' stroke-dasharray="' + dash + '"' : '') + '/>';
+  }
+  function text(x, y, s, fill, size, o) {
+    o = o || {};
+    return '<text x="' + f(x) + '" y="' + f(y) + '" fill="' + fill + '" font-size="' + size + '"'
+      + (o.weight ? ' font-weight="' + o.weight + '"' : '')
+      + (o.anchor ? ' text-anchor="' + o.anchor + '"' : '')
+      + (o.family ? ' font-family="' + o.family + '"' : '')
+      + (o.spacing ? ' letter-spacing="' + o.spacing + '"' : '')
+      + '>' + esc(s) + '</text>';
+  }
+
+  function sectionColorMap() {
+    var secs = [], idx = {};
+    state.tasks.forEach(function (t) { var s = t.section || "General"; if (idx[s] == null) { idx[s] = secs.length; secs.push(s); } });
+    var map = {};
+    secs.forEach(function (s, i) { map[s] = SECTION_PALETTE[i % SECTION_PALETTE.length]; });
+    return map;
+  }
+  function resolvedColor(t, secMap) { return t.color || secMap[t.section || "General"] || SECTION_PALETTE[0]; }
+
+  function trunc(s) {
+    s = String(s);
+    var max = Math.max(4, Math.floor((LABEL_W - 40) / 6.7));
+    return s.length > max ? s.slice(0, max - 1) + "…" : s;
+  }
+
+  function buildChart(sch) {
+    var host = els.chart;
+    if (!state.tasks.length) { host.innerHTML = '<div class="empty">No tasks yet. Add a task, load the sample, or paste a DSL / CSV.</div>'; return; }
+    var th = theme();
+    var secMap = sectionColorMap();
+    var px = state.pxPerDay;
+
+    // rows grouped by section (first-seen order)
+    var sections = [], seen = {};
+    state.tasks.forEach(function (t) { var s = t.section || "General"; if (!seen[s]) { seen[s] = 1; sections.push(s); } });
+    var rows = [];
+    sections.forEach(function (s) {
+      rows.push({ type: "section", name: s });
+      state.tasks.forEach(function (t) { if ((t.section || "General") === s) rows.push({ type: "task", task: t }); });
+    });
+
+    // date window (include today), pad, align left edge to a Monday
+    var today = dateToDay(todayISO());
+    var minDay = Math.min(sch.projectStartDay, today) - 2;
+    var maxDay = Math.max(sch.projectFinishDay, today + 1) + 2;
+    var wd = new Date(minDay * DAYMS).getUTCDay();
+    minDay -= (wd === 0 ? 6 : wd - 1);
+    var numDays = Math.max(1, maxDay - minDay);
+    var scale = px >= 15 ? "day" : (px >= 4.5 ? "week" : "month");
+    if (scale === "day" && numDays > 1400) scale = "week";
+
+    var xOf = function (day) { return LABEL_W + (day - minDay) * px; };
+    var chartW = numDays * px;
+    var totalW = LABEL_W + chartW + RPAD;
+
+    var y = HEADER_H;
+    rows.forEach(function (r) { r.y = y; r.h = (r.type === "section" ? SEC_H : ROW_H); y += r.h; });
+    var totalH = y + 10;
+
+    lastLayout = { minDay: minDay, px: px };
+
+    var gridFaint = hexToRgba(th.muted, 0.10);
+    var gridMed = hexToRgba(th.muted, 0.22);
+    var weekendFill = hexToRgba(th.muted, 0.07);
+    var arrowMuted = hexToRgba(th.muted, 0.55);
+
+    var p = [];
+    p.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + totalW + '" height="' + totalH + '" viewBox="0 0 ' + totalW + ' ' + totalH + '" font-family="IBM Plex Sans, sans-serif">');
+    p.push(rect(0, 0, totalW, totalH, th.card));
+    p.push(rect(0, 0, LABEL_W, totalH, th.bg));
+
+    // section bands (chart area)
+    rows.forEach(function (r) {
+      if (r.type === "section") p.push(rect(LABEL_W, r.y, chartW + RPAD, r.h, hexToRgba(secMap[r.name], 0.08)));
+    });
+
+    // weekend shading (day scale)
+    if (scale === "day") {
+      for (var dd = minDay; dd < minDay + numDays; dd++) {
+        var w2 = new Date(dd * DAYMS).getUTCDay();
+        if (w2 === 0 || w2 === 6) p.push(rect(xOf(dd), HEADER_H, px, totalH - HEADER_H, weekendFill));
+      }
+    }
+
+    // vertical grid lines
+    for (var g0 = minDay; g0 <= minDay + numDays; g0++) {
+      var gdt = new Date(g0 * DAYMS), gw = gdt.getUTCDay(), first = gdt.getUTCDate() === 1;
+      var col = null;
+      if (first) col = th.line;
+      else if (scale === "day") col = (gw === 1 ? gridMed : gridFaint);
+      else if (scale === "week" && gw === 1) col = gridFaint;
+      if (col) p.push(line(xOf(g0), HEADER_H, xOf(g0), totalH, col, 1));
+    }
+
+    // bars + labels
+    rows.forEach(function (r) {
+      if (r.type === "section") {
+        p.push(rect(12, r.y + r.h / 2 - 5, 10, 10, secMap[r.name], 2));
+        p.push(text(28, r.y + r.h / 2 + 4, trunc(r.name).toUpperCase(), th.fg, 11, { weight: 600, family: MONO, spacing: "0.08em" }));
+        return;
+      }
+      var t = r.task, rr = sch.tasks[t.id];
+      var color = resolvedColor(t, secMap);
+      var x1 = xOf(rr.startDay), x2 = xOf(rr.endDayExcl), w = Math.max(4, x2 - x1);
+      var by = r.y + (r.h - BAR_H) / 2;
+      var crit = rr.critical;
+      p.push(text(20, r.y + r.h / 2 + 4, trunc(t.name), th.fg, 12.5, {}));
+
+      var g = '<g><title>' + esc(t.name + "   " + rr.startISO + " → " + rr.endISO + "   " + rr.duration + "d, " + (t.progress || 0) + "%" + (crit ? "   • critical path" : "")) + '</title>';
+      g += rect(x1, by, w, BAR_H, hexToRgba(color, 0.30), 4);
+      var pw = Math.max(0, Math.min(w, w * ((t.progress || 0) / 100)));
+      if (pw > 0.5) g += rect(x1, by, pw, BAR_H, color, 4);
+      g += '<rect class="bardrag" data-id="' + t.id + '" x="' + f(x1) + '" y="' + f(by) + '" width="' + f(w) + '" height="' + BAR_H + '" rx="4" fill="transparent" stroke="' + (crit ? th.accent : hexToRgba(color, 0.9)) + '" stroke-width="' + (crit ? 2 : 1) + '" style="cursor:grab"/>';
+      if (w > 30) g += text(x2 + 6, by + BAR_H - 3, (t.progress || 0) + "%", th.muted, 10, { family: MONO });
+      g += '</g>';
+      p.push(g);
+    });
+
+    // dependency arrows (on top of bars)
+    var centerY = {};
+    rows.forEach(function (r) { if (r.type === "task") centerY[r.task.id] = r.y + r.h / 2; });
+    state.tasks.forEach(function (t) {
+      (t.deps || []).forEach(function (d) {
+        if (!sch.tasks[d] || !sch.tasks[t.id] || centerY[d] == null || centerY[t.id] == null) return;
+        var sx = xOf(sch.tasks[d].endDayExcl), sy = centerY[d];
+        var tx = xOf(sch.tasks[t.id].startDay), ty = centerY[t.id];
+        var isCrit = sch.tasks[d].critical && sch.tasks[t.id].critical && sch.tasks[d].ef === sch.tasks[t.id].es;
+        var col = isCrit ? th.accent : arrowMuted;
+        var gap = 9, path;
+        if (tx - sx >= gap + 6) path = "M" + f(sx) + " " + f(sy) + " H" + f(sx + gap) + " V" + f(ty) + " H" + f(tx);
+        else {
+          var midy = sy < ty ? sy + ROW_H * 0.5 : sy - ROW_H * 0.5;
+          path = "M" + f(sx) + " " + f(sy) + " H" + f(sx + gap) + " V" + f(midy) + " H" + f(tx - gap) + " V" + f(ty) + " H" + f(tx);
+        }
+        p.push('<path d="' + path + '" fill="none" stroke="' + col + '" stroke-width="' + (isCrit ? 1.8 : 1.2) + '"/>');
+        p.push('<path d="M' + f(tx) + ' ' + f(ty) + ' L' + f(tx - 6) + ' ' + f(ty - 3.4) + ' L' + f(tx - 6) + ' ' + f(ty + 3.4) + ' Z" fill="' + col + '"/>');
+      });
+    });
+
+    // today line
+    if (today >= minDay && today <= minDay + numDays) {
+      var txd = xOf(today);
+      p.push(line(txd, HEADER_H, txd, totalH, th.accent, 1.5, "4 3"));
+    }
+
+    // header strip + axis labels (drawn last, over everything)
+    p.push(rect(0, 0, totalW, HEADER_H, th.bg));
+    // top tier: months
+    var d0 = minDay;
+    while (d0 < minDay + numDays) {
+      var mdt = new Date(d0 * DAYMS), yy = mdt.getUTCFullYear(), mm = mdt.getUTCMonth();
+      var mEnd = Math.round(Date.UTC(yy, mm + 1, 1) / DAYMS);
+      var segEnd = Math.min(mEnd, minDay + numDays);
+      var cx = (xOf(Math.max(d0, minDay)) + xOf(segEnd)) / 2;
+      p.push(text(cx, 18, MONTHS[mm] + " " + yy, th.fg, 12, { weight: 600, anchor: "middle" }));
+      if (mEnd > minDay && mEnd < minDay + numDays) p.push(line(xOf(mEnd), 0, xOf(mEnd), HEADER_H, th.line, 1));
+      d0 = mEnd;
+    }
+    // bottom tier
+    if (scale === "day") {
+      for (var dn = minDay; dn < minDay + numDays; dn++) {
+        var ddt = new Date(dn * DAYMS), wknd = (ddt.getUTCDay() === 0 || ddt.getUTCDay() === 6);
+        p.push(text(xOf(dn) + px / 2, 40, String(ddt.getUTCDate()), wknd ? hexToRgba(th.muted, 0.7) : th.muted, 10, { anchor: "middle", family: MONO }));
+      }
+    } else if (scale === "week") {
+      for (var wk = minDay; wk < minDay + numDays; wk++) {
+        var wdt = new Date(wk * DAYMS);
+        if (wdt.getUTCDay() === 1) p.push(text(xOf(wk) + 4, 40, MONTHS[wdt.getUTCMonth()] + " " + wdt.getUTCDate(), th.muted, 10, { family: MONO }));
+      }
+    }
+    p.push(line(0, HEADER_H, totalW, HEADER_H, th.line, 1));
+    p.push(line(LABEL_W, 0, LABEL_W, totalH, th.line, 1));
+    if (today >= minDay && today <= minDay + numDays) {
+      var tx2 = xOf(today);
+      p.push(text(tx2 + 4, HEADER_H - 4, "TODAY", th.accent, 9, { family: MONO, weight: 600, spacing: "0.1em" }));
+    }
+    p.push('</svg>');
+
+    host.innerHTML = p.join("");
+    attachDrag(sch);
+  }
+
+  function attachDrag(sch) {
+    var svg = els.chart.querySelector("svg");
+    if (!svg) return;
+    var bars = svg.querySelectorAll(".bardrag");
+    Array.prototype.forEach.call(bars, function (b) {
+      b.addEventListener("pointerdown", function (ev) {
+        ev.preventDefault();
+        var id = b.getAttribute("data-id");
+        var t = taskById(id);
+        if (!t || !sch.tasks[id]) return;
+        var origStart = sch.tasks[id].startDay, ox = ev.clientX, moved = false;
+        document.body.classList.add("dragging");
+        function mv(e) {
+          var dd = Math.round((e.clientX - ox) / state.pxPerDay);
+          if (dd === 0 && !moved) return;
+          moved = true;
+          t.start = dayToDate(origStart + dd);
+          render();
+        }
+        function up() {
+          window.removeEventListener("pointermove", mv);
+          window.removeEventListener("pointerup", up);
+          document.body.classList.remove("dragging");
+          if (moved) rebuildTable();
+        }
+        window.addEventListener("pointermove", mv);
+        window.addEventListener("pointerup", up);
+      });
+    });
+  }
+
+  function buildStats(sch) {
+    els.stStart.textContent = state.tasks.length ? sch.projectStartISO : "—";
+    els.stEnd.textContent = state.tasks.length ? sch.projectEndISO : "—";
+    els.stDur.textContent = state.tasks.length ? (sch.durationDays + " days") : "—";
+    els.stCount.textContent = state.tasks.length;
+    var cp = sch.criticalPath.map(function (id) { var t = taskById(id); return t ? t.name : id; });
+    els.stCp.textContent = cp.length ? cp.join("  →  ") : "—";
+    els.stCp.title = cp.length ? cp.join(" -> ") : "";
+  }
+
+  function updateDSL() {
+    if (document.activeElement !== els.dsl) els.dsl.value = serializeDSL(state.tasks);
+  }
+
+  function render() {
+    var sch = schedule(state.tasks);
+    buildChart(sch);
+    buildStats(sch);
+    updateDSL();
+    return sch;
+  }
+
+  /* ---------------- table ---------------- */
+  var TRASH = '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7"/></svg>';
+
+  function rebuildTable() {
+    var sch = schedule(state.tasks);
+    var secMap = sectionColorMap();
+    els.tbody.innerHTML = "";
+    state.tasks.forEach(function (t) { els.tbody.appendChild(taskRow(t, sch, secMap)); });
+  }
+
+  function taskRow(t, sch, secMap) {
+    var tr = document.createElement("tr");
+    var crit = sch.tasks[t.id] && sch.tasks[t.id].critical;
+
+    var tdCrit = document.createElement("td"); tdCrit.className = "crit-dot";
+    if (crit) tdCrit.innerHTML = '<span class="cdot" title="On the critical path"></span>';
+    tr.appendChild(tdCrit);
+
+    var tdId = document.createElement("td"); tdId.className = "id"; tdId.textContent = t.id; tr.appendChild(tdId);
+
+    tr.appendChild(cell(inputEl("text", t.name, "cell-in w-name", function (v) { t.name = v; render(); })));
+    tr.appendChild(cell(inputEl("text", t.section, "cell-in w-sec", function (v) { t.section = v; render(); rebuildTable(); }, "General")));
+    tr.appendChild(cell(inputEl("date", t.start, "cell-in mono", function (v) { t.start = v; render(); }, "auto")));
+
+    var durIn = inputEl("text", String(t.duration), "cell-in mono w-dur", null, "5d");
+    durIn.addEventListener("input", function () {
+      var d = parseDuration(durIn.value, t.start);
+      if (d == null) { durIn.classList.add("invalid"); return; }
+      durIn.classList.remove("invalid"); t.duration = d; render();
+    });
+    durIn.addEventListener("blur", function () { durIn.value = String(t.duration); durIn.classList.remove("invalid"); });
+    tr.appendChild(cell(durIn));
+
+    var progIn = inputEl("number", String(t.progress || 0), "cell-in mono w-prog", function (v) {
+      var n = Math.max(0, Math.min(100, parseInt(v, 10) || 0)); t.progress = n; render();
+    });
+    progIn.min = 0; progIn.max = 100;
+    tr.appendChild(cell(progIn));
+
+    var depsIn = inputEl("text", (t.deps || []).join(" "), "cell-in mono w-deps", null, "t1 t2");
+    depsIn.addEventListener("change", function () {
+      var names = depsIn.value.split(/[\s,;]+/).filter(function (x) { return x; });
+      var byId = {}, byName = {};
+      state.tasks.forEach(function (o) { byId[o.id] = o.id; byName[o.name.toLowerCase()] = o.id; });
+      var out = [];
+      names.forEach(function (n) { var id = byId[n] || byName[n.toLowerCase()]; if (id && id !== t.id && out.indexOf(id) < 0) out.push(id); });
+      t.deps = out; depsIn.value = out.join(" "); render();
+    });
+    tr.appendChild(cell(depsIn));
+
+    var colorIn = document.createElement("input");
+    colorIn.type = "color"; colorIn.className = "color-in";
+    colorIn.value = resolvedColor(t, secMap);
+    colorIn.title = "Bar color (defaults to the section color)";
+    colorIn.addEventListener("input", function () { t.color = colorIn.value; render(); });
+    tr.appendChild(cell(colorIn));
+
+    var rm = document.createElement("button");
+    rm.className = "rm-btn"; rm.innerHTML = TRASH; rm.title = "Remove task";
+    rm.addEventListener("click", function () {
+      state.tasks = state.tasks.filter(function (o) { return o.id !== t.id; });
+      state.tasks.forEach(function (o) { o.deps = (o.deps || []).filter(function (d) { return d !== t.id; }); });
+      rebuildTable(); render();
+    });
+    tr.appendChild(cell(rm));
+
+    return tr;
+  }
+
+  function cell(node) { var td = document.createElement("td"); td.appendChild(node); return td; }
+  function inputEl(type, val, cls, onChange, ph) {
+    var el = document.createElement("input");
+    el.type = type; el.className = cls; el.value = val == null ? "" : val;
+    if (ph) el.placeholder = ph;
+    el.spellcheck = false; el.autocomplete = "off";
+    if (onChange) el.addEventListener("input", function () { onChange(el.value); });
+    return el;
+  }
+
+  /* ---------------- data ops ---------------- */
+  function setTasks(tasks) {
+    state.tasks = tasks || [];
+    idCounter = 0; bumpCounter(state.tasks);
+    rebuildTable(); render();
+  }
+
+  function sampleTasks() {
+    return [
+      { id: "t1", name: "Kickoff", section: "Planning", start: "2026-01-05", duration: 2, progress: 100, deps: [], color: "" },
+      { id: "t2", name: "Requirements", section: "Planning", start: "", duration: 4, progress: 100, deps: ["t1"], color: "" },
+      { id: "t3", name: "Architecture", section: "Design", start: "", duration: 5, progress: 60, deps: ["t2"], color: "" },
+      { id: "t4", name: "UI Mockups", section: "Design", start: "", duration: 6, progress: 45, deps: ["t2"], color: "" },
+      { id: "t5", name: "Backend", section: "Build", start: "", duration: 10, progress: 20, deps: ["t3"], color: "" },
+      { id: "t6", name: "Frontend", section: "Build", start: "", duration: 9, progress: 15, deps: ["t3", "t4"], color: "" },
+      { id: "t7", name: "Integration", section: "Build", start: "", duration: 4, progress: 0, deps: ["t5", "t6"], color: "" },
+      { id: "t8", name: "QA & Hardening", section: "Launch", start: "", duration: 5, progress: 0, deps: ["t7"], color: "" },
+      { id: "t9", name: "Release", section: "Launch", start: "", duration: 2, progress: 0, deps: ["t8"], color: "" }
+    ];
+  }
+
+  function fitScale() {
+    if (!state.tasks.length) return;
+    var sch = schedule(state.tasks);
+    var today = dateToDay(todayISO());
+    var minDay = Math.min(sch.projectStartDay, today) - 2;
+    var maxDay = Math.max(sch.projectFinishDay, today + 1) + 2;
+    var wd = new Date(minDay * DAYMS).getUTCDay();
+    minDay -= (wd === 0 ? 6 : wd - 1);
+    var numDays = Math.max(1, maxDay - minDay);
+    var avail = els.chart.clientWidth - LABEL_W - RPAD;
+    state.pxPerDay = Math.max(1.5, Math.min(60, avail / numDays));
+    render();
+  }
+
+  function goToday() {
+    var today = dateToDay(todayISO());
+    var x = LABEL_W + (today - lastLayout.minDay) * lastLayout.px;
+    els.chart.scrollLeft = Math.max(0, x - els.chart.clientWidth * 0.4);
+  }
+
+  /* ---------------- exports ---------------- */
+  function download(filename, textContent, mime) {
+    var blob = new Blob([textContent], { type: mime || "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    downloadURL(url, filename);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+  }
+  function downloadURL(url, filename) {
+    var a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function exportSVG() {
+    var svg = els.chart.querySelector("svg"); if (!svg) return;
+    var s = new XMLSerializer().serializeToString(svg);
+    if (!/^<\?xml/.test(s)) s = '<?xml version="1.0" encoding="UTF-8"?>\n' + s;
+    download("gantt.svg", s, "image/svg+xml;charset=utf-8");
+  }
+  function exportPNG() {
+    var svg = els.chart.querySelector("svg"); if (!svg) return;
+    var w = +svg.getAttribute("width"), h = +svg.getAttribute("height"), scale = 2;
+    var s = new XMLSerializer().serializeToString(svg);
+    var img = new Image();
+    img.onload = function () {
+      var cv = document.createElement("canvas");
+      cv.width = Math.round(w * scale); cv.height = Math.round(h * scale);
+      var c = cv.getContext("2d");
+      c.scale(scale, scale);
+      c.fillStyle = theme().card; c.fillRect(0, 0, w, h);
+      c.drawImage(img, 0, 0);
+      cv.toBlob(function (b) { var u = URL.createObjectURL(b); downloadURL(u, "gantt.png"); setTimeout(function () { URL.revokeObjectURL(u); }, 4000); }, "image/png");
+    };
+    img.onerror = function () { alert("PNG export failed."); };
+    img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(s);
+  }
+
+  /* ---------------- wire up ---------------- */
+  document.getElementById("sampleBtn").addEventListener("click", function () { setTasks(sampleTasks()); fitScale(); });
+  document.getElementById("addBtn").addEventListener("click", function () {
+    var lastSec = state.tasks.length ? state.tasks[state.tasks.length - 1].section : "General";
+    state.tasks.push({ id: mkid(), name: "New task", section: lastSec || "General", start: state.tasks.length ? "" : todayISO(), duration: 3, progress: 0, deps: [], color: "" });
+    rebuildTable(); render();
+  });
+  document.getElementById("clearBtn").addEventListener("click", function () { setTasks([]); });
+  document.getElementById("zoomIn").addEventListener("click", function () { state.pxPerDay = Math.min(60, state.pxPerDay * 1.3); render(); });
+  document.getElementById("zoomOut").addEventListener("click", function () { state.pxPerDay = Math.max(1.5, state.pxPerDay / 1.3); render(); });
+  document.getElementById("fitBtn").addEventListener("click", fitScale);
+  document.getElementById("todayBtn").addEventListener("click", goToday);
+
+  document.getElementById("expSvg").addEventListener("click", exportSVG);
+  document.getElementById("expPng").addEventListener("click", exportPNG);
+  document.getElementById("expCsv").addEventListener("click", function () { download("gantt-tasks.csv", tasksToCSV(state.tasks), "text/csv;charset=utf-8"); });
+  document.getElementById("expJson").addEventListener("click", function () { download("gantt-tasks.json", JSON.stringify(state.tasks, null, 2), "application/json"); });
+  document.getElementById("expDsl").addEventListener("click", function () { download("gantt.txt", serializeDSL(state.tasks), "text/plain;charset=utf-8"); });
+
+  document.getElementById("applyDsl").addEventListener("click", function () {
+    var tasks = parseDSL(els.dsl.value);
+    if (!tasks.length) { alert("No tasks parsed from the DSL."); return; }
+    setTasks(tasks); fitScale();
+  });
+  document.getElementById("impCsv").addEventListener("click", function () {
+    var tasks = tasksFromCSV(els.imp.value);
+    if (!tasks.length) { alert("No tasks parsed from the CSV."); return; }
+    setTasks(tasks); fitScale();
+  });
+  document.getElementById("impJson").addEventListener("click", function () {
+    var data;
+    try { data = JSON.parse(els.imp.value); } catch (e) { alert("Invalid JSON: " + e.message); return; }
+    if (!Array.isArray(data)) { alert("JSON must be an array of task objects."); return; }
+    var n = 0;
+    var tasks = data.map(function (o) {
+      return {
+        id: o.id || ("t" + (++n)),
+        name: o.name || "Task",
+        section: o.section || "",
+        start: /^\d{4}-\d{1,2}-\d{1,2}$/.test(o.start || "") ? normDate(o.start) : "",
+        duration: Math.max(1, parseInt(o.duration, 10) || 1),
+        progress: Math.max(0, Math.min(100, parseInt(o.progress, 10) || 0)),
+        deps: Array.isArray(o.deps) ? o.deps.slice() : (o.deps ? String(o.deps).split(/[;,\s]+/).filter(function (x) { return x; }) : []),
+        color: /^#[0-9a-f]{3,8}$/i.test(o.color || "") ? o.color : ""
+      };
+    });
+    var have = {}; tasks.forEach(function (t) { have[t.id] = 1; });
+    tasks.forEach(function (t) { t.deps = t.deps.filter(function (d) { return have[d]; }); });
+    setTasks(tasks); fitScale();
+  });
+
+  window.addEventListener("resize", function () { render(); });
+  if (window.matchMedia) {
+    try { window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", function () { rebuildTable(); render(); }); } catch (e) {}
+  }
+
+  // boot
+  setTasks(sampleTasks());
+  fitScale();
+})();
+</script>
+</body>
+</html>

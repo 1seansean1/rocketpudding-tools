@@ -994,6 +994,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "gantt-maker",
+      "name": "Gantt Maker",
+      "tagline": "Zero-dependency project timeline builder with critical-path scheduling.",
+      "description": "Define tasks in an editable table or a compact text DSL, or paste from CSV/JSON, and render a crisp SVG Gantt chart: auto day/week/month axis, bars grouped by section, finish-to-start dependency arrows, a today line, and per-task progress fill. Computes and highlights the critical path and project end date. Drag a bar to reschedule, zoom, and export SVG/PNG/CSV/JSON or a shareable text DSL. No libraries.",
+      "path": "tools/gantt-maker/",
+      "tags": [
+        "gantt",
+        "timeline",
+        "project",
+        "schedule",
+        "planning"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2e9e5b",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
