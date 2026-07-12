@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trellis — engineering artifact studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *{box-sizing:border-box}
+  :root{
+    --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --faint:#b8b4ac; --line:#dcd9d2; --line2:#e8e5df;
+    --card:#ffffff; --accent:#b05a3c; --accent-soft:#f3e7e0; --tree:#faf9f6; --ok:#2f7d4f; --warn:#c9a227;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#16171a; --fg:#eceae4; --muted:#8a8d93; --faint:#5a5d63; --line:#2b2d31; --line2:#232529;
+      --card:#1e2024; --accent:#d07a58; --accent-soft:#2a211d; --tree:#191b1e; }
+  }
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit}
+  ::selection{background:var(--accent);color:var(--bg)}
+  #app{height:100%;display:flex;flex-direction:column}
+  /* top bar */
+  header.top{flex:none;display:flex;align-items:center;gap:12px;height:46px;padding:0 16px;background:var(--card);border-bottom:1px solid var(--line)}
+  .logo{width:11px;height:11px;border-radius:2px;background:var(--accent);box-shadow:0 0 8px rgba(176,90,60,.55)}
+  .brand{font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:1.5px;font-size:13px}
+  .crumbs{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted);min-width:0}
+  .crumbs .sep{color:var(--faint)}
+  .crumbs a:hover{color:var(--accent)}
+  .grow{flex:1}
+  .btn{font:600 11px 'IBM Plex Sans';border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .btn:hover{border-color:var(--accent)}
+  .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.sm{padding:4px 9px;font-size:10px;border-radius:6px}
+  .mono{font-family:'IBM Plex Mono',monospace}
+  main{flex:1;min-height:0;overflow:hidden}
+  /* ---- dashboard ---- */
+  .wrap{max-width:1100px;margin:0 auto;padding:34px 28px;height:100%;overflow:auto}
+  h1{font-size:26px;font-weight:600;letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 26px;max-width:640px;line-height:1.6}
+  .prog-h{display:flex;align-items:baseline;gap:12px;margin:30px 0 14px}
+  .prog-h h2{font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.2em;margin:0}
+  .prog-h .rule{flex:1;height:1px;background:var(--line)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:15px}
+  .pcard{border:1px solid var(--line);background:var(--card);border-radius:13px;padding:17px 18px;cursor:pointer;transition:border-color .15s,transform .15s}
+  .pcard:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .pcard h3{margin:0 0 3px;font-size:15px;font-weight:600}
+  .pcard .meta{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)}
+  .pcard .arts{display:flex;gap:5px;flex-wrap:wrap;margin-top:12px}
+  .pill{font-family:'IBM Plex Mono',monospace;font-size:8.5px;letter-spacing:.04em;color:var(--accent);background:var(--accent-soft);border-radius:20px;padding:3px 8px}
+  .pcard.new{display:flex;align-items:center;justify-content:center;color:var(--muted);border-style:dashed;font:600 13px 'IBM Plex Sans'}
+  .pcard.new:hover{color:var(--accent)}
+  /* ---- project view ---- */
+  .proj{display:flex;height:100%;min-height:0}
+  .tree-col{flex:0 0 250px;background:var(--tree);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+  .tree-head{flex:none;height:40px;display:flex;align-items:center;gap:7px;padding:0 12px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.14em;color:var(--muted)}
+  .tree{flex:1;overflow:auto;padding:6px 0;font-family:'IBM Plex Mono',monospace;font-size:11px}
+  .trow{display:flex;align-items:center;gap:6px;padding:3px 8px;white-space:nowrap;color:var(--fg);cursor:pointer;border-radius:5px;margin:0 5px}
+  .trow:hover{background:var(--accent-soft)}
+  .trow.active{background:var(--accent);color:#fff}
+  .trow.active .ic,.trow.active .u{color:#ffe9df}
+  .trow .ic{color:var(--accent);width:10px;flex:none}
+  .trow .u{margin-left:auto;color:var(--faint);font-size:8.5px}
+  .proj-main{flex:1;min-width:0;overflow:auto}
+  .pm-wrap{max-width:920px;margin:0 auto;padding:26px 30px}
+  .pkg{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:13px;margin-top:8px}
+  .acard{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:15px 16px;position:relative}
+  .acard .row{display:flex;align-items:center;gap:9px}
+  .acard .tico{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);flex:none}
+  .acard h4{margin:0;font-size:14px;font-weight:600}
+  .acard .st{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;margin-left:auto}
+  .acard .st.done{color:var(--ok)} .acard .st.todo{color:var(--faint)} .acard .st.soon{color:var(--faint)}
+  .acard .d{color:var(--muted);font-size:11.5px;line-height:1.5;margin-top:9px;min-height:32px}
+  .acard.exist{cursor:pointer} .acard.exist:hover{border-color:var(--accent)}
+  .acard.dim{opacity:.55}
+  .acard .cnt{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);margin-top:8px}
+  /* modal / catalog */
+  .scrim{position:fixed;inset:0;background:rgba(20,16,12,.42);display:flex;align-items:center;justify-content:center;z-index:60;padding:24px}
+  .modal{background:var(--card);border:1px solid var(--line);border-radius:16px;max-width:760px;width:100%;max-height:86vh;overflow:auto;box-shadow:0 20px 60px rgba(0,0,0,.25)}
+  .modal .mh{padding:18px 22px 4px;display:flex;align-items:center;gap:10px}
+  .modal .mh h3{margin:0;font-size:17px;font-weight:600}
+  .modal .mb{padding:14px 22px 22px}
+  .field{margin-bottom:13px}
+  .field label{display:block;font-family:'IBM Plex Mono',monospace;font-size:9px;letter-spacing:.1em;color:var(--muted);margin-bottom:5px}
+  .field input,.field select,.field textarea{width:100%;box-sizing:border-box;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:8px;padding:9px 11px;font:500 13px 'IBM Plex Sans';outline:none}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+  .catgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  @media(max-width:640px){.catgrid{grid-template-columns:1fr}}
+  .cat{border:1px solid var(--line);border-radius:11px;padding:14px;cursor:pointer;transition:border-color .12s}
+  .cat:hover{border-color:var(--accent)}
+  .cat.disabled{opacity:.5;cursor:not-allowed}
+  .cat .row{display:flex;align-items:center;gap:9px}
+  .cat h4{margin:0;font-size:13.5px;font-weight:600}
+  .cat .d{color:var(--muted);font-size:11px;line-height:1.45;margin-top:7px}
+  .close{margin-left:auto;cursor:pointer;color:var(--muted);font-size:18px;line-height:1;background:none;border:none}
+  .soonbadge{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-weight:700;font-size:8px;letter-spacing:.06em;color:var(--faint)}
+  /* ---- event sequence generator ---- */
+  .gen{display:flex;height:100%;min-height:0}
+  .gen-side{flex:0 0 320px;border-right:1px solid var(--line);background:var(--tree);display:flex;flex-direction:column;min-height:0;overflow:auto}
+  .gen-canvas{flex:1;min-width:0;overflow:auto;background:var(--bg);position:relative}
+  .sect{border-bottom:1px solid var(--line);padding:12px 14px}
+  .sect h5{margin:0 0 9px;font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:700;letter-spacing:.14em;color:var(--muted);display:flex;align-items:center;gap:7px}
+  .sect h5 .grow{flex:1}
+  .lrow{display:flex;align-items:center;gap:7px;padding:5px 6px;border-radius:6px;font-size:12px}
+  .lrow:hover{background:var(--accent-soft)}
+  .lrow .h{width:8px;height:8px;border-radius:2px;flex:none}
+  .lrow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lrow .x{cursor:pointer;color:var(--faint);font-size:13px;border:none;background:none}
+  .lrow .x:hover{color:var(--accent)}
+  .mrow{font-family:'IBM Plex Mono',monospace;font-size:10.5px;color:var(--fg)}
+  .mrow .k{color:var(--muted)}
+  .addrow{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .addrow select,.addrow input{flex:1;min-width:70px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:6px;padding:6px 7px;font:500 11px 'IBM Plex Sans'}
+  .gen-toolbar{position:absolute;top:12px;right:14px;display:flex;gap:6px;z-index:5}
+  .empty{color:var(--muted);font-size:11px;padding:6px;line-height:1.5}
+  .uri{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--faint);word-break:break-all}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+"use strict";
+/* =====================================================================================
+   TRELLIS — engineering artifact studio.
+   Storage standard (the work tree): a PROJECT is a repo. Every artifact is a file in the
+   tree, tagged by type; every element of an artifact is addressable by a Caramel URI
+   ( project@commit#artifact-path:element:line ) — the shared address space that lets many
+   diagrams describe ONE system coherently. Persisted as one JSON object per project.
+   ===================================================================================== */
+
+// ---------- helpers ----------
+const $ = (sel, el=document) => el.querySelector(sel);
+const h = (html) => { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; };
+const esc = (s) => String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const slug = (s) => String(s||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || 'x';
+const uid = () => 'x'+Math.random().toString(36).slice(2,9)+Date.now().toString(36).slice(-3);
+const now = () => new Date().toISOString();
+const commitHash = (str) => { let x=0; str=str||''; for(let i=0;i<str.length;i++) x=(x*31+str.charCodeAt(i))>>>0; return x.toString(16).padStart(7,'0').slice(0,7); };
+
+// ---------- diagram-type catalog (the extensibility contract) ----------
+// Each type is a generator plugin: how to make an empty model, name the tree, render,
+// and (for native ones) an editor. Architecture is docked to the existing engine.
+const ICON = {
+  architecture:'M4 5 L20 5 L20 10 L4 10 Z M4 14 L20 14 L20 19 L4 19 Z M8 7.5 L9 7.5 M8 16.5 L9 16.5',
+  sequence:'M6 4 L6 20 M18 4 L18 20 M6 8 L18 8 M18 13 L6 13 M6 8 L8.5 6.5 M6 8 L8.5 9.5 M18 13 L15.5 11.5 M18 13 L15.5 14.5',
+  state:'M6 8 A3 3 0 1 0 12 8 A3 3 0 1 0 6 8 M13 16 A3 3 0 1 0 19 16 A3 3 0 1 0 13 16 M11 9.5 L14 14',
+  dataflow:'M4 6 L11 6 L11 11 L4 11 Z M14 13 L20 13 L20 18 L14 18 Z M11 8.5 L14 15.5',
+  c4:'M12 3 L21 8 L12 13 L3 8 Z M3 12 L12 17 L21 12 M3 16 L12 21 L21 16',
+  deployment:'M4 7 L20 7 L20 17 L4 17 Z M4 11 L20 11 M8 14 L8 14.01 M11 14 L11 14.01',
+  erd:'M4 5 L11 5 L11 12 L4 12 Z M14 12 L20 12 L20 19 L14 19 Z M11 8.5 L14 15.5',
+};
+const TYPES = {
+  architecture: {
+    key:'architecture', label:'System Architecture', dir:'architecture', icon:ICON.architecture, native:false,
+    blurb:'Layered component/box diagram — the current Trellis layout engine.',
+    newModel:()=>({ nodes:[], edges:[], groups:[] }),
+    count:(m)=> (m.nodes||[]).length ? (m.nodes.length+' nodes') : 'empty',
+  },
+  sequence: {
+    key:'sequence', label:'Event Sequence', dir:'event-sequence', icon:ICON.sequence, native:true,
+    blurb:'Participants, lifelines, and time-ordered messages between them.',
+    newModel:()=>({ participants:[], messages:[] }),
+    count:(m)=> ((m.messages||[]).length) + ' messages',
+  },
+  // registered-but-not-yet-built views of a full engineering package
+  dataflow:{ key:'dataflow', label:'Data-flow (DFD)', dir:'data-flow', icon:ICON.dataflow, soon:true, blurb:'Processes, stores, and data flows.' },
+  state:{ key:'state', label:'State Machine', dir:'state-machine', icon:ICON.state, soon:true, blurb:'States and transitions.' },
+  c4:{ key:'c4', label:'C4 Model', dir:'c4', icon:ICON.c4, soon:true, blurb:'Context / container / component.' },
+  deployment:{ key:'deployment', label:'Deployment', dir:'deployment', icon:ICON.deployment, soon:true, blurb:'Nodes, environments, and runtime placement.' },
+  erd:{ key:'erd', label:'Data Model (ERD)', dir:'data-model', icon:ICON.erd, soon:true, blurb:'Entities, attributes, relationships.' },
+};
+
+// ---------- store ----------
+const KEY = 'trellis.projects.v1';
+const Store = {
+  all(){ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(e){ return {}; } },
+  list(){ return Object.values(this.all()).sort((a,b)=> (b.updated||'').localeCompare(a.updated||'')); },
+  get(id){ return this.all()[id]||null; },
+  save(p){ const a=this.all(); p.updated=now(); a[p.id]=p; localStorage.setItem(KEY, JSON.stringify(a)); },
+  create(name, program){ const p={ v:1, id:uid(), name:name||'Untitled project', program:program||'Unassigned', created:now(), updated:now(), artifacts:[] }; this.save(p); return p; },
+  del(id){ const a=this.all(); delete a[id]; localStorage.setItem(KEY, JSON.stringify(a)); },
+};
+function seedIfEmpty(){
+  if (Store.list().length) return;
+  const p = Store.create('Target Perimeter Defense', 'Perimeter Program');
+  p.artifacts.push({ id:uid(), type:'architecture', name:'Target Perimeter v2', created:now(), updated:now(), model:TYPES.architecture.newModel() });
+  const seq = { id:uid(), type:'sequence', name:'Intrusion Alert Flow', created:now(), updated:now(),
+    model:{ participants:[
+      { id:'op', name:'Operator', kind:'actor' }, { id:'sensor', name:'Sensor', kind:'boundary' },
+      { id:'core', name:'Alert Core', kind:'control' }, { id:'db', name:'Event Store', kind:'entity' }],
+    messages:[
+      { id:uid(), from:'sensor', to:'core', label:'motion detected', kind:'async', activate:true },
+      { id:uid(), from:'core', to:'db', label:'persist event', kind:'sync', activate:true },
+      { id:uid(), from:'db', to:'core', label:'ack', kind:'return' },
+      { id:uid(), from:'core', to:'op', label:'raise alert', kind:'sync' }] } };
+  p.artifacts.push(seq);
+  Store.save(p);
+}
+
+// ---------- Caramel URI + work tree ----------
+function artifactPath(p, a){ return slug(p.name)+'/'+ (TYPES[a.type]?.dir||a.type) + '/' + slug(a.name); }
+function elementUri(p, a, elId, elName, line){
+  const commit = commitHash(a.id + (a.updated||''));
+  return slug(p.name)+'@'+commit+'#'+ (TYPES[a.type]?.dir||a.type) + '/' + slug(a.name) + ':' + slug(elName||elId) + ':' + (line||1);
+}
+// Build the work-tree rows: type dirs -> artifacts -> their elements
+function workTree(p){
+  const rows=[]; const byDir={};
+  (p.artifacts||[]).forEach(a=>{ const d=TYPES[a.type]?.dir||a.type; (byDir[d]=byDir[d]||[]).push(a); });
+  Object.keys(byDir).sort().forEach(dir=>{
+    rows.push({ depth:0, dir:true, name:dir+'/', icon:'▾' });
+    byDir[dir].forEach(a=>{
+      rows.push({ depth:1, artifact:a.id, name:slug(a.name), icon:'·', meta:TYPES[a.type]?.label });
+      elementsOf(a).forEach((el,i)=> rows.push({ depth:2, artifact:a.id, element:el.id, name:el.name, icon:'→', uri:elementUri(p,a,el.id,el.name,i+1) }));
+    });
+  });
+  return rows;
+}
+function elementsOf(a){
+  if (a.type==='sequence'){
+    const m=a.model||{}; const els=(m.participants||[]).map(x=>({id:x.id,name:x.name}));
+    return els; // participants are the addressable elements; messages reference them
+  }
+  if (a.type==='architecture'){ return ((a.model||{}).nodes||[]).map(n=>({id:n.id,name:n.label||n.id})); }
+  return [];
+}
+
+// ---------- app state / router ----------
+let state = { view:'dashboard', projectId:null, artifactId:null, modal:null };
+function go(patch){ state = { ...state, ...patch }; render(); }
+function currentProject(){ return state.projectId ? Store.get(state.projectId) : null; }
+function currentArtifact(){ const p=currentProject(); return p ? (p.artifacts||[]).find(a=>a.id===state.artifactId) : null; }
+
+// ================= RENDER =================
+function render(){
+  const app = $('#app');
+  app.innerHTML = '';
+  app.appendChild(topBar());
+  const main = h('<main></main>');
+  if (state.view==='dashboard') main.appendChild(dashboard());
+  else if (state.view==='project') main.appendChild(projectView());
+  else if (state.view==='artifact') main.appendChild(artifactView());
+  app.appendChild(main);
+  if (state.modal) app.appendChild(state.modal());
+}
+
+function topBar(){
+  const p = currentProject(); const a = currentArtifact();
+  const bar = h(`<header class="top">
+    <div class="logo"></div><div class="brand">TRELLIS</div>
+    <div class="crumbs" id="crumbs"></div><div class="grow"></div>
+    <button class="btn sm" id="theme">theme</button>
+  </header>`);
+  const cr = $('#crumbs', bar);
+  const add = (label, onClick, sep=true) => {
+    if (sep && cr.childNodes.length) cr.appendChild(h('<span class="sep">/</span>'));
+    const el = h(`<a href="#" style="cursor:pointer">${esc(label)}</a>`);
+    el.onclick = (e)=>{ e.preventDefault(); onClick && onClick(); }; cr.appendChild(el);
+  };
+  add('Programs', ()=>go({view:'dashboard',projectId:null,artifactId:null}), false);
+  if (p){ add(p.name, ()=>go({view:'project',artifactId:null})); }
+  if (a){ add(a.name, null); }
+  $('#theme', bar).onclick = ()=>{ document.documentElement.classList.toggle('dark'); };
+  return bar;
+}
+
+// ---------- dashboard ----------
+function dashboard(){
+  const el = h('<div class="wrap"></div>');
+  el.appendChild(h(`<h1>Programs &amp; Systems</h1>
+    <p class="sub">Open a system you manage to build its engineering package — System Architecture, Event Sequence, and the other views a full package needs. Everything is stored in the project's work tree with Caramel-URI provenance.</p>`));
+  const groups = {};
+  Store.list().forEach(p=>{ (groups[p.program||'Unassigned']=groups[p.program||'Unassigned']||[]).push(p); });
+  const progs = Object.keys(groups).sort();
+  progs.forEach(prog=>{
+    el.appendChild(h(`<div class="prog-h"><h2>${esc(prog.toUpperCase())}</h2><div class="rule"></div></div>`));
+    const grid = h('<div class="grid"></div>');
+    groups[prog].forEach(p=> grid.appendChild(projectCard(p)));
+    el.appendChild(grid);
+  });
+  const newGrid = h('<div class="grid" style="margin-top:18px"></div>');
+  const nc = h('<div class="pcard new">+ New project</div>');
+  nc.onclick = ()=> openNewProject();
+  newGrid.appendChild(nc);
+  el.appendChild(newGrid);
+  return el;
+}
+function projectCard(p){
+  const arts = p.artifacts||[];
+  const pills = arts.slice(0,6).map(a=>`<span class="pill">${esc(TYPES[a.type]?.label||a.type)}</span>`).join('');
+  const c = h(`<div class="pcard">
+    <h3>${esc(p.name)}</h3>
+    <div class="meta">${arts.length} artifact${arts.length===1?'':'s'} · updated ${esc((p.updated||'').slice(0,10))}</div>
+    <div class="arts">${pills||'<span class="pill" style="color:var(--muted);background:var(--line2)">empty</span>'}</div>
+  </div>`);
+  c.onclick = ()=> go({view:'project', projectId:p.id, artifactId:null});
+  return c;
+}
+
+// ---------- project view ----------
+function projectView(){
+  const p = currentProject();
+  const root = h('<div class="proj"></div>');
+  // work tree
+  const treeCol = h(`<div class="tree-col">
+    <div class="tree-head"><span style="color:var(--accent)">▾</span> WORK TREE · ${esc(slug(p.name))}</div>
+    <div class="tree" id="tree"></div></div>`);
+  const tree = $('#tree', treeCol);
+  tree.appendChild(rowEl({depth:0,dir:true,name:slug(p.name)+'/',icon:'▾'}, null));
+  workTree(p).forEach(r=> tree.appendChild(rowEl(r, p)));
+  root.appendChild(treeCol);
+  // main: package completeness + artifacts
+  const main = h('<div class="proj-main"></div>');
+  const wrap = h('<div class="pm-wrap"></div>');
+  wrap.appendChild(h(`<div style="display:flex;align-items:center;gap:12px;margin-bottom:4px">
+    <h1 style="margin:0">${esc(p.name)}</h1><div class="grow" style="flex:1"></div>
+    <button class="btn primary" id="newArt">+ New artifact</button></div>`));
+  const built = new Set((p.artifacts||[]).map(a=>a.type));
+  const total = Object.values(TYPES).length;
+  wrap.appendChild(h(`<p class="sub">Engineering package · <span class="mono" style="color:var(--accent)">${built.size}/${total} view types</span> present. Build the ones your program requires; each saves into the work tree above.</p>`));
+  const pkg = h('<div class="pkg"></div>');
+  Object.values(TYPES).forEach(t=> pkg.appendChild(packageCard(p, t)));
+  wrap.appendChild(pkg);
+  main.appendChild(wrap);
+  root.appendChild(main);
+  $('#newArt', main).onclick = ()=> openCatalog();
+  return root;
+}
+function rowEl(r, p){
+  const cls = 'trow' + (state.artifactId && r.artifact===state.artifactId && !r.element && !r.dir ? ' active' : '');
+  const el = h(`<div class="${cls}" style="padding-left:${8+r.depth*13}px">
+    <span class="ic">${r.icon}</span><span class="nm" title="${esc(r.uri||r.meta||r.name)}">${esc(r.name)}</span>
+    ${r.meta?`<span class="u">${esc(r.meta)}</span>`:''}${r.uri?`<span class="u">uri</span>`:''}</div>`);
+  if (p && r.artifact && !r.element && !r.dir){ el.onclick = ()=> openArtifact(p, r.artifact); }
+  else if (r.element){ el.onclick = ()=> openArtifact(p, r.artifact); }
+  return el;
+}
+function packageCard(p, t){
+  const mine = (p.artifacts||[]).filter(a=>a.type===t.key);
+  if (t.soon){
+    const c = h(`<div class="acard dim"><div class="row"><span class="tico"><svg width="15" height="15" viewBox="0 0 24 24"><path d="${t.icon}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h4>${esc(t.label)}</h4><span class="st soon">soon</span></div><div class="d">${esc(t.blurb)}</div></div>`);
+    return c;
+  }
+  const c = h(`<div class="acard exist"><div class="row"><span class="tico"><svg width="15" height="15" viewBox="0 0 24 24"><path d="${t.icon}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h4>${esc(t.label)}</h4><span class="st ${mine.length?'done':'todo'}">${mine.length?'✓ '+mine.length:'add'}</span></div>
+    <div class="d">${esc(t.blurb)}</div>
+    <div class="cnt">${mine.length? mine.map(a=>esc(a.name)).join(' · ') : 'not in this package yet'}</div></div>`);
+  c.onclick = ()=>{ if (mine.length===1) openArtifact(p, mine[0].id); else if (mine.length>1) go({view:'project'}); else addArtifact(t.key); };
+  return c;
+}
+
+// ---------- catalog + create flows ----------
+function openCatalog(){
+  state.modal = () => {
+    const scrim = h('<div class="scrim"></div>');
+    const m = h(`<div class="modal"><div class="mh"><h3>New artifact</h3><button class="close">×</button></div><div class="mb"><div class="catgrid" id="cat"></div></div></div>`);
+    const cat = $('#cat', m);
+    Object.values(TYPES).forEach(t=>{
+      const disabled = !!t.soon;
+      const c = h(`<div class="cat ${disabled?'disabled':''}"><div class="row"><span class="tico"><svg width="15" height="15" viewBox="0 0 24 24"><path d="${t.icon}" fill="none" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><h4>${esc(t.label)}</h4>${disabled?'<span class="soonbadge">SOON</span>':''}</div><div class="d">${esc(t.blurb)}</div></div>`);
+      if (!disabled) c.onclick = ()=>{ closeModal(); addArtifact(t.key); };
+      cat.appendChild(c);
+    });
+    $('.close', m).onclick = closeModal; scrim.onclick = (e)=>{ if(e.target===scrim) closeModal(); };
+    scrim.appendChild(m); return scrim;
+  };
+  render();
+}
+function addArtifact(typeKey){
+  const t = TYPES[typeKey]; if (!t || t.soon) return;
+  const p = currentProject();
+  const name = prompt('Name this '+t.label+':', t.label==='Event Sequence'?'New Flow':'New '+t.label);
+  if (name===null) return;
+  const a = { id:uid(), type:typeKey, name:name||('New '+t.label), created:now(), updated:now(), model:t.newModel() };
+  p.artifacts.push(a); Store.save(p);
+  if (t.native) openArtifact(p, a.id); else openArtifact(p, a.id);
+}
+function openArtifact(p, artifactId){
+  go({view:'artifact', projectId:p.id, artifactId});
+}
+function openNewProject(){
+  const name = prompt('Project name:'); if (!name) return;
+  const program = prompt('Program / portfolio it belongs to:', 'Unassigned') || 'Unassigned';
+  const p = Store.create(name, program); go({view:'project', projectId:p.id, artifactId:null});
+}
+function closeModal(){ state.modal = null; render(); }
+
+// ---------- artifact view (dispatch by type) ----------
+function artifactView(){
+  // derive BOTH from one project object so edits mutate the same graph we persist
+  const p = currentProject();
+  const a = p ? (p.artifacts||[]).find(x=>x.id===state.artifactId) : null;
+  if (!a) return h('<div class="wrap"><p class="sub">Artifact not found.</p></div>');
+  if (a.type==='sequence') return sequenceGenerator(p, a);
+  if (a.type==='architecture') return architectureDock(p, a);
+  return h('<div class="wrap"><p class="sub">No generator for this type yet.</p></div>');
+}
+
+// ---------- System Architecture (docked to existing engine) ----------
+function architectureDock(p, a){
+  const el = h('<div class="wrap"></div>');
+  el.appendChild(h(`<h1>${esc(a.name)}</h1>
+    <p class="sub">System Architecture is powered by the existing Trellis layout engine (DAG Layout Lab) — the original diagram type. It's docked here as artifact type #1 in this project's work tree; full in-shell editing folds in next. This artifact's Caramel-URI root is <span class="uri">${esc(slug(p.name)+'/'+TYPES.architecture.dir+'/'+slug(a.name))}</span>.</p>`));
+  const row = h('<div style="display:flex;gap:10px;margin-top:8px"></div>');
+  const open = h('<button class="btn primary">Open in layout engine ↗</button>');
+  open.onclick = ()=> window.open('../dag-layout-lab/index.html','_blank');
+  row.appendChild(open);
+  const back = h('<button class="btn">Back to project</button>');
+  back.onclick = ()=> go({view:'project'});
+  row.appendChild(back);
+  el.appendChild(row);
+  return el;
+}
+
+// ---------- EVENT SEQUENCE generator (native, type #2) ----------
+const PKIND = { actor:{c:'#b05a3c'}, boundary:{c:'#3a6ea5'}, control:{c:'#2f7d4f'}, entity:{c:'#8a5cb0'}, participant:{c:'#8a8d93'} };
+const MKIND = { sync:'sync ▸', async:'async ▹', return:'return ⤎', create:'create', destroy:'destroy' };
+function sequenceGenerator(p, a){
+  const m = a.model;
+  const root = h('<div class="gen"></div>');
+  // ---- side editor ----
+  const side = h('<div class="gen-side"></div>');
+  // participants
+  const partSect = h(`<div class="sect"><h5>PARTICIPANTS<span class="grow"></span></h5><div id="parts"></div>
+    <div class="addrow"><input id="pname" placeholder="name"><select id="pkind">${Object.keys(PKIND).map(k=>`<option value="${k}">${k}</option>`).join('')}</select><button class="btn sm" id="paddb">add</button></div></div>`);
+  const renderParts = () => {
+    const box = $('#parts', partSect); box.innerHTML='';
+    if (!m.participants.length) box.appendChild(h('<div class="empty">No participants yet. Add the actors and systems in this flow.</div>'));
+    m.participants.forEach(pp=>{
+      const r = h(`<div class="lrow"><span class="h" style="background:${PKIND[pp.kind]?.c||'#8a8d93'}"></span><span class="nm">${esc(pp.name)} <span style="color:var(--faint);font-size:9px">${esc(pp.kind)}</span></span><button class="x" title="remove">×</button></div>`);
+      $('.x', r).onclick = ()=>{ m.participants = m.participants.filter(x=>x!==pp); m.messages = m.messages.filter(x=>x.from!==pp.id && x.to!==pp.id); saveDraw(); };
+      box.appendChild(r);
+    });
+  };
+  $('#paddb', partSect).onclick = ()=>{
+    const nm = $('#pname', partSect).value.trim(); if(!nm) return;
+    m.participants.push({ id:slug(nm)+'-'+uid().slice(0,3), name:nm, kind:$('#pkind', partSect).value });
+    $('#pname', partSect).value=''; saveDraw();
+  };
+  side.appendChild(partSect);
+  // messages
+  const msgSect = h(`<div class="sect"><h5>MESSAGES <span style="color:var(--faint)">(time order)</span><span class="grow"></span></h5><div id="msgs"></div>
+    <div class="addrow"><select id="mfrom"></select><select id="mto"></select></div>
+    <div class="addrow"><input id="mlabel" placeholder="message label" style="flex:2"><select id="mkind">${Object.keys(MKIND).map(k=>`<option value="${k}">${k}</option>`).join('')}</select><button class="btn sm" id="maddb">add</button></div></div>`);
+  const fillSelects = () => {
+    const opts = m.participants.map(pp=>`<option value="${pp.id}">${esc(pp.name)}</option>`).join('');
+    $('#mfrom', msgSect).innerHTML = opts; $('#mto', msgSect).innerHTML = opts;
+  };
+  const renderMsgs = () => {
+    const box = $('#msgs', msgSect); box.innerHTML='';
+    if (!m.messages.length) box.appendChild(h('<div class="empty">No messages yet. Pick a sender and receiver below.</div>'));
+    m.messages.forEach((mm,i)=>{
+      const fn = m.participants.find(x=>x.id===mm.from)?.name||'?';
+      const tn = m.participants.find(x=>x.id===mm.to)?.name||'?';
+      const r = h(`<div class="lrow mrow"><span class="k">${String(i+1).padStart(2,'0')}</span> ${esc(fn)} <span class="k">${esc(MKIND[mm.kind]||mm.kind)}</span> ${esc(tn)} <span class="grow" style="flex:1"></span><button class="x">×</button></div>`);
+      r.insertBefore(h(`<div style="flex-basis:100%;font-size:11px;color:var(--muted);padding-left:22px">${esc(mm.label||'')}</div>`), $('.x',r).nextSibling||null);
+      $('.x', r).onclick = ()=>{ m.messages = m.messages.filter(x=>x!==mm); saveDraw(); };
+      box.appendChild(r);
+    });
+  };
+  $('#maddb', msgSect).onclick = ()=>{
+    if (m.participants.length<1) { alert('Add participants first.'); return; }
+    const from=$('#mfrom',msgSect).value, to=$('#mto',msgSect).value;
+    m.messages.push({ id:uid(), from, to, label:$('#mlabel',msgSect).value.trim(), kind:$('#mkind',msgSect).value, activate:$('#mkind',msgSect).value==='sync' });
+    $('#mlabel',msgSect).value=''; saveDraw();
+  };
+  side.appendChild(msgSect);
+  root.appendChild(side);
+  // ---- canvas ----
+  const canvas = h('<div class="gen-canvas" id="seqcanvas"></div>');
+  const toolbar = h(`<div class="gen-toolbar"><button class="btn sm" id="svgBtn">SVG</button><button class="btn sm" id="pngBtn">PNG</button><button class="btn sm" id="mmdBtn">mermaid</button><button class="btn sm" id="backBtn">← project</button></div>`);
+  canvas.appendChild(toolbar);
+  const svgHost = h('<div id="svgHost" style="padding:20px"></div>');
+  canvas.appendChild(svgHost);
+  root.appendChild(canvas);
+  $('#backBtn', toolbar).onclick = ()=> go({view:'project'});
+
+  function draw(){
+    svgHost.innerHTML='';
+    svgHost.appendChild(h(renderSequenceSVG(m, p, a)));
+  }
+  function saveDraw(){ a.updated=now(); Store.save(p); renderParts(); fillSelects(); renderMsgs(); draw(); }
+  $('#svgBtn', toolbar).onclick = ()=> download(slug(a.name)+'.svg', renderSequenceSVG(m,p,a), 'image/svg+xml');
+  $('#mmdBtn', toolbar).onclick = ()=> download(slug(a.name)+'.mmd', toMermaid(m), 'text/plain');
+  $('#pngBtn', toolbar).onclick = ()=> svgToPng(renderSequenceSVG(m,p,a), slug(a.name)+'.png');
+
+  renderParts(); fillSelects(); renderMsgs(); draw();
+  return root;
+}
+
+// pure SVG renderer for a sequence diagram
+function renderSequenceSVG(m, p, a){
+  const parts = m.participants||[], msgs = m.messages||[];
+  const COLW=150, HEADH=44, TOP=24, GAP=52, PADX=30;
+  const W = Math.max(360, PADX*2 + Math.max(1,parts.length)*COLW);
+  const H = TOP + HEADH + Math.max(1,msgs.length)*GAP + 60;
+  const cx = (id) => { const i=parts.findIndex(x=>x.id===id); return PADX + (i<0?0:i)*COLW + COLW/2; };
+  let g = '';
+  // lifelines + heads
+  parts.forEach((pp,i)=>{
+    const x = PADX + i*COLW + COLW/2; const c = PKIND[pp.kind]?.c||'#8a8d93';
+    g += `<line x1="${x}" y1="${TOP+HEADH}" x2="${x}" y2="${H-30}" stroke="#cbc8c1" stroke-width="1" stroke-dasharray="3 4"/>`;
+    g += `<rect x="${x-COLW/2+16}" y="${TOP}" width="${COLW-32}" height="${HEADH-10}" rx="8" fill="#ffffff" stroke="${c}" stroke-width="1.6"/>`;
+    g += `<text x="${x}" y="${TOP+HEADH/2}" text-anchor="middle" font-family="IBM Plex Sans" font-size="12.5" font-weight="600" fill="#191b1e">${esc(pp.name)}</text>`;
+    g += `<text x="${x}" y="${TOP+HEADH-18}" text-anchor="middle" font-family="IBM Plex Mono" font-size="7.5" letter-spacing="1" fill="${c}">${esc(pp.kind.toUpperCase())}</text>`;
+  });
+  // messages
+  msgs.forEach((mm,i)=>{
+    const y = TOP+HEADH + i*GAP + GAP*0.6;
+    let x1=cx(mm.from), x2=cx(mm.to); const self = mm.from===mm.to;
+    const dash = mm.kind==='return' ? 'stroke-dasharray="5 4"' : '';
+    const c = mm.kind==='return' ? '#8a8d93' : '#191b1e';
+    if (self){
+      g += `<path d="M${x1} ${y} h34 v18 h-34" fill="none" stroke="${c}" stroke-width="1.4" ${dash}/>`;
+      g += arrowHead(x1+2, y+18, -1, mm.kind);
+      g += `<text x="${x1+40}" y="${y+2}" font-family="IBM Plex Sans" font-size="11.5" fill="#191b1e">${esc(mm.label||'')}</text>`;
+    } else {
+      const dir = x2>x1?1:-1;
+      g += `<line x1="${x1}" y1="${y}" x2="${x2-dir*6}" y2="${y}" stroke="${c}" stroke-width="1.5" ${dash}/>`;
+      g += arrowHead(x2, y, dir, mm.kind);
+      const mid=(x1+x2)/2;
+      g += `<text x="${mid}" y="${y-6}" text-anchor="middle" font-family="IBM Plex Sans" font-size="11.5" fill="#191b1e">${esc(mm.label||'')}</text>`;
+    }
+    g += `<text x="10" y="${y+3}" font-family="IBM Plex Mono" font-size="8.5" fill="#b8b4ac">${String(i+1).padStart(2,'0')}</text>`;
+  });
+  if (!parts.length) g += `<text x="${W/2}" y="${H/2}" text-anchor="middle" font-family="IBM Plex Sans" font-size="13" fill="#8a8d93">Add participants to begin.</text>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" style="background:#f4f3ef;border:1px solid #dcd9d2;border-radius:10px;max-width:100%">${g}</svg>`;
+}
+function arrowHead(x,y,dir,kind){
+  if (kind==='async'||kind==='return'){ // open V
+    return `<path d="M${x-dir*8} ${y-5} L${x} ${y} L${x-dir*8} ${y+5}" fill="none" stroke="${kind==='return'?'#8a8d93':'#191b1e'}" stroke-width="1.5"/>`;
+  }
+  return `<path d="M${x-dir*8} ${y-5} L${x} ${y} L${x-dir*8} ${y+5} Z" fill="#191b1e"/>`; // solid
+}
+function toMermaid(m){
+  let out='sequenceDiagram\n';
+  (m.participants||[]).forEach(p=> out+=`  participant ${p.id} as ${p.name}\n`);
+  const A={sync:'->>',async:'-)',return:'-->>',create:'->>',destroy:'->>'};
+  (m.messages||[]).forEach(mm=> out+=`  ${mm.from}${A[mm.kind]||'->>'}${mm.to}: ${mm.label||''}\n`);
+  return out;
+}
+
+// ---------- export helpers ----------
+function download(name, text, type){ const b=new Blob([text],{type}); const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),500); }
+function svgToPng(svgStr, name){
+  const img=new Image(); const blob=new Blob([svgStr],{type:'image/svg+xml'}); const url=URL.createObjectURL(blob);
+  img.onload=()=>{ const c=document.createElement('canvas'); const scale=2; c.width=img.width*scale; c.height=img.height*scale; const ctx=c.getContext('2d'); ctx.scale(scale,scale); ctx.drawImage(img,0,0); c.toBlob(b=>{ const u=URL.createObjectURL(b); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); }); URL.revokeObjectURL(url); };
+  img.src=url;
+}
+
+// ================= boot =================
+seedIfEmpty();
+render();
+</script>
+</body>
+</html>
