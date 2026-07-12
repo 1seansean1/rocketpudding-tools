@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>esbuild Playground</title>
+<meta name="description" content="Transform and minify TypeScript, JSX, and JavaScript in your browser with esbuild-wasm. No server, no build step.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #fff;
+  --accent: #e0483d;
+  --ok: #3d8a4e;
+  --warn: #a06a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --ok: #6cbf7d;
+    --warn: #d9a13b;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "IBM Plex Sans", system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 20px 24px;
+  gap: 14px;
+}
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.accent-square {
+  width: 14px;
+  height: 14px;
+  background: var(--accent);
+  flex: none;
+}
+h1 {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+#engine-status {
+  color: var(--muted);
+  font-size: 12px;
+  font-family: "IBM Plex Mono", monospace;
+}
+header .spacer { flex: 1; }
+a.back {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 13px;
+}
+a.back:hover { color: var(--accent); }
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+/* ---------- options ---------- */
+.options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  padding: 10px 14px;
+}
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.opt > span.lbl {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+select {
+  font: 500 13px "IBM Plex Mono", monospace;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 3px 6px;
+  cursor: pointer;
+}
+select:focus-visible, input:focus-visible, button:focus-visible, textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+.check input {
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg);
+  cursor: pointer;
+  position: relative;
+  flex: none;
+}
+.check input:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.check input:checked::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+.check input:indeterminate {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.check input:indeterminate::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 6px;
+  width: 7px;
+  height: 2px;
+  background: #fff;
+}
+.minify-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-left: 14px;
+  border-left: 1px solid var(--line);
+}
+.minify-group .granular { color: var(--muted); }
+/* ---------- editors ---------- */
+main.grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  min-height: 0;
+}
+.pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.pane-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  min-height: 42px;
+}
+.pane-head .title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+}
+.pane-head .spacer { flex: 1; }
+#stats {
+  font: 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#stats b { color: var(--fg); font-weight: 500; }
+#stats .saving { color: var(--ok); }
+#stats .growing { color: var(--warn); }
+textarea {
+  flex: 1;
+  width: 100%;
+  min-height: 340px;
+  border: none;
+  resize: none;
+  background: transparent;
+  color: var(--fg);
+  font: 13px/1.55 "IBM Plex Mono", monospace;
+  padding: 12px 14px;
+  white-space: pre;
+  overflow: auto;
+  tab-size: 2;
+}
+#output { color: var(--fg); }
+#output.stale { opacity: 0.4; }
+button.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: 500 12px "IBM Plex Sans", sans-serif;
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 9px;
+  cursor: pointer;
+}
+button.icon-btn:hover { border-color: var(--accent); color: var(--accent); }
+button.icon-btn svg { display: block; }
+/* ---------- problems ---------- */
+#problems { display: none; padding: 10px 14px; }
+#problems.visible { display: block; }
+#problems h2 {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+.problem {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding: 4px 0;
+  font: 12.5px "IBM Plex Mono", monospace;
+}
+.problem .sev {
+  flex: none;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 1px 6px;
+  border-radius: 3px;
+  color: #fff;
+}
+.problem .sev.error { background: var(--accent); }
+.problem .sev.warning { background: var(--warn); }
+.problem .loc { color: var(--muted); flex: none; }
+.problem .msg { word-break: break-word; }
+.problem .line-text {
+  display: block;
+  color: var(--muted);
+  margin-top: 2px;
+  white-space: pre-wrap;
+}
+footer {
+  color: var(--muted);
+  font: 12px "IBM Plex Mono", monospace;
+  text-align: center;
+  padding-top: 2px;
+}
+@media (max-width: 900px) {
+  body { padding: 14px; }
+  main.grid { grid-template-columns: 1fr; }
+  textarea { min-height: 240px; }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>ESBUILD PLAYGROUND</h1>
+  <span id="engine-status">loading engine&hellip;</span>
+  <div class="spacer"></div>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<section class="options card" aria-label="Transform options">
+  <div class="opt">
+    <span class="lbl">loader</span>
+    <select id="opt-loader" aria-label="Loader">
+      <option value="ts" selected>ts</option>
+      <option value="tsx">tsx</option>
+      <option value="js">js</option>
+      <option value="jsx">jsx</option>
+    </select>
+  </div>
+  <div class="opt">
+    <span class="lbl">target</span>
+    <select id="opt-target" aria-label="Target">
+      <option value="es2017">es2017</option>
+      <option value="es2020" selected>es2020</option>
+      <option value="esnext">esnext</option>
+    </select>
+  </div>
+  <div class="opt">
+    <span class="lbl">format</span>
+    <select id="opt-format" aria-label="Format">
+      <option value="esm" selected>esm</option>
+      <option value="cjs">cjs</option>
+      <option value="iife">iife</option>
+    </select>
+  </div>
+  <div class="opt">
+    <span class="lbl">jsx</span>
+    <select id="opt-jsx" aria-label="JSX mode">
+      <option value="transform" selected>transform</option>
+      <option value="preserve">preserve</option>
+      <option value="automatic">automatic</option>
+    </select>
+  </div>
+  <div class="opt minify-group">
+    <label class="check"><input type="checkbox" id="opt-minify"> minify</label>
+    <label class="check granular"><input type="checkbox" id="opt-min-ws"> whitespace</label>
+    <label class="check granular"><input type="checkbox" id="opt-min-id"> identifiers</label>
+    <label class="check granular"><input type="checkbox" id="opt-min-syn"> syntax</label>
+  </div>
+  <div class="opt">
+    <label class="check"><input type="checkbox" id="opt-sourcemap"> sourcemap</label>
+  </div>
+</section>
+
+<main class="grid">
+  <section class="pane card" aria-label="Input editor">
+    <div class="pane-head">
+      <span class="title">Input</span>
+      <select id="sample-select" aria-label="Load sample">
+        <option value="ts" selected>sample: TypeScript</option>
+        <option value="tsx">sample: React TSX</option>
+        <option value="jsx">sample: JSX</option>
+        <option value="js">sample: Modern JS</option>
+      </select>
+      <div class="spacer"></div>
+    </div>
+    <textarea id="input" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Source code input"></textarea>
+  </section>
+
+  <section class="pane card" aria-label="Transformed output">
+    <div class="pane-head">
+      <span class="title">Output</span>
+      <span id="stats"></span>
+      <div class="spacer"></div>
+      <button class="icon-btn" id="btn-copy" title="Copy output to clipboard">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <rect x="5" y="5" width="9" height="9" rx="1.5"></rect>
+          <path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5"></path>
+        </svg>
+        <span id="copy-label">Copy</span>
+      </button>
+      <button class="icon-btn" id="btn-download" title="Download output as a file">
+        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <path d="M8 2v8m0 0 3-3m-3 3L5 7"></path>
+          <path d="M2.5 11.5v1A1.5 1.5 0 0 0 4 14h8a1.5 1.5 0 0 0 1.5-1.5v-1"></path>
+        </svg>
+        Download
+      </button>
+    </div>
+    <textarea id="output" readonly spellcheck="false" aria-label="Transformed output"></textarea>
+  </section>
+</main>
+
+<section id="problems" class="card" aria-live="polite">
+  <h2>Problems</h2>
+  <div id="problems-list"></div>
+</section>
+
+<footer>esbuild-wasm v0.24 &middot; MIT</footer>
+
+<script type="text/plain" id="sample-src-ts">
+// Generic cache with expiry — TypeScript
+interface CacheEntry<T> {
+  value: T;
+  expiresAt: number;
+}
+
+class TTLCache<T> {
+  private store = new Map<string, CacheEntry<T>>();
+  constructor(private ttlMs: number = 60_000) {}
+
+  set(key: string, value: T): void {
+    this.store.set(key, { value, expiresAt: Date.now() + this.ttlMs });
+  }
+
+  get(key: string): T | undefined {
+    const entry = this.store.get(key);
+    if (!entry) return undefined;
+    if (Date.now() > entry.expiresAt) {
+      this.store.delete(key);
+      return undefined;
+    }
+    return entry.value;
+  }
+}
+
+enum Level { Debug, Info, Warn, Error }
+
+const log = (level: Level, msg: string): void => {
+  if (level >= Level.Info) console.log(`[${Level[level]}] ${msg}`);
+};
+
+const cache = new TTLCache<number>(5000);
+cache.set("answer", 42);
+log(Level.Info, `answer = ${cache.get("answer") ?? "expired"}`);
+</script>
+
+<script type="text/plain" id="sample-src-tsx">
+// React counter component — TSX
+import { useState } from "react";
+
+type CounterProps = {
+  label: string;
+  step?: number;
+};
+
+export function Counter({ label, step = 1 }: CounterProps) {
+  const [count, setCount] = useState(0);
+  return (
+    <div className="counter">
+      <span>{label}: {count}</span>
+      <button onClick={() => setCount(c => c + step)}>+{step}</button>
+      <button onClick={() => setCount(0)} disabled={count === 0}>
+        reset
+      </button>
+    </div>
+  );
+}
+</script>
+
+<script type="text/plain" id="sample-src-jsx">
+// Plain JSX list
+const items = ["alpha", "beta", "gamma"];
+
+function List({ title }) {
+  return (
+    <section>
+      <h2>{title}</h2>
+      <ul>
+        {items.map((item, i) => (
+          <li key={i} data-index={i}>{item.toUpperCase()}</li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+export default <List title="Greek letters" />;
+</script>
+
+<script type="text/plain" id="sample-src-js">
+// Modern JS: optional chaining, nullish, exponent
+const config = {
+  retries: 3,
+  endpoints: { primary: "/api/v1", fallback: null },
+};
+
+async function fetchWithRetry(path, { retries = config.retries } = {}) {
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(config.endpoints?.primary + path);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise(r => setTimeout(r, 2 ** attempt * 100));
+    }
+  }
+}
+
+fetchWithRetry("/users").then(u => console.log(u?.length ?? 0));
+</script>
+
+<script src="vendor/browser.min.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var input = $("input");
+  var output = $("output");
+  var statsEl = $("stats");
+  var statusEl = $("engine-status");
+  var problemsEl = $("problems");
+  var problemsList = $("problems-list");
+  var sampleSelect = $("sample-select");
+  var copyLabel = $("copy-label");
+
+  var optLoader = $("opt-loader");
+  var optTarget = $("opt-target");
+  var optFormat = $("opt-format");
+  var optJsx = $("opt-jsx");
+  var optMinify = $("opt-minify");
+  var optMinWs = $("opt-min-ws");
+  var optMinId = $("opt-min-id");
+  var optMinSyn = $("opt-min-syn");
+  var optSourcemap = $("opt-sourcemap");
+
+  var ready = false;
+  var seq = 0;
+  var debounceTimer = null;
+  var gzipSupported = typeof CompressionStream !== "undefined";
+
+  // ---------- samples ----------
+  function getSample(key) {
+    var el = $("sample-src-" + key);
+    return el ? el.textContent.replace(/^\n/, "") : "";
+  }
+
+  function loadSample(key) {
+    input.value = getSample(key);
+    optLoader.value = key; // sample keys match loader names
+    scheduleTransform();
+  }
+
+  // ---------- helpers ----------
+  function bytesOf(text) {
+    return new Blob([text]).size;
+  }
+
+  function fmtBytes(n) {
+    if (n < 1024) return n + " B";
+    return (n / 1024).toFixed(1) + " KB";
+  }
+
+  function gzipSize(text) {
+    if (!gzipSupported) return Promise.resolve(null);
+    try {
+      var stream = new Blob([text]).stream().pipeThrough(new CompressionStream("gzip"));
+      return new Response(stream).arrayBuffer().then(function (buf) {
+        return buf.byteLength;
+      }).catch(function () { return null; });
+    } catch (e) {
+      return Promise.resolve(null);
+    }
+  }
+
+  // ---------- minify checkbox wiring ----------
+  function syncMasterFromGranular() {
+    var on = [optMinWs.checked, optMinId.checked, optMinSyn.checked];
+    var count = on.filter(Boolean).length;
+    optMinify.checked = count === 3;
+    optMinify.indeterminate = count > 0 && count < 3;
+  }
+
+  optMinify.addEventListener("change", function () {
+    var v = optMinify.checked;
+    optMinWs.checked = v;
+    optMinId.checked = v;
+    optMinSyn.checked = v;
+    optMinify.indeterminate = false;
+    scheduleTransform();
+  });
+
+  [optMinWs, optMinId, optMinSyn].forEach(function (cb) {
+    cb.addEventListener("change", function () {
+      syncMasterFromGranular();
+      scheduleTransform();
+    });
+  });
+
+  // ---------- problems panel ----------
+  function renderProblems(errors, warnings) {
+    problemsList.textContent = "";
+    var all = [];
+    (errors || []).forEach(function (m) { all.push({ sev: "error", m: m }); });
+    (warnings || []).forEach(function (m) { all.push({ sev: "warning", m: m }); });
+
+    if (all.length === 0) {
+      problemsEl.classList.remove("visible");
+      return;
+    }
+
+    all.forEach(function (item) {
+      var row = document.createElement("div");
+      row.className = "problem";
+
+      var sev = document.createElement("span");
+      sev.className = "sev " + item.sev;
+      sev.textContent = item.sev === "error" ? "ERROR" : "WARN";
+      row.appendChild(sev);
+
+      var loc = document.createElement("span");
+      loc.className = "loc";
+      if (item.m.location) {
+        loc.textContent = item.m.location.line + ":" + item.m.location.column;
+      } else {
+        loc.textContent = "-";
+      }
+      row.appendChild(loc);
+
+      var msg = document.createElement("span");
+      msg.className = "msg";
+      msg.textContent = item.m.text || String(item.m);
+      if (item.m.location && item.m.location.lineText) {
+        var lt = document.createElement("span");
+        lt.className = "line-text";
+        lt.textContent = item.m.location.lineText.trim();
+        msg.appendChild(lt);
+      }
+      row.appendChild(msg);
+      problemsList.appendChild(row);
+    });
+    problemsEl.classList.add("visible");
+  }
+
+  // ---------- stats ----------
+  function renderStats(inBytes, outBytes, gzipBytes, mapBytes) {
+    var pct = inBytes > 0 ? ((outBytes - inBytes) / inBytes) * 100 : 0;
+    var pctText = (pct <= 0 ? "−" : "+") + Math.abs(pct).toFixed(1) + "%";
+    var pctClass = pct <= 0 ? "saving" : "growing";
+
+    var html = fmtBytes(inBytes) + " → <b>" + fmtBytes(outBytes) + "</b>" +
+      " <span class=\"" + pctClass + "\">(" + pctText + ")</span>";
+    if (gzipBytes !== null && gzipBytes !== undefined) {
+      html += " · gzip ~" + fmtBytes(gzipBytes);
+    }
+    if (mapBytes !== null && mapBytes !== undefined) {
+      html += " · map " + fmtBytes(mapBytes);
+    }
+    statsEl.innerHTML = html;
+  }
+
+  // ---------- transform ----------
+  function scheduleTransform() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(runTransform, 250);
+  }
+
+  function runTransform() {
+    if (!ready) return;
+    var my = ++seq;
+    var source = input.value;
+    var inBytes = bytesOf(source);
+
+    var options = {
+      loader: optLoader.value,
+      target: optTarget.value,
+      format: optFormat.value,
+      jsx: optJsx.value,
+      minifyWhitespace: optMinWs.checked,
+      minifyIdentifiers: optMinId.checked,
+      minifySyntax: optMinSyn.checked,
+      sourcemap: optSourcemap.checked
+    };
+
+    window.esbuild.transform(source, options).then(function (result) {
+      if (my !== seq) return;
+      output.value = result.code;
+      output.classList.remove("stale");
+      renderProblems([], result.warnings);
+      var mapBytes = optSourcemap.checked && result.map ? bytesOf(result.map) : null;
+      var outBytes = bytesOf(result.code);
+      gzipSize(result.code).then(function (gz) {
+        if (my !== seq) return;
+        renderStats(inBytes, outBytes, gz, mapBytes);
+      });
+    }).catch(function (err) {
+      if (my !== seq) return;
+      output.classList.add("stale");
+      statsEl.textContent = "";
+      if (err && err.errors) {
+        renderProblems(err.errors, err.warnings);
+      } else {
+        renderProblems([{ text: String(err && err.message ? err.message : err) }], []);
+      }
+    });
+  }
+
+  // ---------- copy / download ----------
+  $("btn-copy").addEventListener("click", function () {
+    var text = output.value;
+    var done = function () {
+      copyLabel.textContent = "Copied";
+      setTimeout(function () { copyLabel.textContent = "Copy"; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function () {
+        output.select();
+        document.execCommand("copy");
+        done();
+      });
+    } else {
+      output.select();
+      document.execCommand("copy");
+      done();
+    }
+  });
+
+  $("btn-download").addEventListener("click", function () {
+    var ext = { esm: ".mjs", cjs: ".cjs", iife: ".js" }[optFormat.value] || ".js";
+    var blob = new Blob([output.value], { type: "text/javascript" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "esbuild-output" + ext;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 500);
+  });
+
+  // ---------- events ----------
+  input.addEventListener("input", scheduleTransform);
+  [optLoader, optTarget, optFormat, optJsx, optSourcemap].forEach(function (el) {
+    el.addEventListener("change", scheduleTransform);
+  });
+  sampleSelect.addEventListener("change", function () {
+    loadSample(sampleSelect.value);
+  });
+
+  // ---------- init ----------
+  input.value = getSample("ts");
+
+  window.esbuild.initialize({ wasmURL: "vendor/esbuild.wasm" }).then(function () {
+    ready = true;
+    statusEl.textContent = "ready · v" + window.esbuild.version;
+    runTransform();
+  }).catch(function (err) {
+    statusEl.textContent = "engine failed to load";
+    renderProblems([{ text: "esbuild-wasm failed to initialize: " + String(err && err.message ? err.message : err) }], []);
+  });
+})();
+</script>
+</body>
+</html>

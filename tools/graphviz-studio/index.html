@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Graphviz Studio</title>
+<meta name="description" content="Live DOT editor powered by Graphviz compiled to WebAssembly. Edit DOT on the left, get a real Graphviz SVG layout on the right — dot, neato, fdp, circo, twopi — with zoom, pan, and SVG/PNG export.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --line:#dcd9d2; --card:#ffffff;
+  --accent:#b05a3c; --accent-soft:rgba(176,90,60,.12);
+  --err:#b3403a; --err-bg:#f7e9e7;
+  --sans:'IBM Plex Sans',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a; --fg:#eceae4; --line:#2b2d31; --card:#1e2024;
+    --accent-soft:rgba(176,90,60,.28);
+    --err:#e07b72; --err-bg:#2a1e1d;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--sans);
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;overflow:hidden}
+::selection{background:var(--accent);color:#f4f3ef}
+::-webkit-scrollbar{width:9px;height:9px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ---------- chrome ---------- */
+header{flex:none;height:48px;display:flex;align-items:center;gap:10px;padding:0 16px;
+  background:var(--card);border-bottom:1px solid var(--line)}
+.brand-sq{width:11px;height:11px;border-radius:2px;background:var(--accent);
+  box-shadow:0 0 8px rgba(176,90,60,.55);flex:none}
+.brand{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:1.5px;white-space:nowrap}
+.back{margin-left:auto;font-family:var(--mono);font-size:11px;letter-spacing:.5px;
+  color:var(--muted);text-decoration:none;padding:5px 10px;border:1px solid var(--line);
+  border-radius:12px;background:var(--card);white-space:nowrap}
+.back:hover{color:var(--accent);border-color:var(--accent)}
+footer{flex:none;height:32px;display:flex;align-items:center;justify-content:center;gap:6px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.4px;color:var(--muted);
+  background:var(--card);border-top:1px solid var(--line)}
+footer a{color:var(--muted);text-decoration:underline;text-decoration-color:var(--line)}
+footer a:hover{color:var(--accent)}
+
+/* ---------- main split ---------- */
+main{flex:1;min-height:0;display:flex}
+.pane-editor{flex:0 0 42%;min-width:300px;display:flex;flex-direction:column;
+  border-right:1px solid var(--line);background:var(--card)}
+.pane-view{flex:1;min-width:0;display:flex;flex-direction:column}
+
+/* ---------- toolbar ---------- */
+.toolbar{flex:none;display:flex;align-items:center;gap:6px;padding:8px 10px;
+  border-bottom:1px solid var(--line);flex-wrap:wrap;background:var(--card)}
+.tb-label{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:1px;color:var(--muted)}
+select{font-family:var(--mono);font-size:11px;color:var(--fg);background:var(--card);
+  border:1px solid var(--line);border-radius:12px;height:26px;padding:0 8px;cursor:pointer;max-width:170px}
+select:focus{outline:none;border-color:var(--accent)}
+button{display:inline-flex;align-items:center;justify-content:center;gap:5px;height:26px;padding:0 10px;
+  border:1px solid var(--line);border-radius:13px;background:var(--card);color:var(--fg);
+  font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;cursor:pointer;white-space:nowrap}
+button:hover:enabled{border-color:var(--accent);color:var(--accent)}
+button:disabled{opacity:.45;cursor:default}
+button.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+button.icon{width:26px;padding:0}
+button svg{flex:none;display:block}
+.zoom-pct{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.5px;color:var(--muted);
+  min-width:44px;text-align:center;cursor:pointer;border:0;background:transparent;padding:0;height:26px}
+.zoom-pct:hover{color:var(--accent)}
+.spacer{flex:1}
+
+/* ---------- editor ---------- */
+#src{flex:1;min-height:0;width:100%;resize:none;border:0;margin:0;padding:12px 14px;
+  background:var(--card);color:var(--fg);font-family:var(--mono);font-size:13px;line-height:1.55;
+  white-space:pre;overflow:auto;tab-size:2}
+#src:focus{outline:none}
+#error{flex:none;display:flex;gap:8px;align-items:baseline;padding:8px 12px;
+  border-top:1px solid var(--err);background:var(--err-bg);color:var(--err);
+  font-family:var(--mono);font-size:11px;line-height:1.5;max-height:90px;overflow:auto}
+#error .loc{flex:none;font-weight:700;letter-spacing:.5px}
+#error[hidden]{display:none}
+
+/* ---------- svg viewport ---------- */
+#viewport{flex:1;min-height:0;position:relative;overflow:hidden;cursor:grab;
+  touch-action:none;user-select:none;-webkit-user-select:none;
+  background-image:radial-gradient(var(--line) 1px, transparent 1px);
+  background-size:22px 22px}
+#viewport.panning{cursor:grabbing}
+#world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+#world .sheet{background:#ffffff;border:1px solid var(--line);border-radius:6px;
+  padding:14px;box-shadow:0 2px 14px rgba(0,0,0,.07)}
+#world svg{display:block}
+#loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;gap:10px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.6px;color:var(--muted);background:var(--bg)}
+#loading[hidden]{display:none}
+#loading .pulse{width:9px;height:9px;border-radius:2px;background:var(--accent);animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:.25}50%{opacity:1}}
+
+.statusbar{flex:none;display:flex;align-items:center;gap:8px;padding:0 14px;height:30px;
+  border-top:1px solid var(--line);background:var(--card);
+  font-family:var(--mono);font-size:10px;letter-spacing:.4px;color:var(--muted)}
+.statusbar .dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
+.statusbar .dot.bad{background:var(--err)}
+
+@media (max-width: 860px){
+  body{overflow:auto}
+  main{flex-direction:column}
+  .pane-editor{flex:none;min-width:0;height:44vh;border-right:0;border-bottom:1px solid var(--line)}
+  .pane-view{flex:none;height:52vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-sq"></div>
+  <span class="brand">GRAPHVIZ STUDIO</span>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <section class="pane-editor">
+    <div class="toolbar">
+      <span class="tb-label">EXAMPLE</span>
+      <select id="exampleSel" title="Load an example graph">
+        <option value="flow">Directed flow</option>
+        <option value="clusters">Clusters / subgraphs</option>
+        <option value="records">Record shapes</option>
+        <option value="network">Undirected network</option>
+        <option value="pipeline">Ranked pipeline</option>
+      </select>
+      <div class="spacer"></div>
+      <button id="copyBtn" title="Copy DOT source to clipboard">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>
+        <span id="copyLbl">COPY DOT</span>
+      </button>
+    </div>
+    <textarea id="src" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off" aria-label="DOT source"></textarea>
+    <div id="error" hidden><span class="loc" id="errorLoc"></span><span id="errorMsg"></span></div>
+  </section>
+
+  <section class="pane-view">
+    <div class="toolbar">
+      <span class="tb-label">ENGINE</span>
+      <select id="engineSel" title="Graphviz layout engine">
+        <option value="dot">dot</option>
+        <option value="neato">neato</option>
+        <option value="fdp">fdp</option>
+        <option value="circo">circo</option>
+        <option value="twopi">twopi</option>
+      </select>
+      <button id="zoomOutBtn" class="icon" title="Zoom out">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>
+      </button>
+      <button id="zoomPctBtn" class="zoom-pct" title="Reset zoom to 100%">100%</button>
+      <button id="zoomInBtn" class="icon" title="Zoom in">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+      <button id="fitBtn" title="Fit graph to viewport">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+        FIT
+      </button>
+      <div class="spacer"></div>
+      <button id="svgBtn" title="Download rendering as SVG" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l-6 6 6 6M15 6l6 6-6 6"/></svg>
+        SVG
+      </button>
+      <button id="pngBtn" title="Download rendering as PNG" disabled>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="1.6"/><path d="M21 15l-5-5-9 9"/></svg>
+        PNG
+      </button>
+    </div>
+    <div id="viewport">
+      <div id="world"><div class="sheet" id="sheet"></div></div>
+      <div id="loading"><span class="pulse"></span>loading graphviz wasm&#8230;</div>
+    </div>
+    <div class="statusbar"><span class="dot" id="statusDot"></span><span id="status">booting</span></div>
+  </section>
+</main>
+
+<footer>@hpcc-js/wasm-graphviz &#183; <a href="LICENSE-hpcc-wasm.txt">Apache-2.0</a> &#183; Graphviz via WebAssembly &#183; <a href="NOTICE.txt">NOTICE</a></footer>
+
+<script src="vendor/graphviz.umd.js"></script>
+
+<script id="examples-data">
+var EXAMPLES = {
+  "flow": { engine: "dot", dot: [
+    "digraph request_flow {",
+    "  rankdir=LR;",
+    "  bgcolor=\"transparent\";",
+    "  fontname=\"Helvetica,Arial,sans-serif\";",
+    "  node [fontname=\"Helvetica,Arial,sans-serif\", fontsize=11, shape=box,",
+    "        style=\"rounded,filled\", fillcolor=\"#f4f0e8\", color=\"#46413a\"];",
+    "  edge [fontname=\"Helvetica,Arial,sans-serif\", fontsize=9,",
+    "        color=\"#8a8d93\", fontcolor=\"#6b6e73\"];",
+    "",
+    "  user     [label=\"User\", shape=ellipse, fillcolor=\"#e9dfd4\"];",
+    "  browser  [label=\"Browser\"];",
+    "  cache    [label=\"Edge cache\"];",
+    "  gateway  [label=\"API gateway\"];",
+    "  auth     [label=\"Auth service\"];",
+    "  orders   [label=\"Orders service\"];",
+    "  db       [label=\"Postgres\", shape=cylinder, fillcolor=\"#e9dfd4\"];",
+    "  events   [label=\"Event bus\", shape=box, style=\"filled,dashed\"];",
+    "",
+    "  user    -> browser [label=\"click\"];",
+    "  browser -> cache   [label=\"HTTPS\"];",
+    "  cache   -> gateway [label=\"miss\"];",
+    "  gateway -> auth    [label=\"verify\"];",
+    "  gateway -> orders  [label=\"fetch\"];",
+    "  orders  -> db      [label=\"SQL\"];",
+    "  orders  -> events  [label=\"emit\", style=dashed];",
+    "}"
+  ].join("\n") },
+
+  "clusters": { engine: "dot", dot: [
+    "digraph deployment {",
+    "  compound=true;",
+    "  rankdir=LR;",
+    "  fontname=\"Helvetica,Arial,sans-serif\";",
+    "  node [fontname=\"Helvetica,Arial,sans-serif\", fontsize=11, shape=box,",
+    "        style=\"rounded,filled\", fillcolor=\"#ffffff\", color=\"#46413a\"];",
+    "  edge [color=\"#8a8d93\"];",
+    "",
+    "  subgraph cluster_web {",
+    "    label=\"web tier\";",
+    "    style=filled; fillcolor=\"#f4f0e8\"; color=\"#c9c2b4\";",
+    "    fontname=\"Helvetica,Arial,sans-serif\"; fontsize=10;",
+    "    lb [label=\"load balancer\"];",
+    "    web1 [label=\"web-1\"]; web2 [label=\"web-2\"];",
+    "    lb -> web1; lb -> web2;",
+    "  }",
+    "",
+    "  subgraph cluster_app {",
+    "    label=\"app tier\";",
+    "    style=filled; fillcolor=\"#ece6da\"; color=\"#c9c2b4\";",
+    "    fontname=\"Helvetica,Arial,sans-serif\"; fontsize=10;",
+    "    api1 [label=\"api-1\"]; api2 [label=\"api-2\"];",
+    "    worker [label=\"worker\"];",
+    "  }",
+    "",
+    "  db [label=\"database\", shape=cylinder, fillcolor=\"#e9dfd4\", style=filled];",
+    "",
+    "  web1 -> api1;  web2 -> api2;",
+    "  api1 -> worker [style=dashed, label=\"jobs\", fontsize=9];",
+    "  api1 -> db;  api2 -> db;  worker -> db;",
+    "}"
+  ].join("\n") },
+
+  "records": { engine: "dot", dot: [
+    "digraph structs {",
+    "  rankdir=LR;",
+    "  fontname=\"Helvetica,Arial,sans-serif\";",
+    "  node [fontname=\"Helvetica,Arial,sans-serif\", fontsize=11, shape=record,",
+    "        style=filled, fillcolor=\"#f4f0e8\", color=\"#46413a\"];",
+    "  edge [color=\"#8a8d93\"];",
+    "",
+    "  order [label=\"{ Order | <id> id: uuid \\l qty: int \\l placed_at: ts \\l | <cust> customer_id \\l <item> item_id \\l }\"];",
+    "  customer [label=\"{ Customer | <id> id: uuid \\l name: text \\l email: text \\l }\"];",
+    "  item [label=\"{ Item | <id> id: uuid \\l sku: text \\l price: cents \\l }\"];",
+    "  invoice [label=\"{ Invoice | id: uuid \\l total: cents \\l | <ord> order_id \\l }\"];",
+    "",
+    "  order:cust -> customer:id;",
+    "  order:item -> item:id;",
+    "  invoice:ord -> order:id;",
+    "}"
+  ].join("\n") },
+
+  "network": { engine: "neato", dot: [
+    "graph lan {",
+    "  fontname=\"Helvetica,Arial,sans-serif\";",
+    "  node [fontname=\"Helvetica,Arial,sans-serif\", fontsize=10, shape=circle,",
+    "        style=filled, fillcolor=\"#f4f0e8\", color=\"#46413a\", fixedsize=true, width=0.9];",
+    "  edge [color=\"#8a8d93\", len=1.6];",
+    "",
+    "  router [fillcolor=\"#e0b8a6\"];",
+    "",
+    "  router -- switch1;",
+    "  router -- switch2;",
+    "  router -- wifi;",
+    "  switch1 -- nas;",
+    "  switch1 -- desk1;",
+    "  switch1 -- desk2;",
+    "  switch2 -- printer;",
+    "  switch2 -- cam1;",
+    "  switch2 -- cam2;",
+    "  wifi -- phone;",
+    "  wifi -- laptop;",
+    "  wifi -- tablet;",
+    "  laptop -- nas [style=dashed, label=\"backup\", fontsize=8, fontcolor=\"#6b6e73\"];",
+    "}"
+  ].join("\n") },
+
+  "pipeline": { engine: "dot", dot: [
+    "digraph pipeline {",
+    "  rankdir=LR;",
+    "  ranksep=0.7;",
+    "  fontname=\"Helvetica,Arial,sans-serif\";",
+    "  node [fontname=\"Helvetica,Arial,sans-serif\", fontsize=11, shape=box,",
+    "        style=\"rounded,filled\", fillcolor=\"#f4f0e8\", color=\"#46413a\"];",
+    "  edge [fontname=\"Helvetica,Arial,sans-serif\", fontsize=9, color=\"#8a8d93\", fontcolor=\"#6b6e73\"];",
+    "",
+    "  { rank=same; lint; unit; }",
+    "  { rank=same; build_linux [label=\"build linux\"]; build_win [label=\"build windows\"]; }",
+    "  { rank=same; stage; docs; }",
+    "",
+    "  commit [label=\"commit\", fillcolor=\"#e9dfd4\"];",
+    "  lint [label=\"lint\"];",
+    "  unit [label=\"unit tests\"];",
+    "  integration [label=\"integration\"];",
+    "  stage [label=\"deploy staging\"];",
+    "  docs [label=\"publish docs\"];",
+    "  prod [label=\"deploy prod\", fillcolor=\"#e0b8a6\"];",
+    "",
+    "  commit -> lint;",
+    "  commit -> unit;",
+    "  lint -> build_linux;  lint -> build_win;",
+    "  unit -> build_linux;  unit -> build_win;",
+    "  build_linux -> integration;",
+    "  build_win -> integration;",
+    "  integration -> stage;",
+    "  integration -> docs;",
+    "  stage -> prod [label=\"manual gate\"];",
+    "}"
+  ].join("\n") }
+};
+if (typeof module === "object" && module.exports) { module.exports = EXAMPLES; }
+</script>
+
+<script id="app">
+(function () {
+  "use strict";
+
+  var srcEl = document.getElementById("src");
+  var sheet = document.getElementById("sheet");
+  var world = document.getElementById("world");
+  var viewport = document.getElementById("viewport");
+  var loadingEl = document.getElementById("loading");
+  var errorEl = document.getElementById("error");
+  var errorLoc = document.getElementById("errorLoc");
+  var errorMsg = document.getElementById("errorMsg");
+  var statusEl = document.getElementById("status");
+  var statusDot = document.getElementById("statusDot");
+  var exampleSel = document.getElementById("exampleSel");
+  var engineSel = document.getElementById("engineSel");
+  var copyBtn = document.getElementById("copyBtn");
+  var copyLbl = document.getElementById("copyLbl");
+  var svgBtn = document.getElementById("svgBtn");
+  var pngBtn = document.getElementById("pngBtn");
+  var zoomInBtn = document.getElementById("zoomInBtn");
+  var zoomOutBtn = document.getElementById("zoomOutBtn");
+  var zoomPctBtn = document.getElementById("zoomPctBtn");
+  var fitBtn = document.getElementById("fitBtn");
+
+  var STORE_SRC = "graphviz-studio.src";
+  var STORE_ENGINE = "graphviz-studio.engine";
+  var SHEET_PAD = 14;           // must match .sheet padding in CSS
+
+  var gv = null;                // Graphviz wasm instance
+  var timer = null;
+  var lastGoodSvg = "";         // raw SVG text of last successful render
+  var svgW = 0, svgH = 0;       // natural size (viewBox units) of current SVG
+  var needsFit = true;          // fit view on next successful render
+
+  /* ---------- pan / zoom state ---------- */
+
+  var view = { x: 0, y: 0, k: 1 };
+  var K_MIN = 0.05, K_MAX = 16;
+
+  function applyView() {
+    world.style.transform = "translate(" + view.x + "px," + view.y + "px) scale(" + view.k + ")";
+    zoomPctBtn.textContent = Math.round(view.k * 100) + "%";
+  }
+
+  function clampK(k) { return Math.min(K_MAX, Math.max(K_MIN, k)); }
+
+  function zoomAt(px, py, factor) {
+    var k = clampK(view.k * factor);
+    var f = k / view.k;
+    view.x = px - (px - view.x) * f;
+    view.y = py - (py - view.y) * f;
+    view.k = k;
+    applyView();
+  }
+
+  function contentSize() {
+    return { w: svgW + 2 * SHEET_PAD + 2, h: svgH + 2 * SHEET_PAD + 2 }; // +2 for sheet border
+  }
+
+  function fit() {
+    if (!svgW || !svgH) return;
+    var c = contentSize();
+    var vw = viewport.clientWidth, vh = viewport.clientHeight;
+    var pad = 28;
+    var k = clampK(Math.min((vw - pad * 2) / c.w, (vh - pad * 2) / c.h));
+    if (k > 1.5) k = 1.5; // don't blow tiny graphs up past 150%
+    view.k = k;
+    view.x = (vw - c.w * k) / 2;
+    view.y = (vh - c.h * k) / 2;
+    applyView();
+  }
+
+  function resetZoom() {
+    // 100% scale, keep the point under the viewport center stationary
+    var vw = viewport.clientWidth / 2, vh = viewport.clientHeight / 2;
+    zoomAt(vw, vh, 1 / view.k);
+  }
+
+  viewport.addEventListener("wheel", function (e) {
+    e.preventDefault();
+    var r = viewport.getBoundingClientRect();
+    var factor = Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0015));
+    zoomAt(e.clientX - r.left, e.clientY - r.top, factor);
+  }, { passive: false });
+
+  var pan = null;
+  viewport.addEventListener("pointerdown", function (e) {
+    if (e.button !== 0) return;
+    pan = { id: e.pointerId, sx: e.clientX, sy: e.clientY, ox: view.x, oy: view.y };
+    viewport.setPointerCapture(e.pointerId);
+    viewport.classList.add("panning");
+  });
+  viewport.addEventListener("pointermove", function (e) {
+    if (!pan || e.pointerId !== pan.id) return;
+    view.x = pan.ox + (e.clientX - pan.sx);
+    view.y = pan.oy + (e.clientY - pan.sy);
+    applyView();
+  });
+  function endPan(e) {
+    if (pan && e.pointerId === pan.id) { pan = null; viewport.classList.remove("panning"); }
+  }
+  viewport.addEventListener("pointerup", endPan);
+  viewport.addEventListener("pointercancel", endPan);
+  viewport.addEventListener("dblclick", function () { fit(); });
+
+  zoomInBtn.addEventListener("click", function () {
+    zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, 1.3);
+  });
+  zoomOutBtn.addEventListener("click", function () {
+    zoomAt(viewport.clientWidth / 2, viewport.clientHeight / 2, 1 / 1.3);
+  });
+  zoomPctBtn.addEventListener("click", resetZoom);
+  fitBtn.addEventListener("click", fit);
+
+  /* ---------- render (debounced, keeps last good) ---------- */
+
+  function parseSvgSize(svgEl) {
+    var vb = svgEl.viewBox && svgEl.viewBox.baseVal;
+    if (vb && vb.width && vb.height) return { w: vb.width, h: vb.height };
+    var w = parseFloat(svgEl.getAttribute("width")) || 300;
+    var h = parseFloat(svgEl.getAttribute("height")) || 150;
+    return { w: w, h: h };
+  }
+
+  function render() {
+    if (!gv) return;
+    var code = srcEl.value;
+    var engine = engineSel.value;
+    var t0 = performance.now();
+    var svgText;
+    try {
+      svgText = gv.layout(code, "svg", engine);
+    } catch (e) {
+      showError(e);
+      return;
+    }
+    var ms = Math.max(1, Math.round(performance.now() - t0));
+
+    var doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    var svgEl = doc.documentElement;
+    if (!svgEl || svgEl.nodeName.toLowerCase() !== "svg") {
+      showError(new Error("graphviz produced no SVG output"));
+      return;
+    }
+    var size = parseSvgSize(svgEl);
+    svgW = size.w; svgH = size.h;
+
+    var node = document.importNode(svgEl, true);
+    // pin to viewBox units so 100% zoom is 1 unit : 1 css px
+    node.setAttribute("width", svgW + "px");
+    node.setAttribute("height", svgH + "px");
+    sheet.replaceChildren(node);
+
+    lastGoodSvg = svgText;
+    svgBtn.disabled = false;
+    pngBtn.disabled = false;
+    hideError();
+    statusDot.className = "dot";
+    statusEl.textContent = engine + " · " + Math.round(svgW) + " × " +
+      Math.round(svgH) + " · " + ms + " ms · graphviz wasm";
+    if (needsFit) { needsFit = false; fit(); }
+  }
+
+  function scheduleRender() {
+    clearTimeout(timer);
+    timer = setTimeout(function () {
+      render();
+      try { localStorage.setItem(STORE_SRC, srcEl.value); } catch (e) { /* private mode */ }
+    }, 250);
+  }
+
+  function showError(e) {
+    var msg = (e && e.message) ? e.message : String(e);
+    var m = msg.match(/in line (\d+)/);
+    errorLoc.textContent = m ? ("line " + m[1]) : "error";
+    errorMsg.textContent = msg;
+    errorEl.hidden = false;
+    statusDot.className = "dot bad";
+    statusEl.textContent = lastGoodSvg
+      ? "parse failed — showing last good render"
+      : "parse failed";
+  }
+
+  function hideError() { errorEl.hidden = true; }
+
+  /* ---------- exports ---------- */
+
+  function graphName() {
+    var m = srcEl.value.match(/^\s*(?:strict\s+)?(?:di)?graph\s+("?)([A-Za-z0-9_.-]+)\1/m);
+    var name = m && m[2] ? m[2] : "graph";
+    return name.replace(/[^\w.-]+/g, "-").replace(/^-+|-+$/g, "") || "graph";
+  }
+
+  function download(filename, blob) {
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  function downloadSvg() {
+    if (!lastGoodSvg) return;
+    download(graphName() + ".svg", new Blob([lastGoodSvg], { type: "image/svg+xml;charset=utf-8" }));
+  }
+
+  function downloadPng() {
+    if (!lastGoodSvg) return;
+    // rewrite root width/height to px so <img> rasterizes at a known size
+    var doc = new DOMParser().parseFromString(lastGoodSvg, "image/svg+xml");
+    var svgEl = doc.documentElement;
+    var size = parseSvgSize(svgEl);
+    svgEl.setAttribute("width", size.w + "px");
+    svgEl.setAttribute("height", size.h + "px");
+    var text = new XMLSerializer().serializeToString(svgEl);
+    var url = URL.createObjectURL(new Blob([text], { type: "image/svg+xml;charset=utf-8" }));
+    var img = new Image();
+    var scale = Math.max(2, window.devicePixelRatio || 1); // 2x minimum for crisp export
+    img.onload = function () {
+      var c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(size.w * scale));
+      c.height = Math.max(1, Math.round(size.h * scale));
+      var ctx = c.getContext("2d");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, c.width, c.height);
+      ctx.drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(function (blob) {
+        if (blob) download(graphName() + ".png", blob);
+      }, "image/png");
+    };
+    img.onerror = function () {
+      URL.revokeObjectURL(url);
+      showError(new Error("PNG export failed: SVG did not rasterize"));
+    };
+    img.src = url;
+  }
+
+  function copySource() {
+    var done = function () {
+      copyLbl.textContent = "COPIED";
+      copyBtn.classList.add("active");
+      setTimeout(function () {
+        copyLbl.textContent = "COPY DOT";
+        copyBtn.classList.remove("active");
+      }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(srcEl.value).then(done, function () { legacyCopy(); done(); });
+    } else {
+      legacyCopy(); done();
+    }
+  }
+
+  function legacyCopy() {
+    srcEl.select();
+    try { document.execCommand("copy"); } catch (e) { /* best effort */ }
+    srcEl.setSelectionRange(srcEl.value.length, srcEl.value.length);
+  }
+
+  /* ---------- wiring ---------- */
+
+  srcEl.addEventListener("input", scheduleRender);
+
+  srcEl.addEventListener("keydown", function (e) {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      var s = srcEl.selectionStart, t = srcEl.selectionEnd;
+      srcEl.value = srcEl.value.slice(0, s) + "  " + srcEl.value.slice(t);
+      srcEl.selectionStart = srcEl.selectionEnd = s + 2;
+      scheduleRender();
+    }
+  });
+
+  exampleSel.addEventListener("change", function () {
+    var ex = EXAMPLES[exampleSel.value];
+    srcEl.value = ex.dot;
+    engineSel.value = ex.engine;
+    needsFit = true;
+    render();
+    try {
+      localStorage.setItem(STORE_SRC, srcEl.value);
+      localStorage.setItem(STORE_ENGINE, engineSel.value);
+    } catch (e) { /* ignore */ }
+  });
+
+  engineSel.addEventListener("change", function () {
+    needsFit = true;
+    render();
+    try { localStorage.setItem(STORE_ENGINE, engineSel.value); } catch (e) { /* ignore */ }
+  });
+
+  copyBtn.addEventListener("click", copySource);
+  svgBtn.addEventListener("click", downloadSvg);
+  pngBtn.addEventListener("click", downloadPng);
+
+  window.addEventListener("resize", function () {
+    // keep the graph fitted only if the user hasn't taken over the view
+    if (needsFit) fit();
+  });
+
+  /* ---------- boot ---------- */
+
+  var savedSrc = null, savedEngine = null;
+  try {
+    savedSrc = localStorage.getItem(STORE_SRC);
+    savedEngine = localStorage.getItem(STORE_ENGINE);
+  } catch (e) { /* ignore */ }
+  srcEl.value = (savedSrc && savedSrc.trim()) ? savedSrc : EXAMPLES["flow"].dot;
+  engineSel.value = (savedEngine && /^(dot|neato|fdp|circo|twopi)$/.test(savedEngine))
+    ? savedEngine : "dot";
+
+  statusEl.textContent = "loading graphviz wasm…";
+  var hpcc = window["@hpcc-js/wasm/graphviz"];
+  if (!hpcc || !hpcc.Graphviz) {
+    loadingEl.textContent = "failed to load vendor/graphviz.umd.js";
+    statusDot.className = "dot bad";
+    statusEl.textContent = "vendor bundle missing";
+    return;
+  }
+  hpcc.Graphviz.load().then(function (instance) {
+    gv = instance;
+    loadingEl.hidden = true;
+    needsFit = true;
+    render();
+  }, function (err) {
+    loadingEl.textContent = "wasm failed to initialize: " + ((err && err.message) || err);
+    statusDot.className = "dot bad";
+    statusEl.textContent = "wasm init failed";
+  });
+})();
+</script>
+</body>
+</html>

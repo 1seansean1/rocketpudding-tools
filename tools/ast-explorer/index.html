@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AST Explorer</title>
+<meta name="description" content="Paste code and walk its syntax tree. Powered by tree-sitter compiled to WebAssembly, running entirely in your browser.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #d07a58;
+    --accent-soft: rgba(208, 122, 88, 0.16);
+    --mark: rgba(208, 122, 88, 0.30);
+    --err: #b3402f;
+    --sans: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent-soft: rgba(208, 122, 88, 0.22);
+      --mark: rgba(208, 122, 88, 0.38);
+      --err: #e07360;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--fg);
+    font: 400 14px/1.5 var(--sans);
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+    flex: none;
+  }
+  .accent-square { width: 13px; height: 13px; background: var(--accent); flex: none; }
+  header h1 {
+    margin: 0;
+    font: 700 15px/1 var(--mono);
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+  }
+  header .spacer { flex: 1; }
+  a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font: 500 13px/1 var(--mono);
+  }
+  a.back:hover { color: var(--accent); }
+
+  /* ---------- layout ---------- */
+  main {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px 20px;
+  }
+  .pane {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .pane-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    flex: none;
+    flex-wrap: wrap;
+  }
+  .pane-head .label {
+    font: 500 11px/1 var(--mono);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  select, .btn, .search-wrap input {
+    font: 500 13px/1.2 var(--sans);
+    color: var(--fg);
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+  select { cursor: pointer; }
+  .btn {
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover, select:hover { border-color: var(--accent); }
+  .btn:focus-visible, select:focus-visible, .search-wrap input:focus-visible, textarea:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.7; flex: none; }
+  .btn.icon-only { padding: 6px 7px; }
+
+  /* ---------- editor ---------- */
+  .editor-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    border-top: 1px solid var(--line);
+  }
+  .editor-backdrop, #code {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 14px 16px;
+    font: 400 13px/1.6 var(--mono);
+    white-space: pre;
+    tab-size: 4;
+  }
+  .editor-backdrop {
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .editor-backdrop pre {
+    margin: 0;
+    font: inherit;
+    white-space: pre;
+    color: transparent;
+  }
+  .editor-backdrop mark {
+    color: transparent;
+    background: var(--mark);
+    border-radius: 2px;
+    box-shadow: 0 0 0 1px var(--mark);
+  }
+  #code {
+    z-index: 1;
+    background: transparent;
+    color: var(--fg);
+    caret-color: var(--fg);
+    border: 0;
+    resize: none;
+    outline: none;
+    overflow: auto;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* ---------- tree ---------- */
+  .search-wrap { position: relative; flex: 1; min-width: 130px; }
+  .search-wrap svg {
+    position: absolute;
+    left: 9px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 13px; height: 13px;
+    stroke: var(--muted); fill: none; stroke-width: 1.7;
+    pointer-events: none;
+  }
+  .search-wrap input {
+    width: 100%;
+    padding-left: 28px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+  }
+  .search-wrap input::placeholder { color: var(--muted); }
+
+  .stats {
+    font: 400 11.5px/1.4 var(--mono);
+    color: var(--muted);
+    padding: 6px 12px;
+    border-top: 1px solid var(--line);
+    flex: none;
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .stats .err-note { color: var(--err); }
+  #status { color: var(--accent); }
+  #status.error { color: var(--err); }
+
+  #tree {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    padding: 10px 12px 18px;
+    border-top: 1px solid var(--line);
+    font: 400 12.5px/1.5 var(--mono);
+  }
+  .node { margin: 0; }
+  .node .kids { margin: 0; padding-left: 19px; border-left: 1px solid var(--line); }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 6px 1px 2px;
+    border-radius: 5px;
+    cursor: pointer;
+    white-space: nowrap;
+    width: fit-content;
+    min-width: 100%;
+  }
+  .row:hover { background: var(--accent-soft); }
+  .row.active { background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+  .twist {
+    width: 16px; height: 16px;
+    flex: none;
+    border: 0;
+    background: none;
+    padding: 0;
+    cursor: pointer;
+    color: var(--muted);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .twist svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; transition: transform 0.12s; }
+  .node.open > .row .twist svg { transform: rotate(90deg); }
+  .twist.leaf { visibility: hidden; }
+  .ntype { color: var(--fg); font-weight: 500; }
+  .ntype.match { color: var(--accent); }
+  .ntype.err { color: var(--err); }
+  .npos { color: var(--muted); font-size: 11px; }
+  .overflow-note { color: var(--muted); font-style: italic; padding: 3px 6px; }
+  .node.hidden-by-filter { display: none; }
+
+  /* ---------- tooltip ---------- */
+  #tooltip {
+    position: fixed;
+    z-index: 50;
+    max-width: 440px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 7px 10px;
+    font: 400 12px/1.5 var(--mono);
+    white-space: pre;
+    overflow: hidden;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+    pointer-events: none;
+    display: none;
+  }
+  #tooltip .tt-type {
+    display: block;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 3px;
+  }
+
+  /* ---------- footer ---------- */
+  footer {
+    flex: none;
+    padding: 10px 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  footer a { color: var(--muted); text-decoration: underline; text-decoration-color: var(--line); }
+  footer a:hover { color: var(--accent); }
+
+  @media (max-width: 900px) {
+    main { grid-template-columns: 1fr; grid-auto-rows: minmax(320px, 48vh); }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>AST Explorer</h1>
+  <div class="spacer"></div>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <section class="pane" aria-label="Code editor">
+    <div class="pane-head">
+      <span class="label">Source</span>
+      <select id="lang" aria-label="Language">
+        <option value="javascript" selected>JavaScript</option>
+        <option value="python">Python</option>
+        <option value="c">C</option>
+      </select>
+      <button class="btn" id="sampleBtn" title="Load the sample program for the selected language">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 3v6h6M13 3l6 6M13 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"/></svg>
+        Sample
+      </button>
+    </div>
+    <div class="editor-wrap">
+      <div class="editor-backdrop" id="backdrop" aria-hidden="true"><pre id="hl"></pre></div>
+      <textarea id="code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"
+        aria-label="Code to parse" placeholder="Paste code here"></textarea>
+    </div>
+  </section>
+
+  <section class="pane" aria-label="Syntax tree">
+    <div class="pane-head">
+      <span class="label">Tree</span>
+      <div class="search-wrap">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4.2-4.2"/></svg>
+        <input id="search" type="search" placeholder="filter node types&#8230;" aria-label="Filter node types">
+      </div>
+      <button class="btn icon-only" id="expandBtn" title="Expand all nodes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v16M4 12h16"/></svg>
+      </button>
+      <button class="btn icon-only" id="collapseBtn" title="Collapse all nodes">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16"/></svg>
+      </button>
+      <button class="btn" id="copyBtn" title="Copy the tree as JSON">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        <span id="copyLabel">JSON</span>
+      </button>
+    </div>
+    <div id="tree" role="tree"></div>
+    <div class="stats">
+      <span id="nodeStat">&#8211;</span>
+      <span id="timeStat">&#8211;</span>
+      <span id="status" role="status"></span>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>Parsing by <a href="LICENSE-web-tree-sitter.txt">web-tree-sitter 0.25.6 (MIT)</a></span>
+  <span>&#183;</span>
+  <span>grammars: tree-sitter-javascript / -python / -c, <a href="LICENSE-grammars.txt">MIT, via tree-sitter-wasms</a></span>
+  <span>&#183;</span>
+  <span>runs entirely in your browser</span>
+</footer>
+
+<div id="tooltip" aria-hidden="true"></div>
+
+<script type="module">
+import { Parser, Language } from './vendor/tree-sitter.js';
+
+/* ---------- constants ---------- */
+
+const GRAMMARS = {
+  javascript: 'vendor/tree-sitter-javascript.wasm',
+  python: 'vendor/tree-sitter-python.wasm',
+  c: 'vendor/tree-sitter-c.wasm',
+};
+
+const SAMPLES = {
+  javascript: [
+    '// Fibonacci with memoization',
+    'const memo = new Map();',
+    '',
+    'function fib(n) {',
+    '  if (n <= 1) return n;',
+    '  if (memo.has(n)) return memo.get(n);',
+    '  const value = fib(n - 1) + fib(n - 2);',
+    '  memo.set(n, value);',
+    '  return value;',
+    '}',
+    '',
+    'const first10 = Array.from({ length: 10 }, (_, i) => fib(i));',
+    'console.log(first10.join(", "));',
+    '',
+  ].join('\n'),
+  python: [
+    'from dataclasses import dataclass',
+    '',
+    '@dataclass',
+    'class Point:',
+    '    x: float',
+    '    y: float',
+    '',
+    '    def dist(self, other):',
+    '        dx, dy = self.x - other.x, self.y - other.y',
+    '        return (dx ** 2 + dy ** 2) ** 0.5',
+    '',
+    'points = [Point(0, 0), Point(3, 4)]',
+    'for p in points:',
+    '    print(p, points[0].dist(p))',
+    '',
+  ].join('\n'),
+  c: [
+    '#include <stdio.h>',
+    '',
+    'typedef struct { int x, y; } Point;',
+    '',
+    'int manhattan(Point a, Point b) {',
+    '    int dx = a.x > b.x ? a.x - b.x : b.x - a.x;',
+    '    int dy = a.y > b.y ? a.y - b.y : b.y - a.y;',
+    '    return dx + dy;',
+    '}',
+    '',
+    'int main(void) {',
+    '    Point p = { 1, 2 }, q = { 4, 6 };',
+    '    printf("%d\\n", manhattan(p, q));',
+    '    return 0;',
+    '}',
+    '',
+  ].join('\n'),
+};
+
+const DEFAULT_DEPTH = 2;      // levels expanded after a parse
+const RENDER_BUDGET = 6000;   // max rows created per render pass
+
+/* ---------- dom ---------- */
+
+const $ = (id) => document.getElementById(id);
+const els = {
+  lang: $('lang'), sampleBtn: $('sampleBtn'), code: $('code'),
+  backdrop: $('backdrop'), hl: $('hl'), tree: $('tree'),
+  search: $('search'), expandBtn: $('expandBtn'), collapseBtn: $('collapseBtn'),
+  copyBtn: $('copyBtn'), copyLabel: $('copyLabel'),
+  nodeStat: $('nodeStat'), timeStat: $('timeStat'), status: $('status'),
+  tooltip: $('tooltip'),
+};
+
+const esc = (s) => s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
+
+function setStatus(msg, isError) {
+  els.status.textContent = msg || '';
+  els.status.classList.toggle('error', !!isError);
+}
+
+/* ---------- parser bootstrap (fetch -> arrayBuffer, never instantiateStreaming) ---------- */
+
+async function fetchBytes(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('fetch ' + url + ' failed: HTTP ' + res.status);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+let parser = null;
+const languageCache = new Map();
+
+async function getLanguage(name) {
+  if (!languageCache.has(name)) {
+    setStatus('Loading ' + name + ' grammar…');
+    const bytes = await fetchBytes(GRAMMARS[name]);
+    languageCache.set(name, await Language.load(bytes));
+    setStatus('');
+  }
+  return languageCache.get(name);
+}
+
+/* ---------- state ---------- */
+
+let snapshotRoot = null;   // plain-object mirror of the named-node tree
+let nodeCount = 0;
+let currentCode = '';
+let selectedRow = null;
+let parseSeq = 0;
+let filterQuery = '';
+
+/* ---------- snapshot: tree-sitter tree -> plain objects (iterative, no recursion) ---------- */
+
+function snapshot(rootNode) {
+  nodeCount = 0;
+  const mk = (n) => {
+    nodeCount++;
+    return {
+      type: n.type,
+      start: { row: n.startPosition.row, column: n.startPosition.column },
+      end: { row: n.endPosition.row, column: n.endPosition.column },
+      startIndex: n.startIndex,
+      endIndex: n.endIndex,
+      error: n.type === 'ERROR' || n.isMissing,
+      children: [],
+    };
+  };
+  const rootObj = mk(rootNode);
+  const work = [[rootNode, rootObj]];
+  while (work.length) {
+    const [n, o] = work.pop();
+    for (const child of n.namedChildren) {
+      if (!child) continue;
+      const co = mk(child);
+      o.children.push(co);
+      work.push([child, co]);
+    }
+  }
+  return rootObj;
+}
+
+/* ---------- filtering ---------- */
+
+function markMatches(root, q) {
+  const stack = [[root, false]];
+  while (stack.length) {
+    const frame = stack[stack.length - 1];
+    if (!frame[1]) {
+      frame[1] = true;
+      for (const c of frame[0].children) stack.push([c, false]);
+    } else {
+      stack.pop();
+      const node = frame[0];
+      node._selfMatch = q !== '' && node.type.toLowerCase().includes(q);
+      node._visible = q === '' || node._selfMatch || node.children.some((c) => c._visible);
+    }
+  }
+}
+
+/* ---------- tree rendering (lazy children in browse mode) ---------- */
+
+let renderBudget = 0;
+
+function renderNode(node, depth, expandDepth) {
+  const wrap = document.createElement('div');
+  wrap.className = 'node';
+  wrap._node = node;
+
+  const row = document.createElement('div');
+  row.className = 'row';
+  row.setAttribute('role', 'treeitem');
+  row._node = node;
+
+  const kids = filterQuery ? node.children.filter((c) => c._visible) : node.children;
+  const hasKids = kids.length > 0;
+
+  const twist = document.createElement('button');
+  twist.className = 'twist' + (hasKids ? '' : ' leaf');
+  twist.tabIndex = hasKids ? 0 : -1;
+  twist.title = hasKids ? 'Toggle children' : '';
+  twist.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+  row.appendChild(twist);
+
+  const t = document.createElement('span');
+  t.className = 'ntype' + (node.error ? ' err' : '') + (node._selfMatch ? ' match' : '');
+  t.textContent = node.type;
+  row.appendChild(t);
+
+  const pos = document.createElement('span');
+  pos.className = 'npos';
+  pos.textContent = '[' + node.start.row + ':' + node.start.column + '–' + node.end.row + ':' + node.end.column + ']';
+  row.appendChild(pos);
+
+  wrap.appendChild(row);
+
+  const kidBox = document.createElement('div');
+  kidBox.className = 'kids';
+  wrap.appendChild(kidBox);
+
+  const expandNow = hasKids && (filterQuery !== '' || depth < expandDepth);
+  if (expandNow && renderBudget > 0) {
+    wrap.classList.add('open');
+    for (const c of kids) {
+      if (--renderBudget <= 0) {
+        const note = document.createElement('div');
+        note.className = 'overflow-note';
+        note.textContent = '… more nodes not rendered — collapse branches or refine the filter';
+        kidBox.appendChild(note);
+        break;
+      }
+      kidBox.appendChild(renderNode(c, depth + 1, expandDepth));
+    }
+    wrap._rendered = true;
+  } else {
+    wrap._rendered = !hasKids;
+  }
+  return wrap;
+}
+
+function renderTree(expandDepth) {
+  els.tree.textContent = '';
+  selectedRow = null;
+  if (!snapshotRoot) return;
+  markMatches(snapshotRoot, filterQuery);
+  if (filterQuery && !snapshotRoot._visible) {
+    const note = document.createElement('div');
+    note.className = 'overflow-note';
+    note.textContent = 'no node types match “' + filterQuery + '”';
+    els.tree.appendChild(note);
+    return;
+  }
+  renderBudget = RENDER_BUDGET;
+  els.tree.appendChild(renderNode(snapshotRoot, 0, expandDepth));
+}
+
+function expandOnDemand(wrap) {
+  if (wrap._rendered) return;
+  const node = wrap._node;
+  const kidBox = wrap.querySelector(':scope > .kids');
+  const kids = filterQuery ? node.children.filter((c) => c._visible) : node.children;
+  renderBudget = RENDER_BUDGET;
+  for (const c of kids) kidBox.appendChild(renderNode(c, 0, 0));
+  wrap._rendered = true;
+}
+
+/* ---------- editor highlight (backdrop behind the textarea) ---------- */
+
+function clearMark() {
+  els.hl.textContent = currentCode;
+  if (selectedRow) { selectedRow.classList.remove('active'); selectedRow = null; }
+}
+
+let charW = 7.8, lineH = 20.8;
+function measureMetrics() {
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font:400 13px/1.6 ' +
+    getComputedStyle(document.documentElement).getPropertyValue('--mono');
+  probe.textContent = 'M'.repeat(50);
+  document.body.appendChild(probe);
+  charW = probe.getBoundingClientRect().width / 50;
+  document.body.removeChild(probe);
+  lineH = parseFloat(getComputedStyle(els.code).lineHeight) || 20.8;
+}
+
+function highlightSpan(node) {
+  const a = Math.min(node.startIndex, currentCode.length);
+  const b = Math.min(node.endIndex, currentCode.length);
+  els.hl.innerHTML =
+    esc(currentCode.slice(0, a)) +
+    '<mark>' + esc(currentCode.slice(a, b)) + '</mark>' +
+    esc(currentCode.slice(b));
+  // scroll the span into view (top third of the viewport)
+  const ta = els.code;
+  const targetTop = node.start.row * lineH - ta.clientHeight / 3;
+  const targetLeft = node.start.column * charW - ta.clientWidth / 3;
+  ta.scrollTop = Math.max(0, targetTop);
+  ta.scrollLeft = Math.max(0, targetLeft);
+  syncScroll();
+}
+
+function syncScroll() {
+  els.backdrop.scrollTop = els.code.scrollTop;
+  els.backdrop.scrollLeft = els.code.scrollLeft;
+}
+
+/* ---------- tooltip ---------- */
+
+const TT_MAX = 200;
+function showTooltip(node, x, y) {
+  let snippet = currentCode.slice(node.startIndex, node.endIndex);
+  if (snippet.length > TT_MAX) snippet = snippet.slice(0, TT_MAX) + ' …';
+  if (snippet === '') snippet = '(empty span)';
+  els.tooltip.textContent = '';
+  const head = document.createElement('span');
+  head.className = 'tt-type';
+  head.textContent = node.type;
+  els.tooltip.appendChild(head);
+  els.tooltip.appendChild(document.createTextNode(snippet));
+  els.tooltip.style.display = 'block';
+  moveTooltip(x, y);
+}
+function moveTooltip(x, y) {
+  const r = els.tooltip.getBoundingClientRect();
+  const px = Math.min(x + 14, window.innerWidth - r.width - 8);
+  const py = Math.min(y + 16, window.innerHeight - r.height - 8);
+  els.tooltip.style.left = Math.max(4, px) + 'px';
+  els.tooltip.style.top = Math.max(4, py) + 'px';
+}
+function hideTooltip() { els.tooltip.style.display = 'none'; }
+
+/* ---------- parse ---------- */
+
+async function parse() {
+  const seq = ++parseSeq;
+  const langName = els.lang.value;
+  try {
+    const lang = await getLanguage(langName);
+    if (seq !== parseSeq) return;
+    parser.setLanguage(lang);
+    currentCode = els.code.value;
+    const t0 = performance.now();
+    const tree = parser.parse(currentCode);
+    const ms = performance.now() - t0;
+    if (!tree) throw new Error('parser returned no tree');
+    snapshotRoot = snapshot(tree.rootNode);
+    const hadError = tree.rootNode.hasError;
+    tree.delete();
+    clearMark();
+    syncScroll();
+    renderTree(DEFAULT_DEPTH);
+    els.nodeStat.textContent = nodeCount.toLocaleString() + ' named nodes';
+    els.timeStat.textContent = 'parsed in ' + (ms < 10 ? ms.toFixed(2) : ms.toFixed(1)) + ' ms';
+    setStatus(hadError ? 'syntax errors present — ERROR / missing nodes shown in red' : '');
+  } catch (e) {
+    if (seq === parseSeq) setStatus('Error: ' + e.message, true);
+  }
+}
+
+/* ---------- copy JSON ---------- */
+
+function treeJSON() {
+  return JSON.stringify(
+    { language: els.lang.value, namedNodeCount: nodeCount, tree: snapshotRoot },
+    (k, v) => (k.startsWith('_') ? undefined : v),
+    2,
+  );
+}
+
+async function copyJSON() {
+  if (!snapshotRoot) return;
+  const text = treeJSON();
+  let ok = false;
+  try {
+    await navigator.clipboard.writeText(text);
+    ok = true;
+  } catch {
+    const tmp = document.createElement('textarea');
+    tmp.value = text;
+    tmp.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(tmp);
+    tmp.select();
+    try { ok = document.execCommand('copy'); } catch { ok = false; }
+    document.body.removeChild(tmp);
+  }
+  els.copyLabel.textContent = ok ? 'Copied' : 'Copy failed';
+  setTimeout(() => { els.copyLabel.textContent = 'JSON'; }, 1400);
+}
+
+/* ---------- events ---------- */
+
+function debounce(fn, ms) {
+  let t = 0;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+const debouncedParse = debounce(parse, 250);
+
+els.code.addEventListener('input', () => {
+  currentCode = els.code.value;
+  clearMark();
+  debouncedParse();
+});
+els.code.addEventListener('scroll', syncScroll);
+
+let lastLang = 'javascript';
+els.lang.addEventListener('change', () => {
+  const next = els.lang.value;
+  if (els.code.value.trim() === '' || els.code.value === SAMPLES[lastLang]) {
+    els.code.value = SAMPLES[next];
+  }
+  lastLang = next;
+  parse();
+});
+
+els.sampleBtn.addEventListener('click', () => {
+  els.code.value = SAMPLES[els.lang.value];
+  lastLang = els.lang.value;
+  parse();
+});
+
+els.search.addEventListener('input', debounce(() => {
+  filterQuery = els.search.value.trim().toLowerCase();
+  renderTree(DEFAULT_DEPTH);
+}, 150));
+
+els.expandBtn.addEventListener('click', () => renderTree(Infinity));
+els.collapseBtn.addEventListener('click', () => renderTree(1));
+els.copyBtn.addEventListener('click', copyJSON);
+
+els.tree.addEventListener('click', (ev) => {
+  const twist = ev.target.closest('.twist');
+  if (twist && !twist.classList.contains('leaf')) {
+    const wrap = twist.closest('.node');
+    if (!wrap.classList.contains('open')) expandOnDemand(wrap);
+    wrap.classList.toggle('open');
+    ev.stopPropagation();
+    return;
+  }
+  const row = ev.target.closest('.row');
+  if (!row || !row._node) return;
+  if (selectedRow) selectedRow.classList.remove('active');
+  selectedRow = row;
+  row.classList.add('active');
+  highlightSpan(row._node);
+});
+
+els.tree.addEventListener('mouseover', (ev) => {
+  const row = ev.target.closest('.row');
+  if (row && row._node) showTooltip(row._node, ev.clientX, ev.clientY);
+});
+els.tree.addEventListener('mousemove', (ev) => {
+  if (els.tooltip.style.display === 'block') moveTooltip(ev.clientX, ev.clientY);
+});
+els.tree.addEventListener('mouseout', (ev) => {
+  if (!ev.relatedTarget || !ev.relatedTarget.closest('#tree')) hideTooltip();
+  else if (!ev.relatedTarget.closest('.row')) hideTooltip();
+});
+
+/* ---------- boot ---------- */
+
+(async function boot() {
+  try {
+    setStatus('loading parser runtime…');
+    const coreBytes = await fetchBytes('vendor/tree-sitter.wasm');
+    await Parser.init({
+      wasmBinary: coreBytes,
+      locateFile: (name) => 'vendor/' + name,
+    });
+    parser = new Parser();
+    els.code.value = SAMPLES.javascript;
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(measureMetrics);
+    }
+    measureMetrics();
+    await parse();
+  } catch (e) {
+    setStatus('Failed to start: ' + e.message, true);
+  }
+})();
+</script>
+</body>
+</html>

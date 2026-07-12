@@ -4,52 +4,79 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Rocket Pudding Tools</title>
-<meta name="description" content="A growing registry of self-contained web tools.">
+<meta name="description" content="Original design-built instruments, plus a workbench of self-contained utilities.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:ital@0;1&display=swap" rel="stylesheet">
 <style>
   *{box-sizing:border-box}
   :root{
-    --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --line:#dcd9d2; --card:#ffffff;
-    --accent:#b05a3c; --accent-soft:#f3e7e0;
+    --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --faint:#b8b4ac; --line:#dcd9d2; --line2:#e8e5df;
+    --card:#ffffff; --accent:#b05a3c; --accent-soft:#f3e7e0; --hero-wash:linear-gradient(160deg,#ffffff 0%,#faf6f1 100%);
   }
   @media (prefers-color-scheme: dark){
-    :root{ --bg:#16171a; --fg:#eceae4; --muted:#8a8d93; --line:#2b2d31; --card:#1e2024; --accent:#d07a58; --accent-soft:#2a211d; }
+    :root{ --bg:#16171a; --fg:#eceae4; --muted:#8a8d93; --faint:#5a5d63; --line:#2b2d31; --line2:#232529;
+      --card:#1e2024; --accent:#d07a58; --accent-soft:#2a211d; --hero-wash:linear-gradient(160deg,#1e2024 0%,#211f1c 100%); }
   }
   html,body{margin:0;min-height:100%;background:var(--bg);color:var(--fg);
     font-family:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
   a{color:inherit;text-decoration:none}
   ::selection{background:var(--accent);color:var(--bg)}
-  .wrap{max-width:1040px;margin:0 auto;padding:0 24px}
-  header.top{display:flex;align-items:center;gap:12px;height:60px;border-bottom:1px solid var(--line)}
-  .logo{width:13px;height:13px;border-radius:3px;background:var(--accent);box-shadow:0 0 10px rgba(176,90,60,.55)}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
+  header.top{display:flex;align-items:center;gap:12px;height:62px;border-bottom:1px solid var(--line)}
+  .logo{width:13px;height:13px;border-radius:3px;background:var(--accent);box-shadow:0 0 10px rgba(176,90,60,.5)}
   .brand{font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:1.6px;font-size:13px}
   .brand .rp{color:var(--accent)}
   .count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
-  .hero{padding:52px 0 30px}
-  .hero h1{margin:0 0 10px;font-size:30px;letter-spacing:-.01em;font-weight:600}
-  .hero p{margin:0;max-width:620px;color:var(--muted);font-size:15px;line-height:1.6}
-  .search{margin:26px 0 8px;display:flex;align-items:center;gap:10px;border:1px solid var(--line);
-    background:var(--card);border-radius:10px;padding:10px 14px}
+  .hero{padding:58px 0 8px}
+  .hero h1{margin:0 0 12px;font-size:32px;letter-spacing:-.015em;font-weight:600}
+  .hero p{margin:0;max-width:640px;color:var(--muted);font-size:15px;line-height:1.65}
+  .hero p em{font-family:'IBM Plex Serif',serif;font-style:italic;color:var(--fg)}
+  .search{margin:30px 0 6px;display:flex;align-items:center;gap:10px;border:1px solid var(--line);
+    background:var(--card);border-radius:10px;padding:11px 15px}
   .search input{flex:1;border:none;background:transparent;color:var(--fg);font:500 14px 'IBM Plex Sans';outline:none}
   .search .k{font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 6px}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;padding:14px 0 60px}
-  .card{display:flex;flex-direction:column;border:1px solid var(--line);background:var(--card);border-radius:14px;
-    padding:18px 18px 16px;transition:border-color .15s ease,transform .15s ease}
-  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
-  .card .row{display:flex;align-items:center;gap:9px}
-  .swatch{width:10px;height:10px;border-radius:3px;flex:none}
-  .card h3{margin:0;font-size:16px;font-weight:600}
-  .status{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.6px;
-    text-transform:uppercase;color:var(--accent);background:var(--accent-soft);border-radius:20px;padding:3px 9px}
-  .card .tag{margin:12px 0 6px;color:var(--fg);font-size:13.5px;line-height:1.5}
-  .card .desc{color:var(--muted);font-size:12px;line-height:1.55;flex:1}
-  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:13px}
+
+  .tier-label{display:flex;align-items:baseline;gap:12px;margin:44px 0 18px}
+  .tier-label h2{margin:0;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:700;letter-spacing:.22em;color:var(--fg)}
+  .tier-label .rule{flex:1;height:1px;background:var(--line)}
+  .tier-label .note{font-family:'IBM Plex Serif',serif;font-style:italic;font-size:13px;color:var(--muted)}
+
+  /* ORIGINALS — hero tier: wide cards, generous air, accent presence */
+  .originals{display:grid;grid-template-columns:1fr;gap:20px}
+  @media(min-width:880px){ .originals{grid-template-columns:1fr 1fr} }
+  .ocard{position:relative;display:flex;flex-direction:column;border:1px solid var(--line);background:var(--hero-wash);
+    border-radius:18px;padding:28px 28px 24px;overflow:hidden;transition:border-color .18s ease,transform .18s ease,box-shadow .18s ease}
+  .ocard:hover{border-color:var(--accent);transform:translateY(-3px);box-shadow:0 14px 34px rgba(0,0,0,.08)}
+  .ocard .glow{position:absolute;top:-40px;right:-40px;width:160px;height:160px;border-radius:50%;
+    background:radial-gradient(closest-side,var(--accent-soft),transparent);pointer-events:none}
+  .ocard .mark{display:flex;align-items:center;gap:10px}
+  .ocard .sw{width:12px;height:12px;border-radius:3px;flex:none;box-shadow:0 0 8px rgba(176,90,60,.35)}
+  .ocard h3{margin:0;font-size:21px;font-weight:600;letter-spacing:-.01em}
+  .ocard .orig-badge{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:8px;font-weight:700;letter-spacing:.14em;
+    color:var(--accent);border:1px solid var(--accent);border-radius:20px;padding:3px 10px;opacity:.85}
+  .ocard .tag{margin:16px 0 8px;font-family:'IBM Plex Serif',serif;font-style:italic;font-size:16px;line-height:1.5;color:var(--fg)}
+  .ocard .desc{color:var(--muted);font-size:13px;line-height:1.65;flex:1}
+  .ocard .foot{display:flex;align-items:center;margin-top:20px}
+  .ocard .chips{display:flex;flex-wrap:wrap;gap:5px}
   .chip{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--muted);border:1px solid var(--line);border-radius:20px;padding:2px 8px}
-  .open{margin-top:14px;font-family:'IBM Plex Mono',monospace;font-size:11px;font-weight:600;color:var(--accent);display:flex;align-items:center;gap:6px}
+  .ocard .open{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:12px;font-weight:700;color:var(--accent);white-space:nowrap}
+
+  /* WORKBENCH — vendored utilities: quieter, denser, uniform */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:13px;padding-bottom:8px}
+  .card{display:flex;flex-direction:column;border:1px solid var(--line2);background:var(--card);border-radius:12px;
+    padding:15px 16px 13px;transition:border-color .15s ease,transform .15s ease}
+  .card:hover{border-color:var(--accent);transform:translateY(-2px)}
+  .card .row{display:flex;align-items:center;gap:8px}
+  .swatch{width:8px;height:8px;border-radius:2px;flex:none}
+  .card h3{margin:0;font-size:14px;font-weight:600}
+  .card .tag{margin:8px 0 0;color:var(--muted);font-size:11.5px;line-height:1.5;flex:1}
+  .card .foot{display:flex;align-items:center;gap:6px;margin-top:12px}
+  .card .lic{font-family:'IBM Plex Mono',monospace;font-size:8px;letter-spacing:.08em;color:var(--faint)}
+  .card .open{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:700;color:var(--accent);opacity:0;transition:opacity .15s ease}
+  .card:hover .open{opacity:1}
   .empty{padding:40px 0;color:var(--muted);font-size:14px}
-  footer{border-top:1px solid var(--line);padding:22px 0 40px;color:var(--muted);
+  footer{border-top:1px solid var(--line);margin-top:56px;padding:22px 0 44px;color:var(--muted);
     font-family:'IBM Plex Mono',monospace;font-size:11px;display:flex;gap:14px;flex-wrap:wrap}
 </style>
 </head>
@@ -62,15 +89,26 @@
     </header>
     <section class="hero">
       <h1>Tools</h1>
-      <p>A growing registry of self-contained web tools. Each one is a single-purpose, no-install
-         page you can open and use immediately.</p>
+      <p><em>Original instruments,</em> designed here and built to be looked at — alongside a workbench
+         of self-contained utilities, each one a single-purpose page that opens and just works.</p>
       <div class="search">
         <span style="color:var(--muted);font-family:'IBM Plex Mono',monospace;font-size:13px">/</span>
         <input id="q" placeholder="Search tools, tags, algorithms…" autocomplete="off" spellcheck="false">
         <span class="k">esc to clear</span>
       </div>
     </section>
-    <main class="grid" id="grid"></main>
+
+    <div id="tier-originals">
+      <div class="tier-label"><h2>ORIGINALS</h2><div class="rule"></div><div class="note">designed &amp; built here</div></div>
+      <div class="originals" id="originals"></div>
+    </div>
+
+    <div id="tier-workbench">
+      <div class="tier-label"><h2>WORKBENCH</h2><div class="rule"></div><div class="note">vendored open source, made self-contained</div></div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="empty" id="empty" style="display:none">No tools match that search.</div>
+
     <footer>
       <span>registry.json</span>
       <span id="updated"></span>
@@ -78,40 +116,59 @@
     </footer>
   </div>
 <script>
-  const grid = document.getElementById('grid');
-  const q = document.getElementById('q');
+  const $ = id => document.getElementById(id);
   let TOOLS = [];
-  function card(t){
-    const chips = (t.tags||[]).slice(0,7).map(x=>`<span class="chip">${x}</span>`).join('');
-    return `<a class="card" href="${t.path||t.entry||('tools/'+t.slug+'/')}">
-      <div class="row">
-        <span class="swatch" style="background:${t.accent||'#b05a3c'}"></span>
+
+  const ocard = t => `<a class="ocard" href="${t.path}">
+      <div class="glow"></div>
+      <div class="mark">
+        <span class="sw" style="background:${t.accent||'#b05a3c'}"></span>
         <h3>${t.name}</h3>
-        <span class="status">${t.status||'live'}</span>
+        <span class="orig-badge">ORIGINAL</span>
       </div>
       <div class="tag">${t.tagline||''}</div>
       <div class="desc">${t.description||''}</div>
-      <div class="chips">${chips}</div>
-      <div class="open">Open tool →</div>
+      <div class="foot">
+        <div class="chips">${(t.tags||[]).slice(0,5).map(x=>`<span class="chip">${x}</span>`).join('')}</div>
+        <span class="open">Open →</span>
+      </div>
     </a>`;
-  }
+
+  const card = t => `<a class="card" href="${t.path}">
+      <div class="row">
+        <span class="swatch" style="background:${t.accent||'#b05a3c'}"></span>
+        <h3>${t.name}</h3>
+      </div>
+      <div class="tag">${t.tagline||''}</div>
+      <div class="foot">
+        <span class="lic">${(t.tags||[])[0]||''}</span>
+        <span class="open">Open →</span>
+      </div>
+    </a>`;
+
   function render(list){
-    grid.innerHTML = list.length ? list.map(card).join('')
-      : '<div class="empty">No tools match that search.</div>';
-    document.getElementById('count').textContent = TOOLS.length + (TOOLS.length===1?' tool':' tools');
+    const orig = list.filter(t => t.origin === 'original');
+    const vend = list.filter(t => t.origin !== 'original');
+    $('originals').innerHTML = orig.map(ocard).join('');
+    $('grid').innerHTML = vend.map(card).join('');
+    $('tier-originals').style.display = orig.length ? '' : 'none';
+    $('tier-workbench').style.display = vend.length ? '' : 'none';
+    $('empty').style.display = list.length ? 'none' : '';
+    $('count').textContent = TOOLS.length + (TOOLS.length===1?' tool':' tools');
   }
   function filter(){
-    const s = q.value.trim().toLowerCase();
+    const s = $('q').value.trim().toLowerCase();
     if(!s) return render(TOOLS);
     render(TOOLS.filter(t => (t.name+' '+(t.tagline||'')+' '+(t.description||'')+' '+(t.tags||[]).join(' ')).toLowerCase().includes(s)));
   }
-  q.addEventListener('input', filter);
-  q.addEventListener('keydown', e => { if(e.key==='Escape'){ q.value=''; filter(); } });
+  $('q').addEventListener('input', filter);
+  $('q').addEventListener('keydown', e => { if(e.key==='Escape'){ $('q').value=''; filter(); } });
+  document.addEventListener('keydown', e => { if(e.key==='/' && document.activeElement !== $('q')){ e.preventDefault(); $('q').focus(); } });
   fetch('registry.json').then(r=>r.json()).then(d=>{
     TOOLS = d.tools||[];
-    if(d.updated) document.getElementById('updated').textContent = 'updated '+d.updated;
+    if(d.updated) $('updated').textContent = 'updated '+d.updated;
     render(TOOLS);
-  }).catch(()=>{ grid.innerHTML='<div class="empty">Could not load registry.json.</div>'; });
+  }).catch(()=>{ $('empty').style.display=''; $('empty').textContent='Could not load registry.json.'; });
 </script>
 </body>
 </html>

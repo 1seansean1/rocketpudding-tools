@@ -30,17 +30,17 @@ node lib-sanity) → orchestrator merges registry.json, browser-sweeps, ONE comm
 | nomnoml-studio | nomnoml@1 + graphre (MIT) | DONE — verified |
 On agent completion: merge entries → sweep → deploy via scripts/deploy-rp2.sh → verify live.
 
-## WAVE 2 — IN FLIGHT (8 parallel agents, 2026-07-11 ~21:40 MT)
+## WAVE 2 — SHIPPED (8 parallel agents, 2026-07-11 ~21:40 MT)
 | slug | lib (license) | status |
 |---|---|---|
-| ast-explorer | web-tree-sitter/acorn (MIT) | agent building |
-| pdg-viewer | acorn@8 + own analysis (MIT) | agent building |
-| cpg-lite | acorn@8 + own CFG/DFG (MIT) | agent building |
-| import-graph | fflate@0.8 (MIT) | agent building |
-| sqlite-workbench | sql.js@1.13 WASM (MIT/PD) | agent building |
-| graphviz-studio | @hpcc-js/wasm-graphviz (Apache-2.0+NOTICE) | agent building |
-| esbuild-playground | esbuild-wasm@0.24 (MIT) | agent building |
-| regex-lab | zero-dep (ours) | agent building |
+| ast-explorer | web-tree-sitter/acorn (MIT) | DONE — verified |
+| pdg-viewer | acorn@8 + own analysis (MIT) | DONE — verified |
+| cpg-lite | acorn@8 + own CFG/DFG (MIT) | DONE — verified |
+| import-graph | fflate@0.8 (MIT) | DONE — verified |
+| sqlite-workbench | sql.js@1.13 WASM (MIT/PD) | DONE — verified |
+| graphviz-studio | @hpcc-js/wasm-graphviz (Apache-2.0+NOTICE) | DONE — verified |
+| esbuild-playground | esbuild-wasm@0.24 (MIT) | DONE — verified |
+| regex-lab | zero-dep (ours) | DONE — verified |
 
 ## WAVE 2 NOTES — CODE-ANALYSIS SUITE (user directive: "AST, PDG, CPG, DPG")
 - ast-explorer — tree-sitter WASM (MIT) universal AST explorer: paste code, pick grammar

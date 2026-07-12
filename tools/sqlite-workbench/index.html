@@ -1,0 +1,749 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SQLite Workbench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --line:#dcd9d2; --card:#fff;
+  --accent:#c9a227; --accent-fg:#191b1e;
+  --sans:'IBM Plex Sans',-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#16171a; --fg:#eceae4; --muted:#8a8d93; --line:#2b2d31; --card:#1e2024; }
+}
+*{box-sizing:border-box; margin:0; padding:0;}
+html,body{height:100%;}
+body{
+  background:var(--bg); color:var(--fg); font-family:var(--sans); font-size:14px;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+svg{display:block; flex:none;}
+
+/* ---------- header ---------- */
+header{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 20px; border-bottom:1px solid var(--line); flex:none;
+}
+.brand{display:flex; align-items:center; gap:10px;}
+.brand .sq{width:12px; height:12px; background:var(--accent); flex:none;}
+.brand h1{font-size:14px; font-weight:600; letter-spacing:.18em;}
+a.back{color:var(--muted); text-decoration:none; font-size:13px;}
+a.back:hover{color:var(--accent);}
+
+/* ---------- toolbar ---------- */
+.toolbar{
+  display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:10px 20px; border-bottom:1px solid var(--line); flex:none;
+}
+button{
+  font-family:var(--sans); font-size:13px; color:var(--fg);
+  background:var(--card); border:1px solid var(--line); border-radius:6px;
+  padding:6px 12px; cursor:pointer; display:inline-flex; align-items:center; gap:7px;
+}
+button:hover:not(:disabled){border-color:var(--accent);}
+button:disabled{opacity:.45; cursor:default;}
+button.primary{background:var(--accent); border-color:var(--accent); color:var(--accent-fg); font-weight:600;}
+button.primary:hover:not(:disabled){filter:brightness(1.06);}
+button.small{padding:3px 9px; font-size:12px;}
+.toolbar .spacer{flex:1;}
+#dbMeta{font-family:var(--mono); font-size:12px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:40ch;}
+
+/* ---------- layout ---------- */
+.layout{flex:1; display:flex; min-height:0;}
+aside{
+  width:270px; flex:none; border-right:1px solid var(--line);
+  overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:18px;
+}
+.side-section h2{
+  font-size:11px; font-weight:600; letter-spacing:.14em; text-transform:uppercase;
+  color:var(--muted); margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;
+}
+.side-empty{color:var(--muted); font-size:12.5px;}
+
+/* schema tree */
+.tbl{margin-bottom:2px;}
+.tbl-head{
+  display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:5px; cursor:pointer;
+  font-family:var(--mono); font-size:12.5px;
+}
+.tbl-head:hover{background:var(--card);}
+.tbl-head .chev{color:var(--muted); flex:none; transition:transform .12s;}
+.tbl.open .chev{transform:rotate(90deg);}
+.tbl-head .tname{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-weight:500;}
+.tbl-head .rc{color:var(--muted); font-size:11px;}
+.tbl-cols{display:none; padding:2px 0 4px 24px;}
+.tbl.open .tbl-cols{display:block;}
+.tbl-col{
+  display:flex; justify-content:space-between; gap:10px;
+  font-family:var(--mono); font-size:11.5px; padding:2px 6px; color:var(--fg);
+}
+.tbl-col .ctype{color:var(--muted);}
+.tbl-col .cpk{color:var(--accent);}
+
+/* history */
+.hist-item{
+  font-family:var(--mono); font-size:11.5px; color:var(--fg);
+  padding:5px 7px; border:1px solid var(--line); border-radius:5px; background:var(--card);
+  margin-bottom:5px; cursor:pointer; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.hist-item:hover{border-color:var(--accent);}
+.hist-item .ht{color:var(--muted); font-size:10px; display:block; margin-bottom:1px; font-family:var(--sans);}
+
+/* ---------- main ---------- */
+main{flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden;}
+
+/* start card */
+#startCard{
+  margin:auto; max-width:460px; text-align:center; padding:44px 36px;
+  background:var(--card); border:1px dashed var(--line); border-radius:10px;
+}
+#startCard .big-ic{margin:0 auto 16px; color:var(--accent);}
+#startCard h2{font-size:16px; font-weight:600; margin-bottom:6px;}
+#startCard p{color:var(--muted); font-size:13px; margin-bottom:20px;}
+#startCard .row{display:flex; gap:8px; justify-content:center; flex-wrap:wrap;}
+
+/* workbench */
+#workbench{flex:1; min-height:0; display:flex; flex-direction:column; padding:14px 16px; gap:10px;}
+.editor-wrap{background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; flex:none;}
+#sqlInput{
+  width:100%; height:140px; resize:vertical; border:0; outline:0; display:block;
+  background:transparent; color:var(--fg);
+  font-family:var(--mono); font-size:13px; line-height:1.55; padding:12px 14px;
+}
+.editor-bar{
+  display:flex; align-items:center; gap:10px; padding:8px 12px; border-top:1px solid var(--line);
+}
+.editor-bar .hint{color:var(--muted); font-size:12px; font-family:var(--mono);}
+
+#errorBox{
+  border:1px solid #b3413a; border-radius:8px; padding:10px 14px; flex:none;
+  color:#b3413a; font-family:var(--mono); font-size:12.5px; white-space:pre-wrap;
+  background:color-mix(in srgb, #b3413a 7%, var(--card));
+}
+@supports not (background:color-mix(in srgb, red 7%, blue)){ #errorBox{background:var(--card);} }
+
+.result-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; flex:none;}
+#resultMeta{font-family:var(--mono); font-size:12px; color:var(--muted);}
+.result-head .spacer{flex:1;}
+
+.table-scroll{
+  flex:1; min-height:0; overflow:auto;
+  background:var(--card); border:1px solid var(--line); border-radius:8px;
+}
+table{border-collapse:collapse; width:max-content; min-width:100%; font-family:var(--mono); font-size:12.5px;}
+thead th{
+  position:sticky; top:0; background:var(--card); text-align:left; font-weight:600;
+  padding:8px 12px; border-bottom:2px solid var(--line); cursor:pointer; user-select:none; white-space:nowrap;
+}
+thead th:hover{color:var(--accent);}
+thead th .sort-ic{display:inline-block; vertical-align:-1px; margin-left:5px; color:var(--accent);}
+tbody td{padding:6px 12px; border-bottom:1px solid var(--line); white-space:pre; max-width:48ch; overflow:hidden; text-overflow:ellipsis;}
+tbody tr:hover td{background:color-mix(in srgb, var(--accent) 6%, transparent);}
+td.num{text-align:right;}
+td.null{color:var(--muted); font-style:italic;}
+td.idx, th.idx{color:var(--muted); font-size:11px; cursor:default; text-align:right;}
+.table-empty{padding:26px; color:var(--muted); font-size:13px; font-family:var(--sans);}
+
+/* footer */
+footer{
+  flex:none; padding:10px 20px; border-top:1px solid var(--line);
+  color:var(--muted); font-size:12px; text-align:center;
+}
+
+/* drop overlay */
+#dropOverlay{
+  position:fixed; inset:0; display:none; align-items:center; justify-content:center;
+  background:color-mix(in srgb, var(--bg) 72%, transparent); z-index:50;
+  border:3px dashed var(--accent);
+  font-size:16px; font-weight:600; color:var(--accent); letter-spacing:.06em;
+}
+body.dragging #dropOverlay{display:flex;}
+
+@media (max-width:760px){
+  aside{display:none;}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand"><span class="sq"></span><h1>SQLITE WORKBENCH</h1></div>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<div class="toolbar">
+  <button id="openBtn" title="Open a .sqlite / .db file">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1.5 3.5v9h13v-7h-7l-2-2h-4z"/></svg>
+    Open
+  </button>
+  <button id="newBtn" title="Create an empty database">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3v10M3 8h10"/></svg>
+    New
+  </button>
+  <button id="sampleBtn" title="Load the built-in demo database">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><ellipse cx="8" cy="3.5" rx="5.5" ry="2"/><path d="M2.5 3.5v9c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2v-9M2.5 8c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2"/></svg>
+    Sample
+  </button>
+  <span class="spacer"></span>
+  <span id="dbMeta"></span>
+  <button id="exportDbBtn" disabled title="Download the database as a .sqlite file">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>
+    Export .sqlite
+  </button>
+  <input type="file" id="fileInput" accept=".sqlite,.sqlite3,.db,.db3,application/octet-stream" hidden>
+</div>
+
+<div class="layout">
+  <aside>
+    <div class="side-section">
+      <h2>Schema</h2>
+      <div id="schemaTree"><div class="side-empty">No database open.</div></div>
+    </div>
+    <div class="side-section">
+      <h2>History <button class="small" id="clearHistBtn" title="Clear query history">clear</button></h2>
+      <div id="historyList"><div class="side-empty">No queries yet.</div></div>
+    </div>
+  </aside>
+
+  <main>
+    <div id="startCard">
+      <svg class="big-ic" width="44" height="44" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.1"><ellipse cx="8" cy="3.5" rx="5.5" ry="2"/><path d="M2.5 3.5v9c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2v-9M2.5 8c0 1.1 2.46 2 5.5 2s5.5-.9 5.5-2"/></svg>
+      <h2>Open a SQLite database</h2>
+      <p>Drop a .sqlite / .db file anywhere on this page, open one with the picker, start from an empty database, or explore the built-in sample. Everything runs locally in your browser &mdash; no data leaves this machine.</p>
+      <div class="row">
+        <button id="openBtn2" class="primary">Open file</button>
+        <button id="newBtn2">New database</button>
+        <button id="sampleBtn2">Load sample</button>
+      </div>
+    </div>
+
+    <div id="workbench" hidden>
+      <div class="editor-wrap">
+        <textarea id="sqlInput" spellcheck="false" placeholder="-- Type SQL here. Multiple statements are fine.&#10;-- Ctrl/Cmd+Enter to run."></textarea>
+        <div class="editor-bar">
+          <button id="runBtn" class="primary">
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2.5v11l9-5.5z"/></svg>
+            Run
+          </button>
+          <span class="hint">Ctrl/Cmd+Enter</span>
+        </div>
+      </div>
+
+      <div id="errorBox" hidden></div>
+
+      <div class="result-head">
+        <span id="resultMeta">Ready.</span>
+        <span class="spacer"></span>
+        <button id="csvBtn" class="small" disabled title="Download results as CSV">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>
+          CSV
+        </button>
+        <button id="jsonBtn" class="small" disabled title="Download results as JSON">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 2v8M4.5 7 8 10.5 11.5 7M2.5 13.5h11"/></svg>
+          JSON
+        </button>
+      </div>
+
+      <div class="table-scroll" id="resultWrap">
+        <div class="table-empty">Run a query to see results.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<footer>sql.js v1.13 &middot; MIT &middot; SQLite public domain &middot; runs entirely in your browser</footer>
+
+<div id="dropOverlay">Drop database file to open</div>
+
+<script src="sql-wasm.js"></script>
+<script>
+'use strict';
+/* SQLite Workbench — 100% in-browser via sql.js (WASM). */
+
+var SQL = null;
+var db = null;
+var dbName = '';
+var lastResult = null;      // {columns:[], values:[][]}
+var sortState = null;       // {col:index, dir:1|-1}
+var HIST_KEY = 'sqlite-workbench-history';
+var ROW_CAP = 1000;
+
+/* ---------- tiny DOM helpers ---------- */
+function $(id){ return document.getElementById(id); }
+function el(tag, cls, text){
+  var n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text !== undefined && text !== null) n.textContent = text;
+  return n;
+}
+function qid(name){ return '"' + String(name).replace(/"/g, '""') + '"'; }
+
+/* ---------- boot ---------- */
+function boot(){
+  // Explicit fetch + arrayBuffer for the wasm binary; no instantiateStreaming
+  // (avoids MIME-type assumptions on static hosts).
+  fetch('sql-wasm.wasm')
+    .then(function(r){
+      if (!r.ok) throw new Error('Failed to fetch sql-wasm.wasm (HTTP ' + r.status + ')');
+      return r.arrayBuffer();
+    })
+    .then(function(buf){
+      return initSqlJs({ locateFile: function(f){ return f; }, wasmBinary: buf });
+    })
+    .then(function(sql){
+      SQL = sql;
+      setMeta('engine ready · no database open');
+    })
+    .catch(function(e){
+      setMeta('');
+      showError('Could not initialize the SQLite engine: ' + e.message +
+        '\nIf you opened this page from file://, serve it over HTTP instead.');
+      $('startCard').querySelector('p').textContent =
+        'Engine failed to load — see the error once you open the workbench, or serve this folder over HTTP.';
+    });
+  renderHistory();
+}
+
+function setMeta(text){ $('dbMeta').textContent = text; }
+
+/* ---------- open / new / sample ---------- */
+function openDatabase(bytes, name){
+  if (!SQL){ alert('SQLite engine is still loading — try again in a moment.'); return; }
+  try {
+    var next = bytes ? new SQL.Database(bytes) : new SQL.Database();
+    if (db) db.close();
+    db = next;
+  } catch (e) {
+    showError('Could not open database: ' + e.message);
+    return;
+  }
+  dbName = name || 'untitled.sqlite';
+  hideError();
+  $('startCard').hidden = true;
+  $('workbench').hidden = false;
+  $('exportDbBtn').disabled = false;
+  clearResults('Database open. Run a query to see results.');
+  refreshSchema();
+  updateDbMeta();
+}
+
+function updateDbMeta(){
+  if (!db){ setMeta('no database open'); return; }
+  var n = 0;
+  try {
+    var r = db.exec("SELECT count(*) FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'");
+    n = r.length ? r[0].values[0][0] : 0;
+  } catch (e) { n = 0; }
+  setMeta(dbName + ' · ' + n + ' table' + (n === 1 ? '' : 's'));
+}
+
+function openFile(file){
+  var reader = new FileReader();
+  reader.onload = function(){
+    openDatabase(new Uint8Array(reader.result), file.name);
+  };
+  reader.onerror = function(){ showError('Could not read file: ' + file.name); };
+  reader.readAsArrayBuffer(file);
+}
+
+/* ---------- sample database ---------- */
+var SAMPLE_SQL = [
+"CREATE TABLE artists (id INTEGER PRIMARY KEY, name TEXT NOT NULL, country TEXT, formed_year INTEGER);",
+"CREATE TABLE albums (id INTEGER PRIMARY KEY, artist_id INTEGER NOT NULL REFERENCES artists(id), title TEXT NOT NULL, released INTEGER, rating REAL);",
+"CREATE TABLE tracks (id INTEGER PRIMARY KEY, album_id INTEGER NOT NULL REFERENCES albums(id), title TEXT NOT NULL, duration_s INTEGER, plays INTEGER);",
+"INSERT INTO artists VALUES" +
+" (1,'Lunar Static','US',1998),(2,'The Verdigris','UK',2003),(3,'Cobalt Meridian','CA',2010)," +
+" (4,'Paper Lanterns','JP',2007),(5,'Ashfield','US',1994),(6,'Neon Cartography','DE',2015)," +
+" (7,'Quiet Harbor','NO',2001),(8,'Vesper Line','AU',2012);",
+"INSERT INTO albums VALUES" +
+" (1,1,'Static Fields',2001,4.2),(2,1,'Half Moon Transit',2004,4.5)," +
+" (3,2,'Copper & Salt',2005,3.9),(4,2,'Weathervane',2008,4.1)," +
+" (5,3,'Meridian Lines',2012,4.7),(6,3,'North of Nowhere',2015,4.0)," +
+" (7,4,'Floating World',2009,4.4),(8,4,'Paper Sky',2013,3.8)," +
+" (9,5,'Long Road Home',1997,4.6),(10,5,'Ember Days',2002,4.3)," +
+" (11,6,'Grid Reference',2017,3.7),(12,7,'Fjordlight',2004,4.8)," +
+" (13,8,'Southern Vesper',2014,4.1),(14,8,'Signal Fade',2018,4.4);",
+"INSERT INTO tracks VALUES" +
+" (1,1,'Aerial',212,10432),(2,1,'Low Orbit',245,8891),(3,2,'Transit',198,15220)," +
+" (4,2,'Half Moon',233,12030),(5,2,'Afterglow',187,9975),(6,3,'Copperline',204,7712)," +
+" (7,3,'Salt Air',221,6540),(8,4,'Weathervane',256,11890),(9,4,'North Wind',192,5430)," +
+" (10,5,'Meridian',240,20112),(11,5,'True North',215,17654),(12,5,'Latitude',228,14311)," +
+" (13,6,'Nowhere Fast',201,8123),(14,6,'Compass Rose',219,7788),(15,7,'Ukiyo',234,13456)," +
+" (16,7,'Lantern Light',208,11209),(17,8,'Paper Sky',196,6034),(18,8,'Fold',241,5211)," +
+" (19,9,'Long Road',263,22341),(20,9,'Home Again',232,19870),(21,10,'Ember',210,10982)," +
+" (22,10,'December Days',224,9456),(23,11,'Grid North',189,4321),(24,11,'Reference Point',207,3987)," +
+" (25,12,'Fjord',248,16789),(26,12,'Harbor Light',236,15012),(27,13,'Southern Cross',218,8890)," +
+" (28,13,'Vesper',229,7654),(29,14,'Signal',203,6120),(30,14,'Fade Out',251,5980);"
+].join('\n');
+
+function loadSample(){
+  if (!SQL){ alert('SQLite engine is still loading — try again in a moment.'); return; }
+  openDatabase(null, 'sample.sqlite');
+  try {
+    db.exec(SAMPLE_SQL);
+  } catch (e) {
+    showError('Sample build failed: ' + e.message);
+    return;
+  }
+  refreshSchema();
+  updateDbMeta();
+  var starter = "SELECT ar.name AS artist, al.title AS album, al.released, count(t.id) AS tracks, sum(t.plays) AS plays\n" +
+    "FROM albums al\nJOIN artists ar ON ar.id = al.artist_id\nJOIN tracks t ON t.album_id = al.id\n" +
+    "GROUP BY al.id\nORDER BY plays DESC;";
+  $('sqlInput').value = starter;
+  runSQL(starter);
+}
+
+/* ---------- schema tree ---------- */
+function refreshSchema(){
+  var tree = $('schemaTree');
+  tree.textContent = '';
+  if (!db){ tree.appendChild(el('div', 'side-empty', 'No database open.')); return; }
+  var tables = [];
+  try {
+    var r = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name");
+    if (r.length) tables = r[0].values.map(function(v){ return v[0]; });
+  } catch (e) { /* ignore */ }
+  if (!tables.length){
+    tree.appendChild(el('div', 'side-empty', 'No tables. CREATE TABLE to begin.'));
+    return;
+  }
+  tables.forEach(function(name){
+    var count = '?';
+    try {
+      var cr = db.exec('SELECT count(*) FROM ' + qid(name));
+      count = cr[0].values[0][0];
+    } catch (e) { /* ignore */ }
+
+    var wrap = el('div', 'tbl');
+    var head = el('div', 'tbl-head');
+    head.title = 'Click name to preview · chevron to expand columns';
+
+    var chev = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    chev.setAttribute('class', 'chev');
+    chev.setAttribute('width', '10'); chev.setAttribute('height', '10');
+    chev.setAttribute('viewBox', '0 0 16 16');
+    var p = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    p.setAttribute('d', 'M5 2.5 11 8l-6 5.5z');
+    p.setAttribute('fill', 'currentColor');
+    chev.appendChild(p);
+    chev.addEventListener('click', function(ev){
+      ev.stopPropagation();
+      wrap.classList.toggle('open');
+    });
+
+    var tname = el('span', 'tname', name);
+    var rc = el('span', 'rc', String(count) + ' rows');
+    head.appendChild(chev); head.appendChild(tname); head.appendChild(rc);
+    head.addEventListener('click', function(){
+      var q = 'SELECT * FROM ' + qid(name) + ' LIMIT 100;';
+      $('sqlInput').value = q;
+      runSQL(q);
+    });
+
+    var cols = el('div', 'tbl-cols');
+    try {
+      var info = db.exec('PRAGMA table_info(' + qid(name) + ')');
+      if (info.length){
+        info[0].values.forEach(function(row){
+          // row: cid, name, type, notnull, dflt_value, pk
+          var line = el('div', 'tbl-col');
+          var cn = el('span', row[5] ? 'cpk' : '', row[1] + (row[5] ? ' (pk)' : ''));
+          var ct = el('span', 'ctype', row[2] || 'ANY');
+          line.appendChild(cn); line.appendChild(ct);
+          cols.appendChild(line);
+        });
+      }
+    } catch (e) { /* ignore */ }
+
+    wrap.appendChild(head);
+    wrap.appendChild(cols);
+    tree.appendChild(wrap);
+  });
+}
+
+/* ---------- run SQL ---------- */
+function totalChanges(){
+  try { return db.exec('SELECT total_changes()')[0].values[0][0]; }
+  catch (e) { return 0; }
+}
+
+function runSQL(sql){
+  if (!db){ showError('No database open.'); return; }
+  sql = (sql === undefined) ? $('sqlInput').value : sql;
+  if (!sql || !sql.trim()) return;
+  hideError();
+
+  var before = totalChanges();
+  var results, ms;
+  var t0 = performance.now();
+  try {
+    results = db.exec(sql);
+    ms = performance.now() - t0;
+  } catch (e) {
+    ms = performance.now() - t0;
+    showError(e.message);
+    pushHistory(sql);
+    return;
+  }
+  var affected = totalChanges() - before;
+  pushHistory(sql);
+  refreshSchema();
+  updateDbMeta();
+
+  var parts = [];
+  if (results.length === 0){
+    lastResult = null;
+    sortState = null;
+    renderResultTable();
+    parts.push('no result set');
+  } else {
+    lastResult = results[results.length - 1];
+    sortState = null;
+    renderResultTable();
+    if (results.length > 1) parts.push(results.length + ' result sets · showing last');
+    var n = lastResult.values.length;
+    parts.push(n > ROW_CAP
+      ? 'showing first ' + ROW_CAP.toLocaleString() + ' of ' + n.toLocaleString() + ' rows (truncated)'
+      : n.toLocaleString() + ' row' + (n === 1 ? '' : 's'));
+  }
+  if (affected > 0) parts.push(affected.toLocaleString() + ' row' + (affected === 1 ? '' : 's') + ' affected');
+  parts.push(ms.toFixed(1) + ' ms');
+  $('resultMeta').textContent = parts.join(' · ');
+  $('csvBtn').disabled = $('jsonBtn').disabled = !lastResult;
+}
+
+/* ---------- results table ---------- */
+function cmpVals(a, b){
+  var an = (a === null), bn = (b === null);
+  if (an && bn) return 0;
+  if (an) return 1;                 // nulls last
+  if (bn) return -1;
+  if (typeof a === 'number' && typeof b === 'number') return a - b;
+  return String(a).localeCompare(String(b), undefined, { numeric: true });
+}
+
+function renderResultTable(){
+  var wrap = $('resultWrap');
+  wrap.textContent = '';
+  if (!lastResult){
+    wrap.appendChild(el('div', 'table-empty', 'Statement completed. No rows to display.'));
+    return;
+  }
+  var cols = lastResult.columns;
+  var vals = lastResult.values;
+  if (sortState){
+    vals = vals.slice().sort(function(r1, r2){
+      return sortState.dir * cmpVals(r1[sortState.col], r2[sortState.col]);
+    });
+  }
+  var table = el('table');
+  var thead = el('thead');
+  var hrow = el('tr');
+  hrow.appendChild(el('th', 'idx', '#'));
+  cols.forEach(function(c, i){
+    var th = el('th', null, c);
+    th.title = 'Sort by ' + c;
+    if (sortState && sortState.col === i){
+      var ic = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      ic.setAttribute('class', 'sort-ic');
+      ic.setAttribute('width', '9'); ic.setAttribute('height', '9');
+      ic.setAttribute('viewBox', '0 0 16 16');
+      var pp = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      pp.setAttribute('d', sortState.dir === 1 ? 'M8 3 14 12H2z' : 'M8 13 2 4h12z');
+      pp.setAttribute('fill', 'currentColor');
+      ic.appendChild(pp);
+      th.appendChild(ic);
+    }
+    th.addEventListener('click', function(){
+      if (sortState && sortState.col === i) sortState.dir = -sortState.dir;
+      else sortState = { col: i, dir: 1 };
+      renderResultTable();
+    });
+    hrow.appendChild(th);
+  });
+  thead.appendChild(hrow);
+  table.appendChild(thead);
+
+  var tbody = el('tbody');
+  var shown = Math.min(vals.length, ROW_CAP);
+  for (var r = 0; r < shown; r++){
+    var tr = el('tr');
+    tr.appendChild(el('td', 'idx', String(r + 1)));
+    for (var c = 0; c < cols.length; c++){
+      var v = vals[r][c];
+      var td;
+      if (v === null){ td = el('td', 'null', 'NULL'); }
+      else if (v instanceof Uint8Array){ td = el('td', null, '[BLOB ' + v.length + ' bytes]'); }
+      else if (typeof v === 'number'){ td = el('td', 'num', String(v)); }
+      else { td = el('td', null, String(v)); }
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+  wrap.appendChild(table);
+  if (vals.length === 0){
+    wrap.appendChild(el('div', 'table-empty', 'Query returned 0 rows.'));
+  }
+}
+
+/* ---------- history ---------- */
+function loadHistory(){
+  try { return JSON.parse(localStorage.getItem(HIST_KEY)) || []; }
+  catch (e) { return []; }
+}
+function pushHistory(sql){
+  var h = loadHistory();
+  var trimmed = sql.trim();
+  if (h.length && h[0].sql === trimmed){ renderHistory(); return; }
+  h.unshift({ sql: trimmed, ts: Date.now() });
+  h = h.slice(0, 20);
+  try { localStorage.setItem(HIST_KEY, JSON.stringify(h)); } catch (e) { /* ignore */ }
+  renderHistory();
+}
+function renderHistory(){
+  var list = $('historyList');
+  list.textContent = '';
+  var h = loadHistory();
+  if (!h.length){ list.appendChild(el('div', 'side-empty', 'No queries yet.')); return; }
+  h.forEach(function(item){
+    var d = el('div', 'hist-item');
+    var t = el('span', 'ht', new Date(item.ts).toLocaleString());
+    d.appendChild(t);
+    d.appendChild(document.createTextNode(item.sql.replace(/\s+/g, ' ').slice(0, 120)));
+    d.title = item.sql;
+    d.addEventListener('click', function(){
+      $('sqlInput').value = item.sql;
+      $('sqlInput').focus();
+    });
+    list.appendChild(d);
+  });
+}
+function clearHistory(){
+  try { localStorage.removeItem(HIST_KEY); } catch (e) { /* ignore */ }
+  renderHistory();
+}
+
+/* ---------- errors / results state ---------- */
+function showError(msg){
+  var b = $('errorBox');
+  b.textContent = msg;
+  b.hidden = false;
+  if ($('workbench').hidden && !$('startCard').hidden){
+    // surface engine errors even on the start screen
+    $('startCard').insertAdjacentElement('afterend', b);
+  }
+}
+function hideError(){ $('errorBox').hidden = true; }
+function clearResults(msg){
+  lastResult = null; sortState = null;
+  $('resultWrap').textContent = '';
+  $('resultWrap').appendChild(el('div', 'table-empty', msg || 'Run a query to see results.'));
+  $('resultMeta').textContent = 'Ready.';
+  $('csvBtn').disabled = $('jsonBtn').disabled = true;
+}
+
+/* ---------- exports ---------- */
+function download(blob, filename){
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(a.href); }, 5000);
+}
+function cellForExport(v){
+  if (v === null) return null;
+  if (v instanceof Uint8Array) return '[BLOB ' + v.length + ' bytes]';
+  return v;
+}
+function csvEscape(v){
+  if (v === null) return '';
+  var s = String(v);
+  if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+function exportCSV(){
+  if (!lastResult) return;
+  var lines = [lastResult.columns.map(csvEscape).join(',')];
+  lastResult.values.forEach(function(row){
+    lines.push(row.map(function(v){ return csvEscape(cellForExport(v)); }).join(','));
+  });
+  download(new Blob([lines.join('\r\n')], { type: 'text/csv' }), 'results.csv');
+}
+function exportJSON(){
+  if (!lastResult) return;
+  var out = lastResult.values.map(function(row){
+    var o = {};
+    lastResult.columns.forEach(function(c, i){ o[c] = cellForExport(row[i]); });
+    return o;
+  });
+  download(new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' }), 'results.json');
+}
+function exportDb(){
+  if (!db) return;
+  var data = db.export();
+  var name = dbName && dbName !== 'untitled.sqlite' ? dbName : 'workbench.sqlite';
+  if (!/\.(sqlite3?|db3?)$/i.test(name)) name += '.sqlite';
+  download(new Blob([data], { type: 'application/octet-stream' }), name);
+}
+
+/* ---------- wiring ---------- */
+$('openBtn').addEventListener('click', function(){ $('fileInput').click(); });
+$('openBtn2').addEventListener('click', function(){ $('fileInput').click(); });
+$('newBtn').addEventListener('click', function(){ openDatabase(null, 'untitled.sqlite'); });
+$('newBtn2').addEventListener('click', function(){ openDatabase(null, 'untitled.sqlite'); });
+$('sampleBtn').addEventListener('click', loadSample);
+$('sampleBtn2').addEventListener('click', loadSample);
+$('exportDbBtn').addEventListener('click', exportDb);
+$('runBtn').addEventListener('click', function(){ runSQL(); });
+$('csvBtn').addEventListener('click', exportCSV);
+$('jsonBtn').addEventListener('click', exportJSON);
+$('clearHistBtn').addEventListener('click', clearHistory);
+
+$('fileInput').addEventListener('change', function(){
+  if (this.files && this.files[0]) openFile(this.files[0]);
+  this.value = '';
+});
+
+$('sqlInput').addEventListener('keydown', function(e){
+  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){
+    e.preventDefault();
+    runSQL();
+  }
+});
+
+/* drag & drop anywhere */
+var dragDepth = 0;
+document.addEventListener('dragenter', function(e){
+  e.preventDefault();
+  dragDepth++;
+  document.body.classList.add('dragging');
+});
+document.addEventListener('dragover', function(e){ e.preventDefault(); });
+document.addEventListener('dragleave', function(e){
+  e.preventDefault();
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) document.body.classList.remove('dragging');
+});
+document.addEventListener('drop', function(e){
+  e.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove('dragging');
+  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]){
+    openFile(e.dataTransfer.files[0]);
+  }
+});
+
+boot();
+</script>
+</body>
+</html>

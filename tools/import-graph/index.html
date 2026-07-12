@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Import Graph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef; --fg:#191b1e; --muted:#8a8d93; --line:#dcd9d2; --card:#fff;
+  --accent:#2e9e5b; --danger:#c0392b; --edge:#b6b2a9; --accent-soft:rgba(46,158,91,.12);
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a; --fg:#eceae4; --line:#2b2d31; --card:#1e2024;
+    --danger:#e06c5c; --edge:#4a4d52; --accent-soft:rgba(46,158,91,.18);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{
+  background:var(--bg); color:var(--fg);
+  font-family:'IBM Plex Sans',system-ui,sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+::selection{background:var(--accent); color:var(--bg)}
+
+header{
+  flex:none; height:48px; display:flex; align-items:center; gap:12px;
+  padding:0 16px; background:var(--card); border-bottom:1px solid var(--line);
+}
+.logo-sq{width:12px;height:12px;border-radius:2px;background:var(--accent);flex:none}
+.title{font-weight:700;font-size:13px;letter-spacing:1.6px}
+.back{
+  font-size:12px; color:var(--muted); text-decoration:none;
+  font-family:'IBM Plex Mono',monospace; margin-left:4px;
+}
+.back:hover{color:var(--accent)}
+
+.toolbar{
+  flex:none; display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+  padding:8px 16px; background:var(--card); border-bottom:1px solid var(--line);
+}
+button, .filebtn{
+  display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 11px;
+  border:1px solid var(--line); border-radius:14px; background:var(--card);
+  color:var(--fg); font:600 11px 'IBM Plex Mono',monospace; letter-spacing:.4px;
+  cursor:pointer; user-select:none; white-space:nowrap;
+}
+button:hover, .filebtn:hover{border-color:var(--accent); color:var(--accent)}
+button:disabled{opacity:.4; pointer-events:none}
+button svg, .filebtn svg{display:block}
+.primary{background:var(--accent); border-color:var(--accent); color:#fff}
+.primary:hover{color:#fff; filter:brightness(1.08)}
+.searchwrap{
+  display:flex; align-items:center; gap:6px; height:28px; padding:0 10px;
+  border:1px solid var(--line); border-radius:14px; background:var(--bg); min-width:200px;
+}
+.searchwrap input{
+  border:none; outline:none; background:transparent; color:var(--fg);
+  font:12px 'IBM Plex Mono',monospace; width:170px;
+}
+.spacer{flex:1}
+#status{font:11px 'IBM Plex Mono',monospace; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:340px}
+.sep{width:1px; height:20px; background:var(--line); flex:none}
+
+main{flex:1; display:flex; min-height:0}
+#canvasbox{flex:1; position:relative; min-width:0}
+#cv{position:absolute; inset:0; width:100%; height:100%; display:block; cursor:grab}
+#cv.panning{cursor:grabbing}
+#empty{
+  position:absolute; inset:0; display:flex; flex-direction:column; gap:10px;
+  align-items:center; justify-content:center; pointer-events:none; text-align:center; padding:20px;
+}
+#empty .big{font-size:15px; font-weight:600}
+#empty .sub{font-size:12px; color:var(--muted); max-width:420px; line-height:1.6}
+
+aside{
+  flex:none; width:302px; border-left:1px solid var(--line); background:var(--card);
+  overflow-y:auto; display:flex; flex-direction:column;
+}
+.panel{border-bottom:1px solid var(--line); padding:12px 14px}
+.panel h2{
+  margin:0 0 9px; font:700 9.5px 'IBM Plex Mono',monospace;
+  letter-spacing:1.4px; color:var(--muted);
+}
+.stats{display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px}
+.stat{background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:7px 9px}
+.stat b{display:block; font:600 16px 'IBM Plex Mono',monospace}
+.stat span{font-size:9.5px; color:var(--muted); letter-spacing:.5px; text-transform:uppercase}
+.stat.bad b{color:var(--danger)}
+.cyc{
+  font:11px 'IBM Plex Mono',monospace; color:var(--danger); padding:6px 8px;
+  border:1px solid var(--line); border-radius:6px; margin-bottom:6px; cursor:pointer;
+  word-break:break-all; line-height:1.5;
+}
+.cyc:hover{border-color:var(--danger)}
+.nocyc{font-size:11.5px; color:var(--muted)}
+#selpath{font:600 12px 'IBM Plex Mono',monospace; word-break:break-all; margin-bottom:3px}
+#selmeta{font:11px 'IBM Plex Mono',monospace; color:var(--muted); margin-bottom:8px}
+.dep{
+  font:11px 'IBM Plex Mono',monospace; padding:4px 8px; border-radius:5px;
+  cursor:pointer; word-break:break-all;
+}
+.dep:hover{background:var(--accent-soft); color:var(--accent)}
+.dep.ext{color:var(--muted); cursor:default}
+.dep.ext:hover{background:transparent; color:var(--muted)}
+.deph{font:600 9.5px 'IBM Plex Mono',monospace; color:var(--muted); letter-spacing:1px; margin:8px 0 4px}
+.note{font-size:11.5px; line-height:1.65; color:var(--muted)}
+.note code{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--fg)}
+details summary{cursor:pointer; font:700 9.5px 'IBM Plex Mono',monospace; letter-spacing:1.4px; color:var(--muted); list-style:none}
+details summary::before{content:'+ '; color:var(--accent)}
+details[open] summary::before{content:'- '}
+
+#pastewrap{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+  background:color-mix(in srgb, var(--bg) 72%, transparent); z-index:20; padding:24px;
+}
+#pastewrap.open{display:flex}
+.pastebox{
+  width:min(680px,100%); background:var(--card); border:1px solid var(--line);
+  border-radius:10px; padding:16px; display:flex; flex-direction:column; gap:10px;
+  box-shadow:0 12px 40px rgba(0,0,0,.18);
+}
+.pastebox h3{margin:0; font:700 12px 'IBM Plex Mono',monospace; letter-spacing:1px}
+.pastebox p{margin:0; font-size:11.5px; color:var(--muted); line-height:1.5}
+#pastesrc{
+  height:260px; resize:vertical; background:var(--bg); color:var(--fg);
+  border:1px solid var(--line); border-radius:6px; padding:10px;
+  font:12px/1.55 'IBM Plex Mono',monospace; outline:none;
+}
+#pastesrc:focus{border-color:var(--accent)}
+.pastebtns{display:flex; gap:8px; justify-content:flex-end}
+
+#drop{
+  position:absolute; inset:0; display:none; align-items:center; justify-content:center;
+  z-index:30; background:color-mix(in srgb, var(--accent) 10%, var(--bg) 70%);
+  border:2px dashed var(--accent); font:600 15px 'IBM Plex Sans',sans-serif;
+  color:var(--accent); pointer-events:none;
+}
+#drop.on{display:flex}
+
+footer{
+  flex:none; height:32px; display:flex; align-items:center; gap:14px; padding:0 16px;
+  background:var(--card); border-top:1px solid var(--line);
+  font:10.5px 'IBM Plex Mono',monospace; color:var(--muted);
+}
+footer a{color:var(--muted); text-decoration:none}
+footer a:hover{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-sq"></div>
+  <span class="title">IMPORT GRAPH</span>
+  <a class="back" href="../../">&#8592; tools</a>
+  <div class="spacer"></div>
+  <span id="status">no project loaded</span>
+</header>
+
+<div class="toolbar">
+  <label class="filebtn" title="Open a .zip of a repository (unzipped locally in your browser)">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11z"/><path d="M16 3v5h5"/></svg>
+    OPEN .ZIP
+    <input id="zipin" type="file" accept=".zip,application/zip" style="display:none">
+  </label>
+  <button id="pastebtn" title="Paste files as path: blocks">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>
+    PASTE FILES
+  </button>
+  <button id="samplebtn" title="Load the bundled sample project">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    SAMPLE
+  </button>
+  <div class="sep"></div>
+  <div class="searchwrap">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="search" type="text" placeholder="search modules&hellip;" spellcheck="false" autocomplete="off">
+  </div>
+  <button id="fitbtn" title="Fit graph to view">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>
+    FIT
+  </button>
+  <div class="spacer"></div>
+  <button id="expng" disabled title="Export the graph as a PNG image">PNG</button>
+  <button id="exjson" disabled title="Export modules + edge list as JSON">JSON</button>
+  <button id="exdot" disabled title="Export as Graphviz DOT">DOT</button>
+</div>
+
+<main>
+  <div id="canvasbox">
+    <canvas id="cv"></canvas>
+    <div id="empty">
+      <div class="big">Drop a repository .zip anywhere</div>
+      <div class="sub">
+        or paste files as <span class="mono">path:</span> blocks, or load the sample.
+        Everything runs locally &mdash; nothing is uploaded.
+        Zips skip <span class="mono">node_modules</span>, <span class="mono">.git</span>,
+        <span class="mono">dist</span> and read at most 2000 source files
+        (<span class="mono">.js .jsx .ts .tsx .mjs .cjs .py</span>).
+      </div>
+    </div>
+    <div id="pastewrap">
+      <div class="pastebox">
+        <h3>PASTE FILES</h3>
+        <p>One block per file: a line with the path ending in a colon, then the file content. Repeat for each file.</p>
+        <textarea id="pastesrc" spellcheck="false" placeholder="src/app.js:
+import util from './util'
+import React from 'react'
+
+src/util.js:
+export default function util() {}"></textarea>
+        <div class="pastebtns">
+          <button id="pastecancel">CANCEL</button>
+          <button id="pastego" class="primary">BUILD GRAPH</button>
+        </div>
+      </div>
+    </div>
+    <div id="drop">drop .zip to analyze</div>
+  </div>
+
+  <aside>
+    <div class="panel">
+      <h2>STATS</h2>
+      <div class="stats">
+        <div class="stat"><b id="st-mod">&ndash;</b><span>modules</span></div>
+        <div class="stat"><b id="st-edge">&ndash;</b><span>edges</span></div>
+        <div class="stat"><b id="st-ext">&ndash;</b><span>externals</span></div>
+        <div class="stat"><b id="st-depth">&ndash;</b><span>max depth</span></div>
+        <div class="stat" id="st-cyc-box"><b id="st-cyc">&ndash;</b><span>cycles</span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>CYCLES</h2>
+      <div id="cyclist"><div class="nocyc">none detected</div></div>
+    </div>
+    <div class="panel" id="selpanel" style="display:none">
+      <h2>SELECTED MODULE</h2>
+      <div id="selpath"></div>
+      <div id="selmeta"></div>
+      <div id="seldeps"></div>
+    </div>
+    <div class="panel">
+      <details>
+        <summary>HOW IT WORKS</summary>
+        <div class="note" style="margin-top:8px">
+          Import extraction is <b>regex-based</b> (fast, approximate):
+          JS/TS <code>import &hellip; from '&hellip;'</code>, <code>import '&hellip;'</code>,
+          <code>export &hellip; from '&hellip;'</code>, <code>require('&hellip;')</code>,
+          <code>import('&hellip;')</code>; Python <code>import x</code>,
+          <code>from x import y</code> (incl. leading-dot relatives).
+          Relative specs resolve against archive paths, trying exact match,
+          <code>.js/.jsx/.ts/.tsx/.mjs/.cjs/.py</code> extensions,
+          <code>.js&rarr;.ts</code> swap, <code>index.*</code>, and for Python
+          <code>mod.py</code> / <code>mod/__init__.py</code> from root or the importing
+          file's directory. Unresolved or package imports become dimmed external pills.
+          Imports built from variables or template strings, and path aliases like
+          <code>@/x</code>, are not resolved. Layout ranks by longest path over the
+          cycle-condensed DAG; cycles are found with Tarjan's SCC and drawn red.
+        </div>
+      </details>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  <a href="LICENSE-fflate.txt">fflate &middot; MIT</a>
+  <span class="spacer"></span>
+  <span>100% client-side</span>
+</footer>
+
+<script src="fflate.js"></script>
+<script src="graph.js"></script>
+<script>
+(function () {
+  'use strict';
+  var IG = window.ImportGraph;
+
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d');
+  var box = document.getElementById('canvasbox');
+  var statusEl = document.getElementById('status');
+  var emptyEl = document.getElementById('empty');
+
+  var graph = null;      // ImportGraph.buildGraph result
+  var pos = new Map();   // id -> {x,y,w,h}
+  var bounds = null;     // {x,y,w,h} of laid-out content
+  var view = { x: 40, y: 40, k: 1 };
+  var selected = null;   // node id
+  var cycleSet = null;   // Set of ids highlighted from cycle panel
+  var searchTerm = '';
+
+  // ---------- theme ----------
+  var C = {};
+  function readTheme() {
+    var s = getComputedStyle(document.documentElement);
+    ['bg', 'fg', 'muted', 'line', 'card', 'accent', 'danger', 'edge'].forEach(function (k) {
+      C[k] = s.getPropertyValue('--' + k).trim();
+    });
+  }
+  readTheme();
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function () {
+      readTheme(); draw();
+    });
+  }
+
+  // ---------- layout ----------
+  var CARD_W = 208, CARD_H = 54, PILL_H = 28, GAP_X = 96, GAP_Y = 14;
+
+  function nodeSize(n) {
+    if (!n.external) return { w: CARD_W, h: CARD_H };
+    ctx.font = '600 11px "IBM Plex Mono", monospace';
+    var w = Math.max(64, ctx.measureText(n.label).width + 26);
+    return { w: Math.min(w, 240), h: PILL_H };
+  }
+
+  function layout() {
+    pos = new Map();
+    bounds = null;
+    if (!graph) return;
+
+    var byRank = new Map();
+    graph.nodes.forEach(function (n) {
+      if (!byRank.has(n.rank)) byRank.set(n.rank, []);
+      byRank.get(n.rank).push(n);
+    });
+    var rankKeys = Array.from(byRank.keys()).sort(function (a, b) { return a - b; });
+
+    // predecessor map for barycenter ordering
+    var preds = new Map();
+    graph.edges.forEach(function (e) {
+      if (!preds.has(e.to)) preds.set(e.to, []);
+      preds.get(e.to).push(e.from);
+    });
+
+    var orderIdx = new Map(); // id -> index within its rank
+    rankKeys.forEach(function (r, ri) {
+      var col = byRank.get(r);
+      if (ri === 0) {
+        col.sort(function (a, b) { return a.path < b.path ? -1 : 1; });
+      } else {
+        col.sort(function (a, b) {
+          function bary(n) {
+            var ps = (preds.get(n.id) || []).filter(function (p) { return orderIdx.has(p); });
+            if (!ps.length) return 1e9;
+            var s = 0;
+            ps.forEach(function (p) { s += orderIdx.get(p); });
+            return s / ps.length;
+          }
+          var d = bary(a) - bary(b);
+          if (d) return d;
+          if (a.external !== b.external) return a.external ? 1 : -1;
+          return a.path < b.path ? -1 : 1;
+        });
+      }
+      col.forEach(function (n, i) { orderIdx.set(n.id, i); });
+    });
+
+    // column geometry
+    var x = 0, maxColH = 0, colDims = [];
+    rankKeys.forEach(function (r) {
+      var col = byRank.get(r);
+      var w = 0, h = 0;
+      col.forEach(function (n) {
+        var s = nodeSize(n);
+        n._w = s.w; n._h = s.h;
+        w = Math.max(w, s.w);
+        h += s.h + GAP_Y;
+      });
+      h -= GAP_Y;
+      colDims.push({ r: r, x: x, w: w, h: h });
+      maxColH = Math.max(maxColH, h);
+      x += w + GAP_X;
+    });
+
+    colDims.forEach(function (cd) {
+      var col = byRank.get(cd.r);
+      var y = (maxColH - cd.h) / 2;
+      col.forEach(function (n) {
+        pos.set(n.id, { x: cd.x, y: y, w: n._w, h: n._h });
+        y += n._h + GAP_Y;
+      });
+    });
+
+    bounds = { x: 0, y: 0, w: Math.max(1, x - GAP_X), h: Math.max(1, maxColH) };
+  }
+
+  function fit() {
+    if (!bounds) return;
+    var vw = cv.clientWidth, vh = cv.clientHeight;
+    var k = Math.min(1.15, (vw - 80) / bounds.w, (vh - 80) / bounds.h);
+    k = Math.max(k, 0.05);
+    view.k = k;
+    view.x = (vw - bounds.w * k) / 2;
+    view.y = (vh - bounds.h * k) / 2;
+    draw();
+  }
+
+  function centerOn(id) {
+    var p = pos.get(id);
+    if (!p) return;
+    view.k = Math.max(view.k, 0.8);
+    view.x = cv.clientWidth / 2 - (p.x + p.w / 2) * view.k;
+    view.y = cv.clientHeight / 2 - (p.y + p.h / 2) * view.k;
+    draw();
+  }
+
+  // ---------- focus model ----------
+  function focusInfo() {
+    if (selected && graph) {
+      var nodes = new Set([selected]);
+      graph.edges.forEach(function (e) {
+        if (e.from === selected) nodes.add(e.to);
+        if (e.to === selected) nodes.add(e.from);
+      });
+      return {
+        node: function (id) { return nodes.has(id); },
+        edge: function (e) { return e.from === selected || e.to === selected; }
+      };
+    }
+    if (cycleSet) {
+      return {
+        node: function (id) { return cycleSet.has(id); },
+        edge: function (e) { return cycleSet.has(e.from) && cycleSet.has(e.to); }
+      };
+    }
+    return null;
+  }
+
+  // ---------- drawing ----------
+  function roundRect(g, x, y, w, h, r) {
+    g.beginPath();
+    g.moveTo(x + r, y);
+    g.arcTo(x + w, y, x + w, y + h, r);
+    g.arcTo(x + w, y + h, x, y + h, r);
+    g.arcTo(x, y + h, x, y, r);
+    g.arcTo(x, y, x + w, y, r);
+    g.closePath();
+  }
+
+  function drawArrow(g, x, y, angle, size, color) {
+    g.save();
+    g.translate(x, y);
+    g.rotate(angle);
+    g.beginPath();
+    g.moveTo(0, 0);
+    g.lineTo(-size, -size * 0.55);
+    g.lineTo(-size, size * 0.55);
+    g.closePath();
+    g.fillStyle = color;
+    g.fill();
+    g.restore();
+  }
+
+  function drawScene(g) {
+    if (!graph) return;
+    var focus = focusInfo();
+    var matches = null;
+    if (searchTerm) {
+      matches = new Set();
+      graph.nodes.forEach(function (n) {
+        if (n.path.toLowerCase().indexOf(searchTerm) !== -1) matches.add(n.id);
+      });
+    }
+
+    // edges
+    graph.edges.forEach(function (e) {
+      var a = pos.get(e.from), b = pos.get(e.to);
+      if (!a || !b) return;
+      var dim = focus && !focus.edge(e);
+      g.globalAlpha = dim ? 0.10 : (e.external ? 0.55 : 0.9);
+      var color = e.cycle ? C.danger : C.edge;
+      if (e.cycle) g.globalAlpha = dim ? 0.15 : 1;
+
+      var x1, y1, x2, y2, backward = b.x + b.w / 2 < a.x + a.w / 2;
+      if (!backward) {
+        x1 = a.x + a.w; y1 = a.y + a.h / 2;
+        x2 = b.x;       y2 = b.y + b.h / 2;
+      } else { // cycle back-edge: route right side -> right side? use left of source to right of target
+        x1 = a.x;       y1 = a.y + a.h / 2;
+        x2 = b.x + b.w; y2 = b.y + b.h / 2;
+      }
+      var dx = Math.max(34, Math.abs(x2 - x1) * 0.42);
+      var c1x = backward ? x1 - dx : x1 + dx;
+      var c2x = backward ? x2 + dx : x2 - dx;
+
+      g.strokeStyle = color;
+      g.lineWidth = e.cycle ? 1.8 : 1.2;
+      g.setLineDash(e.external ? [4, 4] : []);
+      g.beginPath();
+      g.moveTo(x1, y1);
+      g.bezierCurveTo(c1x, y1, c2x, y2, x2, y2);
+      g.stroke();
+      g.setLineDash([]);
+      // approach into the node side is horizontal by construction
+      drawArrow(g, x2, y2, backward ? Math.PI : 0, 7, color);
+      g.globalAlpha = 1;
+    });
+
+    // nodes
+    graph.nodes.forEach(function (n) {
+      var p = pos.get(n.id);
+      if (!p) return;
+      var dim = focus && !focus.node(n.id);
+      g.globalAlpha = dim ? 0.14 : (n.external ? 0.62 : 1);
+
+      if (n.external) {
+        roundRect(g, p.x, p.y, p.w, p.h, p.h / 2);
+        g.fillStyle = C.bg;
+        g.fill();
+        g.strokeStyle = C.line;
+        g.setLineDash([3, 3]);
+        g.lineWidth = 1.2;
+        g.stroke();
+        g.setLineDash([]);
+        g.fillStyle = C.muted;
+        g.font = '600 11px "IBM Plex Mono", monospace';
+        g.textAlign = 'center';
+        g.textBaseline = 'middle';
+        var lbl = n.label.length > 30 ? n.label.slice(0, 29) + '…' : n.label;
+        g.fillText(lbl, p.x + p.w / 2, p.y + p.h / 2 + 0.5);
+      } else {
+        roundRect(g, p.x, p.y, p.w, p.h, 7);
+        g.fillStyle = C.card;
+        g.fill();
+        g.strokeStyle = n.id === selected ? C.accent : (n.inCycle ? C.danger : C.line);
+        g.lineWidth = n.id === selected ? 2 : (n.inCycle ? 1.6 : 1.2);
+        g.stroke();
+        if (n.inCycle) {
+          g.fillStyle = C.danger;
+          g.fillRect(p.x, p.y + 6, 3, p.h - 12);
+        }
+        var dir = n.path.indexOf('/') !== -1 ? n.path.slice(0, n.path.lastIndexOf('/') + 1) : '';
+        g.textAlign = 'left';
+        g.textBaseline = 'alphabetic';
+        g.fillStyle = C.fg;
+        g.font = '600 12px "IBM Plex Sans", sans-serif';
+        var name = n.label.length > 26 ? n.label.slice(0, 25) + '…' : n.label;
+        g.fillText(name, p.x + 12, p.y + 21);
+        g.fillStyle = C.muted;
+        g.font = '10px "IBM Plex Mono", monospace';
+        if (dir) {
+          var dshow = dir.length > 30 ? '…' + dir.slice(-29) : dir;
+          g.fillText(dshow, p.x + 12, p.y + 34);
+        }
+        g.fillText(n.loc + ' loc · in ' + n.fanIn + ' · out ' + n.fanOut,
+          p.x + 12, p.y + (dir ? 47 : 38));
+      }
+
+      if (matches && matches.has(n.id)) {
+        g.globalAlpha = 1;
+        roundRect(g, p.x - 3, p.y - 3, p.w + 6, p.h + 6, n.external ? (p.h + 6) / 2 : 9);
+        g.strokeStyle = C.accent;
+        g.lineWidth = 2;
+        g.setLineDash([5, 4]);
+        g.stroke();
+        g.setLineDash([]);
+      }
+      g.globalAlpha = 1;
+    });
+  }
+
+  function draw() {
+    var dpr = window.devicePixelRatio || 1;
+    var w = cv.clientWidth, h = cv.clientHeight;
+    if (cv.width !== w * dpr || cv.height !== h * dpr) {
+      cv.width = w * dpr;
+      cv.height = h * dpr;
+    }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (!graph) return;
+    ctx.save();
+    ctx.translate(view.x, view.y);
+    ctx.scale(view.k, view.k);
+    drawScene(ctx);
+    ctx.restore();
+  }
+
+  // ---------- interaction ----------
+  var drag = null;
+  cv.addEventListener('mousedown', function (ev) {
+    drag = { sx: ev.clientX, sy: ev.clientY, vx: view.x, vy: view.y, moved: false };
+    cv.classList.add('panning');
+  });
+  window.addEventListener('mousemove', function (ev) {
+    if (!drag) return;
+    var dx = ev.clientX - drag.sx, dy = ev.clientY - drag.sy;
+    if (Math.abs(dx) + Math.abs(dy) > 4) drag.moved = true;
+    view.x = drag.vx + dx;
+    view.y = drag.vy + dy;
+    draw();
+  });
+  window.addEventListener('mouseup', function (ev) {
+    cv.classList.remove('panning');
+    if (!drag) return;
+    var wasClick = !drag.moved;
+    drag = null;
+    if (wasClick && graph) {
+      var r = cv.getBoundingClientRect();
+      var wx = (ev.clientX - r.left - view.x) / view.k;
+      var wy = (ev.clientY - r.top - view.y) / view.k;
+      var hit = null;
+      pos.forEach(function (p, id) {
+        if (wx >= p.x && wx <= p.x + p.w && wy >= p.y && wy <= p.y + p.h) hit = id;
+      });
+      selectNode(hit);
+    }
+  });
+  cv.addEventListener('wheel', function (ev) {
+    if (!graph) return;
+    ev.preventDefault();
+    var r = cv.getBoundingClientRect();
+    var mx = ev.clientX - r.left, my = ev.clientY - r.top;
+    var factor = Math.pow(1.0016, -ev.deltaY);
+    var nk = Math.min(3, Math.max(0.05, view.k * factor));
+    view.x = mx - (mx - view.x) * (nk / view.k);
+    view.y = my - (my - view.y) * (nk / view.k);
+    view.k = nk;
+    draw();
+  }, { passive: false });
+  window.addEventListener('resize', draw);
+
+  // ---------- selection panel ----------
+  function selectNode(id) {
+    selected = id;
+    cycleSet = null;
+    var panel = document.getElementById('selpanel');
+    var deps = document.getElementById('seldeps');
+    deps.textContent = '';
+    if (!id || !graph) {
+      selected = null;
+      panel.style.display = 'none';
+      draw();
+      return;
+    }
+    var n = graph.nodes.get(id);
+    panel.style.display = 'block';
+    document.getElementById('selpath').textContent = n.path;
+    document.getElementById('selmeta').textContent = n.external
+      ? 'external package'
+      : n.loc + ' loc · fan-in ' + n.fanIn + ' · fan-out ' + n.fanOut +
+        ' · depth ' + n.rank + (n.inCycle ? ' · IN CYCLE' : '');
+
+    function addList(title, ids) {
+      if (!ids.length) return;
+      var h = document.createElement('div');
+      h.className = 'deph';
+      h.textContent = title + ' (' + ids.length + ')';
+      deps.appendChild(h);
+      ids.forEach(function (nid) {
+        var nn = graph.nodes.get(nid);
+        var d = document.createElement('div');
+        d.className = 'dep' + (nn.external ? ' ext' : '');
+        d.textContent = (nn.external ? '◦ ' : '• ') + nn.path;
+        if (!nn.external) {
+          d.addEventListener('click', function () { selectNode(nid); centerOn(nid); });
+        }
+        deps.appendChild(d);
+      });
+    }
+    var outs = [], ins = [];
+    graph.edges.forEach(function (e) {
+      if (e.from === id) outs.push(e.to);
+      if (e.to === id) ins.push(e.from);
+    });
+    addList('IMPORTS', outs);
+    addList('IMPORTED BY', ins);
+    draw();
+  }
+
+  // ---------- stats + cycles panels ----------
+  function renderPanels() {
+    var s = graph ? graph.stats : null;
+    document.getElementById('st-mod').textContent = s ? s.modules : '–';
+    document.getElementById('st-edge').textContent = s ? s.edges : '–';
+    document.getElementById('st-ext').textContent = s ? s.externals : '–';
+    document.getElementById('st-depth').textContent = s ? s.maxDepth : '–';
+    document.getElementById('st-cyc').textContent = s ? s.cycleCount : '–';
+    document.getElementById('st-cyc-box').className = 'stat' + (s && s.cycleCount ? ' bad' : '');
+
+    var list = document.getElementById('cyclist');
+    list.textContent = '';
+    if (!s || !s.cycleCount) {
+      var d = document.createElement('div');
+      d.className = 'nocyc';
+      d.textContent = graph ? 'none detected' : '–';
+      list.appendChild(d);
+      return;
+    }
+    graph.cycles.forEach(function (cyc) {
+      var d = document.createElement('div');
+      d.className = 'cyc';
+      d.textContent = cyc.concat(cyc[0]).join(' → ');
+      d.title = 'highlight this cycle';
+      d.addEventListener('click', function () {
+        selected = null;
+        document.getElementById('selpanel').style.display = 'none';
+        cycleSet = new Set(cyc);
+        centerOn(cyc[0]);
+      });
+      list.appendChild(d);
+    });
+  }
+
+  // ---------- loading ----------
+  function loadFiles(files, sourceName) {
+    graph = IG.buildGraph(files);
+    selected = null;
+    cycleSet = null;
+    document.getElementById('selpanel').style.display = 'none';
+    layout();
+    renderPanels();
+    var s = graph.stats;
+    statusEl.textContent = sourceName + ' — ' + s.modules + ' modules, ' +
+      s.edges + ' edges' + (s.truncated ? ' (capped at ' + IG.MAX_FILES + ' files)' : '');
+    emptyEl.style.display = s.modules ? 'none' : 'flex';
+    ['expng', 'exjson', 'exdot'].forEach(function (id) {
+      document.getElementById(id).disabled = !s.modules;
+    });
+    fit();
+  }
+
+  function handleZip(file) {
+    statusEl.textContent = 'unzipping ' + file.name + '…';
+    file.arrayBuffer().then(function (buf) {
+      var files = [];
+      var count = 0;
+      var entries;
+      try {
+        entries = window.fflate.unzipSync(new Uint8Array(buf), {
+          filter: function (f) {
+            if (count >= IG.MAX_FILES) return false;
+            if (f.name.slice(-1) === '/') return false;
+            var p = f.name.replace(/\\/g, '/');
+            if (!IG.isSourcePath(p) || IG.shouldSkip(p)) return false;
+            count++;
+            return true;
+          }
+        });
+      } catch (err) {
+        statusEl.textContent = 'failed to read zip: ' + err.message;
+        return;
+      }
+      var dec = new TextDecoder('utf-8', { fatal: false });
+      Object.keys(entries).forEach(function (name) {
+        var bytes = entries[name];
+        // text files only: reject anything with NUL bytes
+        var limit = Math.min(bytes.length, 8192);
+        for (var i = 0; i < limit; i++) if (bytes[i] === 0) return;
+        files.push({ path: name.replace(/\\/g, '/'), content: dec.decode(bytes) });
+      });
+      if (!files.length) {
+        statusEl.textContent = file.name + ': no source files found';
+        return;
+      }
+      loadFiles(files, file.name);
+    });
+  }
+
+  document.getElementById('zipin').addEventListener('change', function (ev) {
+    if (ev.target.files && ev.target.files[0]) handleZip(ev.target.files[0]);
+    ev.target.value = '';
+  });
+
+  // drag & drop
+  var dropEl = document.getElementById('drop');
+  var dragDepth = 0;
+  window.addEventListener('dragenter', function (ev) {
+    ev.preventDefault();
+    dragDepth++;
+    dropEl.classList.add('on');
+  });
+  window.addEventListener('dragover', function (ev) { ev.preventDefault(); });
+  window.addEventListener('dragleave', function () {
+    if (--dragDepth <= 0) { dragDepth = 0; dropEl.classList.remove('on'); }
+  });
+  window.addEventListener('drop', function (ev) {
+    ev.preventDefault();
+    dragDepth = 0;
+    dropEl.classList.remove('on');
+    var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (!f) return;
+    if (/\.zip$/i.test(f.name)) handleZip(f);
+    else statusEl.textContent = 'not a .zip: ' + f.name;
+  });
+
+  // paste mode
+  var pastewrap = document.getElementById('pastewrap');
+  document.getElementById('pastebtn').addEventListener('click', function () {
+    pastewrap.classList.add('open');
+    document.getElementById('pastesrc').focus();
+  });
+  document.getElementById('pastecancel').addEventListener('click', function () {
+    pastewrap.classList.remove('open');
+  });
+  document.getElementById('pastego').addEventListener('click', function () {
+    var files = IG.parsePasteInput(document.getElementById('pastesrc').value);
+    if (!files.length) {
+      statusEl.textContent = 'paste: no "path:" blocks recognized';
+      return;
+    }
+    pastewrap.classList.remove('open');
+    loadFiles(files, 'pasted (' + files.length + ' files)');
+  });
+
+  document.getElementById('samplebtn').addEventListener('click', function () {
+    loadFiles(IG.SAMPLE_FILES, 'sample project');
+  });
+
+  document.getElementById('fitbtn').addEventListener('click', fit);
+
+  // search
+  var searchIn = document.getElementById('search');
+  searchIn.addEventListener('input', function () {
+    searchTerm = searchIn.value.trim().toLowerCase();
+    draw();
+  });
+  searchIn.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Escape') { searchIn.value = ''; searchTerm = ''; draw(); }
+    if (ev.key === 'Enter' && graph && searchTerm) {
+      var first = null;
+      graph.nodes.forEach(function (n) {
+        if (!first && !n.external && n.path.toLowerCase().indexOf(searchTerm) !== -1) first = n.id;
+      });
+      if (first) { selectNode(first); centerOn(first); }
+    }
+  });
+
+  // ---------- exports ----------
+  function download(name, blob) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 500);
+  }
+
+  document.getElementById('expng').addEventListener('click', function () {
+    if (!graph || !bounds) return;
+    var pad = 40, scale = 2;
+    var off = document.createElement('canvas');
+    off.width = Math.ceil((bounds.w + pad * 2) * scale);
+    off.height = Math.ceil((bounds.h + pad * 2) * scale);
+    var g = off.getContext('2d');
+    g.fillStyle = C.bg;
+    g.fillRect(0, 0, off.width, off.height);
+    g.scale(scale, scale);
+    g.translate(pad, pad);
+    drawScene(g);
+    off.toBlob(function (b) { if (b) download('import-graph.png', b); }, 'image/png');
+  });
+  document.getElementById('exjson').addEventListener('click', function () {
+    if (!graph) return;
+    download('import-graph.json',
+      new Blob([IG.toEdgeListJSON(graph)], { type: 'application/json' }));
+  });
+  document.getElementById('exdot').addEventListener('click', function () {
+    if (!graph) return;
+    download('import-graph.dot',
+      new Blob([IG.toDOT(graph)], { type: 'text/vnd.graphviz' }));
+  });
+
+  // redraw once webfonts land so canvas text uses Plex
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(draw);
+  draw();
+})();
+</script>
+</body>
+</html>

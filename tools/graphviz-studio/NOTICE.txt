@@ -1,0 +1,24 @@
+NOTICE — Graphviz Studio
+========================
+
+Contains @hpcc-js/wasm-graphviz (Apache-2.0); Graphviz (EPL) compiled to
+WebAssembly.
+
+Vendored artifact
+-----------------
+vendor/graphviz.umd.js — the UMD build of the HPCC Systems Graphviz
+WebAssembly component, taken from the npm package @hpcc-js/wasm@2.34.5
+(dist/graphviz.umd.js). The @hpcc-js/wasm-graphviz package itself (v1.24.1)
+ships only an ES-module bundle (dist/index.js); the UMD distribution of the
+same component is published under the umbrella package @hpcc-js/wasm. Both
+packages are part of the hpcc-systems/hpcc-js-wasm project and are licensed
+Apache-2.0 (see LICENSE-hpcc-wasm.txt, copied from the package LICENSE).
+
+The Graphviz WebAssembly binary is EMBEDDED inside vendor/graphviz.umd.js as
+a compressed, string-encoded blob — there is no separate .wasm file to fetch,
+and the tool performs no network requests to load it.
+
+Upstream projects
+-----------------
+- hpcc-js-wasm: https://github.com/hpcc-systems/hpcc-js-wasm (Apache-2.0)
+- Graphviz: https://graphviz.org (Eclipse Public License)

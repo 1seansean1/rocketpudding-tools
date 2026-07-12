@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PDG Viewer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #2f6fed;
+    --data: #c26a10;
+    --node-pred: #e8effc;
+    --node-entry: #ecf1e4;
+    --hl: rgba(47, 111, 237, 0.14);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --data: #e08a2e;
+      --node-pred: #232f4a;
+      --node-entry: #253026;
+      --hl: rgba(47, 111, 237, 0.22);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 14px;
+    display: flex;
+    flex-direction: column;
+  }
+  header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-sq { width: 12px; height: 12px; background: var(--accent); flex: 0 0 auto; }
+  header h1 { font-size: 14px; font-weight: 600; letter-spacing: 0.14em; }
+  header .spacer { flex: 1; }
+  header a.back {
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 13px;
+  }
+  header a.back:hover { color: var(--accent); }
+
+  .toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .toolbar label.chk { display: inline-flex; align-items: center; gap: 5px; color: var(--fg); cursor: pointer; user-select: none; }
+  .toolbar input[type="checkbox"] { accent-color: var(--accent); }
+  select {
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font: inherit;
+    font-size: 13px;
+  }
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5px 10px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); color: var(--accent); }
+  button svg { display: block; }
+  .toolbar .sep { width: 1px; height: 18px; background: var(--line); }
+  #status { color: var(--muted); font-size: 12.5px; margin-left: auto; }
+  #status.err { color: #c0392b; }
+
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: minmax(320px, 34%) 1fr;
+    min-height: 0;
+  }
+  @media (max-width: 860px) { main { grid-template-columns: 1fr; grid-template-rows: 40vh 1fr; } }
+
+  .pane { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  .pane-editor { border-right: 1px solid var(--line); }
+  .pane-title {
+    padding: 8px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* editor: textarea over a highlight backdrop with identical metrics */
+  .editor-wrap { position: relative; flex: 1; min-height: 0; overflow: hidden; background: var(--card); }
+  .editor-backdrop, #src {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 20px;
+    padding: 12px 14px;
+    white-space: pre;
+    tab-size: 2;
+  }
+  .editor-backdrop {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    color: transparent;
+    pointer-events: none;
+  }
+  .editor-backdrop .ln { min-height: 20px; white-space: pre; }
+  .editor-backdrop .ln.hl { background: var(--hl); box-shadow: -14px 0 0 var(--hl), 14px 0 0 var(--hl); }
+  #src {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+    color: var(--fg);
+    border: 0;
+    resize: none;
+    outline: none;
+    overflow: auto;
+  }
+
+  .graph-wrap { position: relative; flex: 1; min-height: 0; overflow: auto; }
+  #graph { display: block; }
+  .legend {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--fg);
+    display: grid;
+    gap: 5px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .legend .row { display: flex; align-items: center; gap: 8px; }
+  .legend svg { flex: 0 0 auto; }
+
+  /* graph interaction states (screen only; exports use base attributes) */
+  .pdg-node { cursor: pointer; }
+  .pdg-node text { pointer-events: none; }
+  .pdg-node rect { transition: stroke 0.1s; }
+  .pdg-node:hover rect { stroke: var(--accent); }
+  svg.has-sel .pdg-node, svg.has-sel .edge { opacity: 0.18; }
+  svg.has-sel .pdg-node.sel, svg.has-sel .pdg-node.nbr, svg.has-sel .edge.lit { opacity: 1; }
+  .pdg-node.sel rect { stroke: var(--accent) !important; stroke-width: 2; }
+
+  #tooltip {
+    position: fixed;
+    display: none;
+    max-width: 480px;
+    background: var(--card);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+    padding: 8px 10px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    z-index: 10;
+    pointer-events: none;
+  }
+  #tooltip .tt-line { color: var(--muted); font-family: "IBM Plex Sans", sans-serif; font-size: 11px; margin-bottom: 3px; }
+
+  details.notes { border-top: 1px solid var(--line); font-size: 12.5px; }
+  details.notes summary {
+    padding: 8px 14px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    user-select: none;
+  }
+  details.notes ul { padding: 2px 14px 12px 30px; color: var(--fg); max-height: 200px; overflow: auto; }
+  details.notes li { margin-bottom: 5px; line-height: 1.45; }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 20;
+  }
+  .modal.open { display: flex; }
+  .modal .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    width: min(720px, 92vw);
+    max-height: 84vh;
+    display: flex;
+    flex-direction: column;
+    padding: 14px;
+    gap: 10px;
+  }
+  .modal .card h2 { font-size: 13px; font-weight: 600; letter-spacing: 0.08em; }
+  .modal textarea {
+    flex: 1;
+    min-height: 320px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 12px;
+    resize: vertical;
+    white-space: pre;
+  }
+  .modal .row { display: flex; gap: 8px; justify-content: flex-end; }
+
+  footer {
+    padding: 10px 20px;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  footer a { color: var(--muted); }
+  footer a:hover { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-sq"></div>
+  <h1>PDG VIEWER</h1>
+  <div class="spacer"></div>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<div class="toolbar">
+  <label for="sample">Sample</label>
+  <select id="sample">
+    <option value="gcd">GCD — while loop, loop-carried data</option>
+    <option value="evens">Sum &amp; count evens — for + if</option>
+    <option value="ship">Shipping cost — switch + if</option>
+  </select>
+  <div class="sep"></div>
+  <label class="chk"><input type="checkbox" id="tglControl" checked> control</label>
+  <label class="chk"><input type="checkbox" id="tglData" checked> data</label>
+  <div class="sep"></div>
+  <button id="btnPng" title="Export the graph as a PNG image">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8m0 0 3-3m-3 3L5 7"/><path d="M2 11v2a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-2"/></svg>
+    PNG
+  </button>
+  <button id="btnDot" title="Show DOT (Graphviz) text for the graph">
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>
+    DOT
+  </button>
+  <span id="status"></span>
+</div>
+
+<main>
+  <section class="pane pane-editor">
+    <div class="pane-title">Source — a JavaScript function or top-level script</div>
+    <div class="editor-wrap">
+      <div class="editor-backdrop" id="backdrop"></div>
+      <textarea id="src" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+    </div>
+    <details class="notes">
+      <summary>Analysis notes &amp; approximations</summary>
+      <ul id="notesList"></ul>
+    </details>
+  </section>
+
+  <section class="pane">
+    <div class="pane-title">Program-dependence graph <span style="font-weight:400;text-transform:none;letter-spacing:0">— click a node to trace its deps; hover for full text</span></div>
+    <div class="graph-wrap" id="graphWrap">
+      <div class="legend" id="legend">
+        <div class="row"><svg width="30" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="var(--accent)" stroke-width="1.6"/><path d="M23 2 L29 5 L23 8 Z" fill="var(--accent)"/></svg> control</div>
+        <div class="row"><svg width="30" height="10"><line x1="1" y1="5" x2="23" y2="5" stroke="var(--data)" stroke-width="1.6" stroke-dasharray="4 3"/><path d="M23 2 L29 5 L23 8 Z" fill="var(--data)"/></svg> data <span style="color:var(--muted)">(var name)</span></div>
+        <div class="row"><svg width="30" height="12"><rect x="1" y="1" width="28" height="10" rx="3" fill="var(--node-pred)" stroke="var(--muted)" stroke-width="0.8"/></svg> predicate</div>
+        <div class="row"><svg width="30" height="12"><rect x="1" y="1" width="28" height="10" rx="3" fill="var(--node-entry)" stroke="var(--muted)" stroke-width="0.8"/></svg> entry (params)</div>
+      </div>
+      <svg id="graph" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </section>
+</main>
+
+<footer>acorn v8 &middot; MIT &middot; <a href="LICENSE-acorn.txt">license</a></footer>
+
+<div id="tooltip"></div>
+
+<div class="modal" id="dotModal">
+  <div class="card">
+    <h2>DOT — Graphviz</h2>
+    <textarea id="dotText" readonly spellcheck="false"></textarea>
+    <div class="row">
+      <button id="btnCopyDot">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"/><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2"/></svg>
+        Copy
+      </button>
+      <button id="btnCloseDot">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="acorn.js"></script>
+<script src="analysis.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  var SAMPLES = {
+    gcd: 'function gcd(a, b) {\n  while (b !== 0) {\n    let t = b;\n    b = a % b;\n    a = t;\n  }\n  return a;\n}\n',
+    evens: 'function summarize(nums) {\n  let total = 0;\n  let count = 0;\n  for (let i = 0; i < nums.length; i++) {\n    const v = nums[i];\n    if (v % 2 === 0) {\n      total += v;\n      count++;\n    }\n  }\n  return { total, count };\n}\n',
+    ship: 'function shippingCost(order) {\n  let cost = order.weight * 2;\n  const zone = order.zone;\n  switch (zone) {\n    case "near":\n      cost += 5;\n      break;\n    case "far":\n      cost += 20;\n      break;\n    default:\n      cost += 10;\n  }\n  if (order.express) {\n    cost = cost * 2;\n  }\n  return cost;\n}\n'
+  };
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var el = function (id) { return document.getElementById(id); };
+  var src = el('src'), backdrop = el('backdrop'), svg = el('graph'), status = el('status'), tooltip = el('tooltip');
+
+  var graph = null;
+  var groupedData = [];
+  var selId = null;
+  var hlLine = null;
+
+  var meas = document.createElement('canvas').getContext('2d');
+  function labelWidth(text) {
+    meas.font = '500 12px "IBM Plex Mono", ui-monospace, monospace';
+    return meas.measureText(text).width;
+  }
+  function cssVar(name) {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  }
+  function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function mk(tag, attrs) {
+    var n = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) { n.setAttribute(k, attrs[k]); }
+    return n;
+  }
+
+  /* ------------------------- analysis ------------------------- */
+  function analyze() {
+    var code = src.value;
+    selId = null; hlLine = null;
+    if (!code.trim()) {
+      graph = null; groupedData = [];
+      status.className = ''; status.textContent = '';
+      render(); renderBackdrop();
+      return;
+    }
+    try {
+      graph = PDG.buildPDG(code, window.acorn);
+      groupedData = PDG.groupDataEdges(graph);
+      status.className = '';
+      status.textContent = graph.nodes.length + ' nodes · ' + graph.controlEdges.length +
+        ' control · ' + graph.dataEdges.length + ' data edges';
+    } catch (e) {
+      graph = null; groupedData = [];
+      status.className = 'err';
+      status.textContent = 'parse error: ' + (e.message || e);
+    }
+    render();
+    renderBackdrop();
+  }
+
+  var debTimer = null;
+  src.addEventListener('input', function () {
+    clearTimeout(debTimer);
+    debTimer = setTimeout(analyze, 250);
+  });
+
+  /* ------------------------- editor backdrop ------------------------- */
+  function renderBackdrop() {
+    var lines = src.value.split('\n');
+    var html = '';
+    for (var i = 0; i < lines.length; i++) {
+      var cls = (hlLine === i + 1) ? 'ln hl' : 'ln';
+      html += '<div class="' + cls + '">' + (escHtml(lines[i]) || ' ') + '</div>';
+    }
+    backdrop.innerHTML = html;
+    syncScroll();
+  }
+  function syncScroll() {
+    backdrop.scrollTop = src.scrollTop;
+    backdrop.scrollLeft = src.scrollLeft;
+  }
+  src.addEventListener('scroll', syncScroll);
+
+  function highlightLine(line) {
+    hlLine = line;
+    renderBackdrop();
+    // scroll the highlighted line into view within the textarea
+    var lh = 20, pad = 12;
+    var y = pad + (line - 1) * lh;
+    if (y < src.scrollTop + lh || y > src.scrollTop + src.clientHeight - lh * 2) {
+      src.scrollTop = Math.max(0, y - src.clientHeight / 2);
+      syncScroll();
+    }
+  }
+
+  /* ------------------------- layout + render ------------------------- */
+  var NODE_H = 30, ROW_H = 46, INDENT = 26, PAD_X = 18, PAD_Y = 18;
+
+  function render() {
+    while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+    svg.classList.remove('has-sel');
+    if (!graph || !graph.nodes.length) { svg.setAttribute('width', 0); svg.setAttribute('height', 0); return; }
+
+    var C = {
+      accent: cssVar('--accent') || '#2f6fed',
+      data: cssVar('--data') || '#c26a10',
+      card: cssVar('--card') || '#ffffff',
+      fg: cssVar('--fg') || '#191b1e',
+      muted: cssVar('--muted') || '#8a8d93',
+      line: cssVar('--line') || '#dcd9d2',
+      bg: cssVar('--bg') || '#f4f3ef',
+      pred: cssVar('--node-pred') || '#e8effc',
+      entry: cssVar('--node-entry') || '#ecf1e4'
+    };
+
+    var pos = {};
+    var maxRight = 0;
+    graph.nodes.forEach(function (n) {
+      var w = Math.ceil(labelWidth(n.label)) + 26;
+      var x = PAD_X + n.depth * INDENT;
+      var y = PAD_Y + n.id * ROW_H;
+      pos[n.id] = { x: x, y: y, w: w };
+      if (x + w > maxRight) { maxRight = x + w; }
+    });
+
+    // defs: arrowheads
+    var defs = mk('defs', {});
+    [['arrC', C.accent], ['arrD', C.data]].forEach(function (m) {
+      var marker = mk('marker', { id: m[0], viewBox: '0 0 10 10', refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: 'auto-start-reverse' });
+      marker.appendChild(mk('path', { d: 'M 0 1 L 9 5 L 0 9 Z', fill: m[1] }));
+      defs.appendChild(marker);
+    });
+    svg.appendChild(defs);
+
+    var gData = mk('g', { id: 'gData', fill: 'none' });
+    var gControl = mk('g', { id: 'gControl', fill: 'none' });
+    var gNodes = mk('g', { id: 'gNodes' });
+    svg.appendChild(gData);
+    svg.appendChild(gControl);
+    svg.appendChild(gNodes);
+
+    // control edges: left-side elbows from predicate bottom into target's left edge
+    graph.controlEdges.forEach(function (e) {
+      var s = pos[e.from], t = pos[e.to];
+      var sx = s.x + 13, sy = s.y + NODE_H;
+      var ty = t.y + NODE_H / 2;
+      var d = 'M ' + sx + ' ' + sy +
+              ' L ' + sx + ' ' + (ty - 8) +
+              ' Q ' + sx + ' ' + ty + ' ' + (sx + 8) + ' ' + ty +
+              ' L ' + (t.x - 1) + ' ' + ty;
+      var p = mk('path', { d: d, stroke: C.accent, 'stroke-width': 1.6, 'marker-end': 'url(#arrC)', 'class': 'edge edge-c' });
+      p.dataset.from = e.from; p.dataset.to = e.to;
+      gControl.appendChild(p);
+    });
+
+    // data edges: right-side bezier arcs with the variable name at midpoint
+    var laneBase = maxRight + 16;
+    var maxLane = laneBase;
+    groupedData.forEach(function (e, i) {
+      var s = pos[e.from], t = pos[e.to];
+      var sx = s.x + s.w, sy = s.y + NODE_H / 2;
+      var tx = t.x + t.w, ty = t.y + NODE_H / 2;
+      var span = Math.abs(e.to - e.from);
+      var lane = laneBase + 10 + Math.min(70, span * 5) + (i % 6) * 9;
+      if (lane > maxLane) { maxLane = lane; }
+      var d = 'M ' + sx + ' ' + sy + ' C ' + lane + ' ' + sy + ', ' + lane + ' ' + ty + ', ' + (tx + 1) + ' ' + ty;
+      var p = mk('path', {
+        d: d, stroke: C.data, 'stroke-width': 1.4, 'stroke-dasharray': '5 4',
+        'marker-end': 'url(#arrD)', 'class': 'edge edge-d'
+      });
+      p.dataset.from = e.from; p.dataset.to = e.to;
+      gData.appendChild(p);
+      // cubic midpoint: (P0 + 3P1 + 3P2 + P3) / 8
+      var mx = (sx + 6 * lane + tx) / 8;
+      var my = (sy + ty) / 2;
+      var lbl = mk('text', {
+        x: mx, y: my - 5, fill: C.data, 'font-size': 10.5,
+        'font-family': '"IBM Plex Mono", ui-monospace, monospace',
+        'text-anchor': 'middle', 'paint-order': 'stroke', stroke: C.bg, 'stroke-width': 3,
+        'class': 'edge edge-d edge-lbl'
+      });
+      lbl.dataset.from = e.from; lbl.dataset.to = e.to;
+      lbl.textContent = e.names.join(', ');
+      gData.appendChild(lbl);
+    });
+
+    // nodes
+    graph.nodes.forEach(function (n) {
+      var pn = pos[n.id];
+      var fill = n.kind === 'predicate' ? C.pred : n.kind === 'entry' ? C.entry : C.card;
+      var g = mk('g', { 'class': 'pdg-node', transform: 'translate(' + pn.x + ',' + pn.y + ')' });
+      g.dataset.id = n.id;
+      g.appendChild(mk('rect', { width: pn.w, height: NODE_H, rx: 7, fill: fill, stroke: C.line, 'stroke-width': 1.2 }));
+      var t = mk('text', {
+        x: 13, y: NODE_H / 2 + 4, fill: C.fg, 'font-size': 12, 'font-weight': 500,
+        'font-family': '"IBM Plex Mono", ui-monospace, monospace'
+      });
+      t.textContent = n.label;
+      g.appendChild(t);
+      gNodes.appendChild(g);
+    });
+
+    var w = maxLane + 70;
+    var h = PAD_Y * 2 + graph.nodes.length * ROW_H;
+    svg.setAttribute('width', w);
+    svg.setAttribute('height', h);
+    svg.setAttribute('viewBox', '0 0 ' + w + ' ' + h);
+
+    applyToggles();
+    if (selId !== null) { applySelection(selId); }
+  }
+
+  /* ------------------------- toggles ------------------------- */
+  function applyToggles() {
+    var gC = svg.querySelector('#gControl');
+    var gD = svg.querySelector('#gData');
+    if (gC) { gC.setAttribute('display', el('tglControl').checked ? 'inline' : 'none'); }
+    if (gD) { gD.setAttribute('display', el('tglData').checked ? 'inline' : 'none'); }
+  }
+  el('tglControl').addEventListener('change', applyToggles);
+  el('tglData').addEventListener('change', applyToggles);
+
+  /* ------------------------- selection ------------------------- */
+  function applySelection(id) {
+    svg.classList.add('has-sel');
+    var nbr = {};
+    svg.querySelectorAll('.edge').forEach(function (e) {
+      var f = +e.dataset.from, t = +e.dataset.to;
+      if (f === id || t === id) {
+        e.classList.add('lit');
+        nbr[f] = true; nbr[t] = true;
+      } else {
+        e.classList.remove('lit');
+      }
+    });
+    svg.querySelectorAll('.pdg-node').forEach(function (g) {
+      var nid = +g.dataset.id;
+      g.classList.toggle('sel', nid === id);
+      g.classList.toggle('nbr', nid !== id && !!nbr[nid]);
+    });
+  }
+  function clearSelection() {
+    selId = null;
+    svg.classList.remove('has-sel');
+    svg.querySelectorAll('.sel, .nbr, .lit').forEach(function (e) { e.classList.remove('sel', 'nbr', 'lit'); });
+    hlLine = null;
+    renderBackdrop();
+  }
+
+  svg.addEventListener('click', function (ev) {
+    var g = ev.target.closest('.pdg-node');
+    if (!g) { clearSelection(); return; }
+    var id = +g.dataset.id;
+    if (selId === id) { clearSelection(); return; }
+    selId = id;
+    applySelection(id);
+    highlightLine(graph.nodes[id].line);
+  });
+
+  /* ------------------------- tooltip ------------------------- */
+  svg.addEventListener('mousemove', function (ev) {
+    var g = ev.target.closest('.pdg-node');
+    if (!g || !graph) { tooltip.style.display = 'none'; return; }
+    var n = graph.nodes[+g.dataset.id];
+    tooltip.innerHTML = '<div class="tt-line">line ' + n.line + ' · ' + n.kind + '</div>' + escHtml(n.full);
+    tooltip.style.display = 'block';
+    var x = ev.clientX + 14, y = ev.clientY + 14;
+    var r = tooltip.getBoundingClientRect();
+    if (x + r.width > window.innerWidth - 8) { x = ev.clientX - r.width - 10; }
+    if (y + r.height > window.innerHeight - 8) { y = ev.clientY - r.height - 10; }
+    tooltip.style.left = x + 'px';
+    tooltip.style.top = y + 'px';
+  });
+  svg.addEventListener('mouseleave', function () { tooltip.style.display = 'none'; });
+
+  /* ------------------------- exports ------------------------- */
+  el('btnPng').addEventListener('click', function () {
+    if (!graph) { return; }
+    var clone = svg.cloneNode(true);
+    clone.classList.remove('has-sel');
+    var w = +svg.getAttribute('width'), h = +svg.getAttribute('height');
+    var bgRect = mk('rect', { x: 0, y: 0, width: w, height: h, fill: cssVar('--bg') || '#f4f3ef' });
+    clone.insertBefore(bgRect, clone.firstChild);
+    var xml = new XMLSerializer().serializeToString(clone);
+    var blob = new Blob([xml], { type: 'image/svg+xml;charset=utf-8' });
+    var url = URL.createObjectURL(blob);
+    var img = new Image();
+    img.onload = function () {
+      var scale = 2;
+      var canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      var ctx = canvas.getContext('2d');
+      ctx.scale(scale, scale);
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function (png) {
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(png);
+        a.download = 'pdg-viewer.png';
+        a.click();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+      }, 'image/png');
+    };
+    img.src = url;
+  });
+
+  var dotModal = el('dotModal');
+  el('btnDot').addEventListener('click', function () {
+    if (!graph) { return; }
+    el('dotText').value = PDG.toDOT(graph, {
+      control: el('tglControl').checked,
+      data: el('tglData').checked
+    });
+    dotModal.classList.add('open');
+  });
+  el('btnCloseDot').addEventListener('click', function () { dotModal.classList.remove('open'); });
+  dotModal.addEventListener('click', function (ev) { if (ev.target === dotModal) { dotModal.classList.remove('open'); } });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') { dotModal.classList.remove('open'); } });
+
+  el('btnCopyDot').addEventListener('click', function () {
+    var ta = el('dotText');
+    var done = function () {
+      var b = el('btnCopyDot');
+      var old = b.lastChild.textContent;
+      b.lastChild.textContent = ' Copied';
+      setTimeout(function () { b.lastChild.textContent = old; }, 1200);
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(ta.value).then(done, function () { ta.select(); document.execCommand('copy'); done(); });
+    } else {
+      ta.select();
+      document.execCommand('copy');
+      done();
+    }
+  });
+
+  /* ------------------------- samples + init ------------------------- */
+  el('sample').addEventListener('change', function () {
+    src.value = SAMPLES[this.value];
+    analyze();
+  });
+
+  PDG.NOTES.forEach(function (t) {
+    var li = document.createElement('li');
+    li.textContent = t;
+    el('notesList').appendChild(li);
+  });
+
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+  }
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(render); // re-measure labels once Plex Mono loads
+  }
+
+  src.value = SAMPLES.gcd;
+  analyze();
+})();
+</script>
+</body>
+</html>

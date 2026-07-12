@@ -21,7 +21,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#b05a3c"
+      "accent": "#b05a3c",
+      "origin": "original"
     },
     {
       "slug": "vizkit",
@@ -39,7 +40,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#5fd9a4"
+      "accent": "#5fd9a4",
+      "origin": "original"
     },
     {
       "slug": "mermaid-studio",
@@ -56,7 +58,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#7a6cff"
+      "accent": "#7a6cff",
+      "origin": "vendored"
     },
     {
       "slug": "json-yaml",
@@ -73,7 +76,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#2e9e5b"
+      "accent": "#2e9e5b",
+      "origin": "vendored"
     },
     {
       "slug": "cron-explainer",
@@ -90,7 +94,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#c9a227"
+      "accent": "#c9a227",
+      "origin": "vendored"
     },
     {
       "slug": "jwt-inspector",
@@ -107,7 +112,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#e0483d"
+      "accent": "#e0483d",
+      "origin": "vendored"
     },
     {
       "slug": "csv-workbench",
@@ -124,7 +130,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#2f6fed"
+      "accent": "#2f6fed",
+      "origin": "vendored"
     },
     {
       "slug": "qr-forge",
@@ -141,7 +148,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#b05a3c"
+      "accent": "#b05a3c",
+      "origin": "vendored"
     },
     {
       "slug": "markdown-studio",
@@ -158,7 +166,8 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#3f6f8f"
+      "accent": "#3f6f8f",
+      "origin": "vendored"
     },
     {
       "slug": "nomnoml-studio",
@@ -175,7 +184,152 @@
       ],
       "added": "2026-07-11",
       "status": "live",
-      "accent": "#8a5a44"
+      "accent": "#8a5a44",
+      "origin": "vendored"
+    },
+    {
+      "slug": "ast-explorer",
+      "name": "AST Explorer",
+      "tagline": "Paste code, walk its syntax tree",
+      "description": "Interactive syntax-tree explorer powered by tree-sitter compiled to WebAssembly. Parses JavaScript, Python, and C entirely in the browser with vendored grammar wasms; collapsible named-node tree with positions, click-to-highlight source spans, hover snippets, node-type filtering, parse-time and node-count stats, and copy-tree-as-JSON.",
+      "path": "tools/ast-explorer/",
+      "tags": [
+        "ast",
+        "parser",
+        "tree-sitter",
+        "code-analysis",
+        "syntax"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#d07a58",
+      "origin": "vendored"
+    },
+    {
+      "slug": "pdg-viewer",
+      "name": "PDG Viewer",
+      "tagline": "Program-dependence graph for JavaScript, client-side",
+      "description": "Paste a JavaScript function and get a statement-level program-dependence graph as a layered SVG DAG: control dependence solid, data dependence dashed and labeled by variable, via a hand-rolled reaching-definitions walk with loop-carried def-use. Click to trace deps, toggle layers, export PNG or Graphviz DOT. Parsing by vendored acorn v8; honest approximation notes included.",
+      "path": "tools/pdg-viewer/",
+      "tags": [
+        "pdg",
+        "dependence",
+        "code-analysis",
+        "graph",
+        "javascript"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2f6fed",
+      "origin": "vendored"
+    },
+    {
+      "slug": "cpg-lite",
+      "name": "CPG Lite",
+      "tagline": "Joern-style code property graph for one JavaScript function",
+      "description": "Explore a function's code property graph in the browser: basic blocks with three overlay layers on one node set — CFG edges with T/F branch labels and loop back-edges, a per-variable reaching-definitions DFG, and AST containment. Blocks link back to source lines; layers toggle independently; exports PNG and JSON. acorn-parsed, approximations documented.",
+      "path": "tools/cpg-lite/",
+      "tags": [
+        "cpg",
+        "cfg",
+        "dfg",
+        "code-analysis",
+        "joern"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#8a5a44",
+      "origin": "vendored"
+    },
+    {
+      "slug": "import-graph",
+      "name": "Import Graph",
+      "tagline": "Madge-style module dependency graphs, fully in the browser",
+      "description": "Drop a repo .zip or paste files to get a layered import graph: JS/TS and Python extraction, relative-path resolution, internal modules as cards with LOC and fan-in/out, externals as dimmed pills, and Tarjan-detected circular dependencies drawn red with a cycle list. Search, trace, and export PNG, JSON, or DOT. Unzipping via vendored fflate; nothing leaves the browser.",
+      "path": "tools/import-graph/",
+      "tags": [
+        "dependencies",
+        "imports",
+        "graph",
+        "architecture",
+        "madge"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2e9e5b",
+      "origin": "vendored"
+    },
+    {
+      "slug": "sqlite-workbench",
+      "name": "SQLite Workbench",
+      "tagline": "Open, query, and export SQLite databases entirely in your browser.",
+      "description": "A zero-backend SQLite client powered by sql.js WASM. Drop in a .sqlite/.db file, start a new database, or load a built-in sample; browse the schema tree, run multi-statement SQL with Ctrl+Enter, sort results, track query history, and export results as CSV/JSON or the whole database as a .sqlite file. No data ever leaves your machine.",
+      "path": "tools/sqlite-workbench/",
+      "tags": [
+        "sqlite",
+        "sql",
+        "database",
+        "wasm",
+        "query"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#c9a227",
+      "origin": "vendored"
+    },
+    {
+      "slug": "graphviz-studio",
+      "name": "Graphviz Studio",
+      "tagline": "Live DOT to SVG with real Graphviz layouts, fully offline",
+      "description": "A live DOT editor backed by genuine Graphviz compiled to WebAssembly: debounced SVG rendering with zoom/fit/pan, five layout engines (dot, neato, fdp, circo, twopi), bundled examples, inline parse errors that keep the last good render, and SVG/PNG export. The wasm binary is embedded in the vendored bundle — nothing loads from a CDN.",
+      "path": "tools/graphviz-studio/",
+      "tags": [
+        "graphviz",
+        "dot",
+        "diagram",
+        "wasm",
+        "svg"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#b05a3c",
+      "origin": "vendored"
+    },
+    {
+      "slug": "esbuild-playground",
+      "name": "esbuild Playground",
+      "tagline": "Transform and minify TS, JSX, and JS in your browser with esbuild-wasm.",
+      "description": "In-browser esbuild transform playground: paste TypeScript/TSX/JSX/JS and get live output with control over loader, target, format, JSX mode, granular minify toggles, and sourcemaps. Stats bar shows input vs output bytes and a gzip estimate; errors render with line:column. Fully client-side via vendored esbuild-wasm 0.24.",
+      "path": "tools/esbuild-playground/",
+      "tags": [
+        "esbuild",
+        "typescript",
+        "jsx",
+        "minify",
+        "wasm"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#e0483d",
+      "origin": "vendored"
+    },
+    {
+      "slug": "regex-lab",
+      "name": "Regex Lab",
+      "tagline": "Live JavaScript regex tester with groups, replace, and a cheat sheet",
+      "description": "Zero-dependency regex tester: flag chips, live match highlighting, a table of every numbered and named capture group, replace preview with $1/$<name>/$& support, sample pattern/text pairs, and a collapsible cheat sheet. Guards against catastrophic backtracking with char/match caps and a time budget; state persists to localStorage.",
+      "path": "tools/regex-lab/",
+      "tags": [
+        "regex",
+        "tester",
+        "pattern",
+        "text",
+        "zero-dep"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#3f6f8f",
+      "origin": "vendored"
     }
   ]
 }
