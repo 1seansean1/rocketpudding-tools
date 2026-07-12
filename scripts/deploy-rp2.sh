@@ -57,4 +57,5 @@ aws ssm get-command-invocation --region "$REGION" --command-id "$CID" --instance
 
 echo ">> verify"
 curl -s -o /dev/null -w "   https://tools.rocketpudding.ai/ -> %{http_code}\n" --max-time 15 https://tools.rocketpudding.ai/ || true
+bash "$(dirname "$0")/notify-deploy.sh" || echo ">> notify failed (non-fatal)"
 echo ">> done: https://tools.rocketpudding.ai/"
