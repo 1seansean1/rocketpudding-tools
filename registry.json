@@ -946,6 +946,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "unicode-inspector",
+      "name": "Unicode Inspector",
+      "tagline": "Per-grapheme Unicode breakdown — code points, categories, encodings, and escapes.",
+      "description": "Paste text for a live per-grapheme breakdown built on Intl.Segmenter: code points, General_Category, Script, UTF-8 bytes, UTF-16 units, and JS/HTML/CSS/URL/Python escape forms. Compares grapheme vs code point vs UTF-16 vs UTF-8 length, flags zero-width, combining, bidi, and confusable characters, normalizes (NFC/NFD/NFKC/NFKD) with length deltas, and reverses U+XXXX back into a character. Zero dependencies.",
+      "path": "tools/unicode-inspector/",
+      "tags": [
+        "unicode",
+        "text",
+        "encoding",
+        "utf8",
+        "emoji"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#22d3ee",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
