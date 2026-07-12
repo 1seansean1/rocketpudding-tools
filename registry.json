@@ -1042,6 +1042,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "json-schema-validator",
+      "name": "JSON Schema Validator",
+      "tagline": "Live draft-07 JSON Schema validation with JSON-pointer error paths",
+      "description": "Zero-dependency, hand-rolled JSON Schema (draft-07 core) validator. Schema on the left, JSON data on the right, validated live. Outputs a PASS/FAIL banner plus every violation with its JSON-pointer path, failing keyword, and a human message. Supports type, required, properties/patternProperties/additionalProperties, items/tuple, enum/const, numeric bounds and multipleOf, string length/pattern/format, size constraints, uniqueItems, dependencies, allOf/anyOf/oneOf/not, if/then/else, local $ref, and best-effort formats. Honest about limits (no remote $ref, no draft 2020 dynamic refs).",
+      "path": "tools/json-schema-validator/",
+      "tags": [
+        "json",
+        "schema",
+        "validate",
+        "draft-07",
+        "data"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#2f6fed",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }
