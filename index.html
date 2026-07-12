@@ -31,6 +31,13 @@
   .brand{font-family:'IBM Plex Mono',monospace;font-weight:700;letter-spacing:1.6px;font-size:13px}
   .brand .rp{color:var(--accent)}
   .count{margin-left:auto;font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--muted)}
+  /* Holly sits on top — presiding over the whole page */
+  .holly{display:flex;align-items:center;gap:8px;padding:9px 0 0;font-family:'IBM Plex Mono',monospace;
+    font-size:9px;font-weight:700;letter-spacing:.22em;color:var(--muted)}
+  .holly .d{color:var(--accent);font-size:11px;text-shadow:0 0 12px var(--accent);animation:hollyglow 3.4s ease-in-out infinite}
+  .holly .n{background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .holly .w{color:var(--faint);letter-spacing:.14em}
+  @keyframes hollyglow{0%,100%{opacity:1;filter:drop-shadow(0 0 6px var(--accent))}50%{opacity:.72;filter:drop-shadow(0 0 12px var(--accent2))}}
   .toptease{position:sticky;top:0;z-index:60;background:var(--bg);display:flex;align-items:center;gap:11px;
     padding:12px 0;border-bottom:1px solid transparent;transition:border-color .2s ease}
   .toptease.stuck{border-bottom-color:var(--line)}
@@ -141,6 +148,7 @@
 </head>
 <body>
   <div class="wrap">
+    <div class="holly" title="Holly — she holds the frame: provenance, gates, taste"><span class="d">◆</span> <span class="n">HOLLY</span> <span class="w">· presiding</span></div>
     <header class="top">
       <div class="logo"></div>
       <div class="brand"><span class="rp">ROCKET&nbsp;PUDDING</span>&nbsp;TOOLS</div>
