@@ -634,6 +634,78 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "bytecode-lab",
+      "name": "Bytecode Lab",
+      "tagline": "Compile a tiny language into stack-VM bytecode and step through execution.",
+      "description": "Zero-dependency compiler pipeline lab: edit a small expression language, inspect tokens, AST, emitted bytecode, constants, labels, and stack-machine execution one instruction at a time. Built for understanding how source turns into compact VM instructions without sending code anywhere.",
+      "path": "tools/bytecode-lab/",
+      "tags": [
+        "compiler",
+        "bytecode",
+        "vm",
+        "language",
+        "zero-dep"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#8a5a44",
+      "origin": "original",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
+    },
+    {
+      "slug": "wasm-explorer",
+      "name": "WASM Explorer",
+      "tagline": "Assemble WAT, disassemble WASM, inspect bytes, and run simple exports.",
+      "description": "Client-side WebAssembly workbench powered by vendored WABT: assemble WAT into real WASM bytes, disassemble uploaded modules back to WAT, inspect imports, exports, sections, hex output, and run simple zero-argument exports. No code leaves the browser.",
+      "path": "tools/wasm-explorer/",
+      "tags": [
+        "wasm",
+        "webassembly",
+        "wat",
+        "compiler",
+        "bytes"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#22d3ee",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "WABT",
+        "license": "Apache-2.0",
+        "version": "vendored",
+        "url": "https://github.com/WebAssembly/wabt"
+      }
+    },
+    {
+      "slug": "compression-lab",
+      "name": "Compression Lab",
+      "tagline": "Compare gzip, deflate, native streams, and Brotli over text or local files.",
+      "description": "Local-only compression benchmark and inspection bench: paste text or drop a file, compare fflate gzip/zlib/deflate, browser CompressionStream codecs, and Brotli WASM. Reports compressed size, ratio, timing, entropy estimate, and decompression verification.",
+      "path": "tools/compression-lab/",
+      "tags": [
+        "compression",
+        "gzip",
+        "deflate",
+        "brotli",
+        "bytes"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#ff2d95",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "fflate + brotli-wasm",
+        "license": "MIT / Apache-2.0",
+        "version": "vendored",
+        "url": "https://github.com/101arrowz/fflate"
+      }
     }
   ]
 }

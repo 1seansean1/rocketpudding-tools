@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A tiny language compiled to stack-VM bytecode, visualized end to end: lexer to token stream, parser to AST, compiler to a compact bytecode instruction set, and a stack VM you can step through instruction by instruction. Zero dependencies, runs entirely in your browser.">
+<title>Bytecode Lab &middot; tools</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%238a5a44'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f4f3ef;
+  --fg:#191b1e;
+  --muted:#8a8d93;
+  --line:#dcd9d2;
+  --card:#ffffff;
+  --accent:#8a5a44;
+  --accent-soft:rgba(138,90,68,.13);
+  --accent-line:rgba(138,90,68,.34);
+  --error:#b3382e;
+  --error-soft:rgba(179,56,46,.10);
+  --ok:#4f7a52;
+  --just:rgba(138,90,68,.10);
+  --sans:'IBM Plex Sans',system-ui,-apple-system,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  --k-kw:#8a5a44;
+  --k-num:#3a6ea5;
+  --k-id:#2f6f52;
+  --k-op:#a05a2c;
+  --k-punc:#8a8d93;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#16171a;
+    --fg:#eceae4;
+    --muted:#8a8d93;
+    --line:#2b2d31;
+    --card:#1e2024;
+    --accent:#c88a6c;
+    --accent-soft:rgba(200,138,108,.15);
+    --accent-line:rgba(200,138,108,.40);
+    --error:#e2705d;
+    --error-soft:rgba(226,112,93,.12);
+    --ok:#8bc48f;
+    --just:rgba(200,138,108,.12);
+    --k-kw:#d79a7e;
+    --k-num:#7fb0e0;
+    --k-id:#8fc9a6;
+    --k-op:#d79a6c;
+    --k-punc:#8a8d93;
+  }
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font-family:var(--sans);
+  font-size:14px;
+  display:flex;
+  flex-direction:column;
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent);color:#fff}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:5px}
+::-webkit-scrollbar-thumb:hover{background:var(--muted)}
+
+/* ---------- header ---------- */
+header{
+  display:flex;align-items:center;gap:11px;
+  padding:12px 20px;border-bottom:1px solid var(--line);flex:none;
+  position:sticky;top:0;background:var(--bg);z-index:20;
+}
+.accent-sq{width:12px;height:12px;border-radius:2px;background:var(--accent);flex:none}
+h1{margin:0;font-family:var(--mono);font-weight:700;font-size:14px;letter-spacing:.24em}
+.sub{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.02em;margin-left:2px}
+.back{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;transition:color .12s}
+.back:hover{color:var(--accent)}
+
+/* ---------- layout ---------- */
+main{
+  flex:1;width:100%;max-width:1440px;margin:0 auto;
+  padding:16px 20px 10px;display:flex;flex-direction:column;gap:14px;
+}
+.toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.grid{
+  display:grid;
+  grid-template-columns:minmax(0,0.86fr) minmax(0,1fr);
+  gap:14px;align-items:start;
+}
+@media (max-width:960px){ .grid{grid-template-columns:minmax(0,1fr)} }
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+
+.card{
+  background:var(--card);border:1px solid var(--line);border-radius:9px;
+  display:flex;flex-direction:column;overflow:hidden;min-width:0;
+}
+.card-head{
+  display:flex;align-items:center;gap:9px;padding:9px 12px;flex:none;
+  border-bottom:1px solid var(--line);
+}
+.card-head .label{
+  font-family:var(--mono);font-size:11px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);font-weight:500;
+}
+.card-head .idx{
+  font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent);
+  border:1px solid var(--accent-line);border-radius:4px;padding:1px 5px;letter-spacing:.05em;
+}
+.card-head .grow{flex:1}
+.card-head .count{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.card-body{padding:12px;min-width:0}
+
+/* ---------- controls ---------- */
+select,.btn,textarea{
+  font-family:var(--sans);color:var(--fg);background:var(--bg);
+  border:1px solid var(--line);border-radius:7px;
+}
+select{font-size:13px;padding:6px 26px 6px 10px;cursor:pointer;
+  appearance:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238a8d93' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+}
+label.sel{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);font-family:var(--mono);letter-spacing:.03em}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  font-size:12.5px;font-weight:500;padding:7px 12px;letter-spacing:.01em;
+  transition:border-color .12s,color .12s,background .12s;
+}
+.btn svg{width:14px;height:14px;flex:none}
+.btn:hover:not(:disabled){border-color:var(--muted);color:var(--fg)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-family:var(--mono);font-weight:600}
+.btn.primary:hover:not(:disabled){background:var(--accent);filter:brightness(1.08)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.divider{width:1px;height:22px;background:var(--line)}
+
+.runbar{
+  display:flex;align-items:center;gap:9px;flex-wrap:wrap;
+  padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);
+}
+.speed{display:inline-flex;align-items:center;gap:8px;margin-left:2px}
+.speed span{font-family:var(--mono);font-size:11px;color:var(--muted);letter-spacing:.04em}
+input[type=range]{-webkit-appearance:none;appearance:none;width:118px;height:4px;border-radius:3px;background:var(--line);cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--card)}
+input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:2px solid var(--card)}
+.badges{margin-left:auto;display:flex;gap:7px;flex-wrap:wrap}
+.badge{
+  font-family:var(--mono);font-size:11px;color:var(--muted);
+  border:1px solid var(--line);border-radius:6px;padding:3px 8px;white-space:nowrap;
+}
+.badge b{color:var(--fg);font-weight:600}
+.badge.state-run{color:var(--accent);border-color:var(--accent-line)}
+.badge.state-halt{color:var(--ok);border-color:var(--line)}
+.badge.state-err{color:var(--error);border-color:var(--error)}
+
+/* ---------- source ---------- */
+.editor-wrap{position:relative}
+textarea{
+  width:100%;min-height:190px;resize:vertical;padding:12px;
+  font-family:var(--mono);font-size:13px;line-height:1.55;
+  tab-size:2;white-space:pre;overflow:auto;
+}
+textarea:focus-visible{outline:2px solid var(--accent);outline-offset:-1px;border-color:var(--accent)}
+
+/* ---------- stats ---------- */
+.stats{
+  display:flex;flex-wrap:wrap;gap:0;font-family:var(--mono);font-size:11.5px;
+  border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card);
+}
+.stat{padding:8px 13px;display:flex;flex-direction:column;gap:2px;border-right:1px solid var(--line);flex:1;min-width:78px}
+.stat:last-child{border-right:none}
+.stat .n{font-size:15px;font-weight:600;color:var(--fg)}
+.stat .k{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.stat.hl .n{color:var(--accent)}
+
+/* ---------- error ---------- */
+.err{
+  display:none;font-family:var(--mono);font-size:12px;line-height:1.5;
+  color:var(--error);background:var(--error-soft);border:1px solid var(--error);
+  border-radius:8px;padding:9px 12px;
+}
+.err.show{display:block}
+.err .loc{color:var(--muted);font-size:11px}
+
+/* ---------- tokens ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px;max-height:184px;overflow:auto}
+.chip{
+  display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--line);border-radius:6px;padding:3px 7px 3px 4px;
+  font-family:var(--mono);font-size:12px;background:var(--bg);
+}
+.chip .t{
+  font-size:9px;letter-spacing:.06em;text-transform:uppercase;
+  padding:1px 4px;border-radius:3px;color:#fff;font-weight:600;
+}
+.chip .v{color:var(--fg)}
+.t.kw{background:var(--k-kw)} .t.num{background:var(--k-num)} .t.id{background:var(--k-id)}
+.t.op{background:var(--k-op)} .t.punc{background:var(--k-punc)}
+.chip.kw .v{color:var(--k-kw)} .chip.num .v{color:var(--k-num)} .chip.id .v{color:var(--k-id)}
+.chip.op .v{color:var(--k-op)}
+.empty{color:var(--muted);font-family:var(--mono);font-size:12px;padding:4px 2px}
+
+/* ---------- AST ---------- */
+.ast{font-family:var(--mono);font-size:12.5px;line-height:1.35;max-height:340px;overflow:auto}
+.node{padding-left:14px;border-left:1px solid var(--line);margin-left:5px}
+.node.root{border-left:none;margin-left:0;padding-left:0}
+.nrow{display:flex;align-items:center;gap:6px;padding:2px 0;cursor:default;border-radius:4px}
+.nrow.has:hover{background:var(--accent-soft)}
+.tw{width:12px;height:12px;flex:none;color:var(--muted);cursor:pointer;transition:transform .12s;display:inline-flex;align-items:center;justify-content:center}
+.tw.open{transform:rotate(90deg)}
+.tw.leaf{visibility:hidden}
+.nkind{color:var(--accent);font-weight:600}
+.nfield{color:var(--muted)}
+.nval{color:var(--k-num)}
+.nname{color:var(--k-id)}
+.nop{color:var(--k-op)}
+.kids.hide{display:none}
+
+/* ---------- bytecode ---------- */
+.bc-scroll{max-height:392px;overflow:auto}
+table.bc{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+table.bc th{
+  position:sticky;top:0;background:var(--card);z-index:2;
+  text-align:left;font-weight:500;font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--muted);padding:7px 10px;border-bottom:1px solid var(--line);
+}
+table.bc td{padding:4px 10px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:top}
+table.bc tr:last-child td{border-bottom:none}
+.bc .addr{color:var(--muted);width:1%;text-align:right;-webkit-user-select:none;user-select:none}
+.bc .op{font-weight:600}
+.bc .op .hx{color:var(--muted);font-weight:400;font-size:10px;margin-left:6px}
+.bc .operand{color:var(--k-num)}
+.bc .operand .slot{color:var(--muted)}
+.bc .cmt{color:var(--muted);white-space:normal}
+.bc tr.cur{background:var(--accent-soft)}
+.bc tr.cur td{border-color:var(--accent-line)}
+.bc tr.cur .addr{color:var(--accent);font-weight:700}
+.bc tr.just{background:var(--just)}
+.bc .marker{color:var(--accent);font-weight:700;padding-right:0;width:14px}
+.op-jmp .op{color:var(--k-op)} .op-halt .op{color:var(--ok)} .op-print .op{color:var(--accent)}
+
+/* opcode legend */
+.iset{display:flex;flex-wrap:wrap;gap:5px;padding:10px 12px;border-top:1px solid var(--line)}
+.iset code{font-family:var(--mono);font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+
+/* hexdump */
+.hex{display:none;font-family:var(--mono);font-size:11.5px;line-height:1.55;color:var(--fg);padding:10px 12px;border-top:1px solid var(--line);overflow:auto;max-height:150px;white-space:pre}
+.hex.show{display:block}
+.hex .off{color:var(--muted)}
+
+/* ---------- VM state ---------- */
+.vm-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:14px}
+@media (max-width:560px){ .vm-grid{grid-template-columns:1fr} }
+
+.stack{display:flex;flex-direction:column-reverse;gap:5px;min-height:150px;justify-content:flex-start;padding-top:2px}
+.stack-empty{color:var(--muted);font-family:var(--mono);font-size:12px;text-align:center;padding:20px 0;margin-top:auto}
+.cell{
+  font-family:var(--mono);font-size:13px;font-weight:500;
+  border:1px solid var(--accent-line);background:var(--accent-soft);
+  border-radius:6px;padding:7px 11px;display:flex;align-items:center;justify-content:space-between;gap:8px;
+  animation:pushIn .22s cubic-bezier(.22,1,.36,1);
+}
+.cell.top{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent-line)}
+.cell .tag{font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-weight:600}
+@keyframes pushIn{from{opacity:0;transform:translateY(9px) scale(.96)}to{opacity:1;transform:none}}
+
+.vars{display:flex;flex-direction:column;gap:5px;min-height:60px}
+.vrow{
+  display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12.5px;
+  border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:var(--bg);
+  transition:background .35s,border-color .35s;
+}
+.vrow .vn{color:var(--k-id);font-weight:600}
+.vrow .sl{color:var(--muted);font-size:10px}
+.vrow .eq{color:var(--muted)}
+.vrow .vv{margin-left:auto;color:var(--fg);font-weight:600}
+.vrow.changed{background:var(--accent-soft);border-color:var(--accent-line)}
+.vrow.unset .vv{color:var(--muted);font-weight:400}
+
+.console{
+  font-family:var(--mono);font-size:13px;line-height:1.5;
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:10px 12px;min-height:96px;max-height:220px;overflow:auto;
+  display:flex;flex-direction:column;gap:2px;
+}
+.console .oline{color:var(--fg)}
+.console .oline .pfx{color:var(--muted);margin-right:8px;-webkit-user-select:none;user-select:none}
+.console .oline:last-child.fresh{animation:flash .5s ease}
+.console .ph{color:var(--muted)}
+.console .rt-err{color:var(--error)}
+@keyframes flash{0%{background:var(--accent-soft)}100%{background:transparent}}
+
+.pc-line{display:flex;gap:8px;flex-wrap:wrap;margin-top:2px}
+
+footer{
+  padding:16px 20px;text-align:center;color:var(--muted);
+  font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+  border-top:1px solid var(--line);margin-top:6px;
+}
+.hint{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+kbd{font-family:var(--mono);font-size:10px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 4px;color:var(--fg)}
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-sq"></div>
+  <h1>BYTECODE LAB</h1>
+  <span class="sub">source &rarr; tokens &rarr; ast &rarr; bytecode &rarr; vm</span>
+  <a class="back" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <div class="toolbar">
+    <label class="sel">sample
+      <select id="sample">
+        <option value="arith">Arithmetic</option>
+        <option value="sum" selected>Sum 1..N</option>
+        <option value="fib">Fibonacci</option>
+        <option value="fizz">FizzBuzz</option>
+        <option value="cond">If / else</option>
+      </select>
+    </label>
+    <div class="divider"></div>
+    <span class="hint"><kbd>Space</kbd> step &middot; <kbd>Enter</kbd> run/pause &middot; <kbd>R</kbd> reset</span>
+  </div>
+
+  <div class="grid">
+    <!-- LEFT: source + tokens + ast -->
+    <div class="col">
+      <div class="card">
+        <div class="card-head"><span class="idx">SRC</span><span class="label">Source</span><span class="grow"></span><span class="count" id="src-note">edit freely</span></div>
+        <div class="editor-wrap"><textarea id="src" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea></div>
+      </div>
+
+      <div class="stats" id="stats">
+        <div class="stat"><span class="n" id="s-tok">0</span><span class="k">tokens</span></div>
+        <div class="stat"><span class="n" id="s-ast">0</span><span class="k">ast nodes</span></div>
+        <div class="stat"><span class="n" id="s-ins">0</span><span class="k">instrs</span></div>
+        <div class="stat hl"><span class="n" id="s-byt">0</span><span class="k">bytes</span></div>
+      </div>
+
+      <div class="err" id="err"></div>
+
+      <div class="card">
+        <div class="card-head"><span class="idx">1</span><span class="label">Lexer &middot; tokens</span><span class="grow"></span><span class="count" id="tok-count"></span></div>
+        <div class="card-body"><div class="chips" id="tokens"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="idx">2</span><span class="label">Parser &middot; AST</span><span class="grow"></span><span class="count" id="ast-count"></span></div>
+        <div class="card-body"><div class="ast" id="ast"></div></div>
+      </div>
+    </div>
+
+    <!-- RIGHT: controls + bytecode + vm -->
+    <div class="col">
+      <div class="runbar">
+        <button class="btn primary" id="btn-step" title="Execute one instruction (Space)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19"/></svg>
+          Step</button>
+        <button class="btn" id="btn-run" title="Auto-run (Enter)">
+          <svg id="run-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          <span id="run-label">Run</span></button>
+        <button class="btn" id="btn-reset" title="Reset the VM (R)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+          Reset</button>
+        <div class="speed">
+          <span>slow</span>
+          <input type="range" id="speed" min="1" max="10" value="6">
+          <span>fast</span>
+        </div>
+        <div class="badges">
+          <span class="badge">pc <b id="b-pc">0</b></span>
+          <span class="badge">steps <b id="b-steps">0</b></span>
+          <span class="badge state-idle" id="b-state">ready</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="idx">3</span><span class="label">Compiler &middot; bytecode</span><span class="grow"></span>
+          <button class="btn" id="btn-hex" style="padding:3px 9px;font-size:11px" title="Toggle raw byte view">hex</button>
+          <span class="count" id="bc-count"></span></div>
+        <div class="bc-scroll" id="bc-scroll"><table class="bc" id="bc"><tbody id="bc-body"></tbody></table></div>
+        <pre class="hex" id="hex"></pre>
+        <div class="iset" id="iset"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="idx">4</span><span class="label">Stack VM</span><span class="grow"></span><span class="count">operand stack &middot; variables</span></div>
+        <div class="card-body">
+          <div class="vm-grid">
+            <div>
+              <div class="card-head" style="padding:0 0 8px;border:none"><span class="label">Operand stack</span></div>
+              <div class="stack" id="stack"></div>
+            </div>
+            <div>
+              <div class="card-head" style="padding:0 0 8px;border:none"><span class="label">Variables</span></div>
+              <div class="vars" id="vars"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><span class="idx">OUT</span><span class="label">Output console</span></div>
+        <div class="card-body"><div class="console" id="console"></div></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>zero dependencies</footer>
+
+<script>
+"use strict";
+/* =====================================================================
+   Bytecode Lab — a tiny language: lex -> parse -> compile -> run
+   Everything hand-rolled, zero dependencies.
+   ===================================================================== */
+
+/* ---------------- 0. samples ---------------- */
+const SAMPLES = {
+  arith:
+`// expressions, precedence and parens
+let a = 6
+let b = 7
+let area = a * b + (10 - 4) / 2
+print area`,
+  sum:
+`// sum the integers 1..n with a while loop
+let n = 10
+let sum = 0
+let i = 1
+while (i <= n) {
+  sum = sum + i
+  i = i + 1
+}
+print sum`,
+  fib:
+`// first n Fibonacci numbers
+let n = 12
+let a = 0
+let b = 1
+let i = 0
+while (i < n) {
+  print a
+  let t = a + b
+  a = b
+  b = t
+  i = i + 1
+}`,
+  fizz:
+`// FizzBuzz with sentinel numbers
+//   333 = Fizz   555 = Buzz   999 = FizzBuzz
+let i = 1
+while (i <= 15) {
+  if (i % 15 == 0) {
+    print 999
+  } else {
+    if (i % 3 == 0) {
+      print 333
+    } else {
+      if (i % 5 == 0) {
+        print 555
+      } else {
+        print i
+      }
+    }
+  }
+  i = i + 1
+}`,
+  cond:
+`// branch on a comparison
+let score = 82
+let grade = 0
+if (score >= 90) {
+  grade = 4
+} else {
+  if (score >= 80) {
+    grade = 3
+  } else {
+    grade = 2
+  }
+}
+print grade`
+};
+
+/* ---------------- 1. lexer ---------------- */
+const KEYWORDS = new Set(["let", "print", "if", "else", "while"]);
+const TWO = new Set(["==", "!=", "<=", ">="]);
+
+function LangError(kind, message, line, col){
+  const e = new Error(message);
+  e.kind = kind; e.line = line; e.col = col;
+  return e;
+}
+
+function lex(src){
+  const toks = [];
+  let i = 0, line = 1, col = 1;
+  const isDigit = c => c >= "0" && c <= "9";
+  const isIdStart = c => (c >= "a" && c <= "z") || (c >= "A" && c <= "Z") || c === "_";
+  const isIdPart = c => isIdStart(c) || isDigit(c);
+  while (i < src.length){
+    const c = src[i];
+    if (c === "\n"){ i++; line++; col = 1; continue; }
+    if (c === " " || c === "\t" || c === "\r"){ i++; col++; continue; }
+    if (c === "/" && src[i + 1] === "/"){ while (i < src.length && src[i] !== "\n") i++; continue; }
+    const startCol = col;
+    if (isDigit(c)){
+      let j = i;
+      while (j < src.length && isDigit(src[j])) j++;
+      toks.push({ type: "num", value: src.slice(i, j), line, col: startCol });
+      col += j - i; i = j; continue;
+    }
+    if (isIdStart(c)){
+      let j = i;
+      while (j < src.length && isIdPart(src[j])) j++;
+      const w = src.slice(i, j);
+      toks.push({ type: KEYWORDS.has(w) ? "kw" : "id", value: w, line, col: startCol });
+      col += j - i; i = j; continue;
+    }
+    const two = src.substr(i, 2);
+    if (TWO.has(two)){ toks.push({ type: "op", value: two, line, col: startCol }); i += 2; col += 2; continue; }
+    if ("+-*/%<>=".indexOf(c) !== -1){ toks.push({ type: "op", value: c, line, col: startCol }); i++; col++; continue; }
+    if ("(){};".indexOf(c) !== -1){ toks.push({ type: "punc", value: c, line, col: startCol }); i++; col++; continue; }
+    throw LangError("Lex", "unexpected character " + JSON.stringify(c), line, col);
+  }
+  toks.push({ type: "eof", value: "", line, col });
+  return toks;
+}
+
+/* ---------------- 2. parser (recursive descent) ---------------- */
+function parse(tokens){
+  let p = 0;
+  const peek = () => tokens[p];
+  const next = () => tokens[p++];
+  const at = (type, value) => peek().type === type && (value === undefined || peek().value === value);
+  function expect(type, value){
+    if (!at(type, value)){
+      const t = peek();
+      const got = t.type === "eof" ? "end of input" : JSON.stringify(t.value);
+      throw LangError("Parse", "expected " + (value ? JSON.stringify(value) : type) + " but found " + got, t.line, t.col);
+    }
+    return next();
+  }
+  const skipSemis = () => { while (at("punc", ";")) next(); };
+
+  function program(){
+    const body = [];
+    skipSemis();
+    while (!at("eof")){ body.push(statement()); skipSemis(); }
+    return { type: "Program", body };
+  }
+  function statement(){
+    if (at("kw", "let")) return letStmt();
+    if (at("kw", "print")) return printStmt();
+    if (at("kw", "if")) return ifStmt();
+    if (at("kw", "while")) return whileStmt();
+    if (at("punc", "{")) return block();
+    if (at("id")) return assignStmt();
+    const t = peek();
+    throw LangError("Parse", "expected a statement (let / print / if / while / assignment)", t.line, t.col);
+  }
+  function letStmt(){
+    expect("kw", "let");
+    const name = expect("id").value;
+    expect("op", "=");
+    return { type: "Let", name, value: expr() };
+  }
+  function assignStmt(){
+    const name = expect("id").value;
+    expect("op", "=");
+    return { type: "Assign", name, value: expr() };
+  }
+  function printStmt(){
+    expect("kw", "print");
+    return { type: "Print", value: expr() };
+  }
+  function block(){
+    expect("punc", "{");
+    const body = [];
+    skipSemis();
+    while (!at("punc", "}") && !at("eof")){ body.push(statement()); skipSemis(); }
+    expect("punc", "}");
+    return { type: "Block", body };
+  }
+  function ifStmt(){
+    expect("kw", "if");
+    expect("punc", "(");
+    const cond = expr();
+    expect("punc", ")");
+    const then = block();
+    let alt = null;
+    if (at("kw", "else")){
+      next();
+      alt = at("kw", "if") ? ifStmt() : block();
+    }
+    return { type: "If", cond, then, else: alt };
+  }
+  function whileStmt(){
+    expect("kw", "while");
+    expect("punc", "(");
+    const cond = expr();
+    expect("punc", ")");
+    return { type: "While", cond, body: block() };
+  }
+
+  // precedence: comparison < additive < multiplicative < unary < primary
+  const CMP = new Set(["==", "!=", "<", "<=", ">", ">="]);
+  function expr(){ return comparison(); }
+  function comparison(){
+    let left = additive();
+    while (peek().type === "op" && CMP.has(peek().value)){
+      const op = next().value;
+      left = { type: "Binary", op, left, right: additive() };
+    }
+    return left;
+  }
+  function additive(){
+    let left = multiplicative();
+    while (peek().type === "op" && (peek().value === "+" || peek().value === "-")){
+      const op = next().value;
+      left = { type: "Binary", op, left, right: multiplicative() };
+    }
+    return left;
+  }
+  function multiplicative(){
+    let left = unary();
+    while (peek().type === "op" && (peek().value === "*" || peek().value === "/" || peek().value === "%")){
+      const op = next().value;
+      left = { type: "Binary", op, left, right: unary() };
+    }
+    return left;
+  }
+  function unary(){
+    if (at("op", "-")){ next(); return { type: "Unary", op: "-", operand: unary() }; }
+    return primary();
+  }
+  function primary(){
+    if (at("num")){ return { type: "Num", value: parseInt(next().value, 10) }; }
+    if (at("id")){ return { type: "Var", name: next().value }; }
+    if (at("punc", "(")){ next(); const e = expr(); expect("punc", ")"); return e; }
+    const t = peek();
+    const got = t.type === "eof" ? "end of input" : JSON.stringify(t.value);
+    throw LangError("Parse", "expected a number, variable or '(' but found " + got, t.line, t.col);
+  }
+
+  return program();
+}
+
+/* ---------------- 3. compiler -> stack bytecode ---------------- */
+const BINOP = { "+": "ADD", "-": "SUB", "*": "MUL", "/": "DIV", "%": "MOD",
+  "==": "EQ", "!=": "NE", "<": "LT", "<=": "LE", ">": "GT", ">=": "GE" };
+const OPWORD = { "+": "add", "-": "sub", "*": "mul", "/": "div", "%": "mod",
+  "==": "eq?", "!=": "ne?", "<": "lt?", "<=": "le?", ">": "gt?", ">=": "ge?" };
+
+// opcode byte encoding
+const OPCODE = { HALT:0x00, PUSH:0x01, LOAD:0x02, STORE:0x03,
+  ADD:0x10, SUB:0x11, MUL:0x12, DIV:0x13, MOD:0x14, NEG:0x15,
+  EQ:0x20, NE:0x21, LT:0x22, LE:0x23, GT:0x24, GE:0x25,
+  JMP:0x30, JMPF:0x31, PRINT:0x40 };
+const HAS_OPERAND = new Set(["PUSH", "LOAD", "STORE", "JMP", "JMPF"]);
+
+function compile(ast){
+  const code = [];
+  const slots = new Map();     // name -> slot index
+  const slotName = [];         // slot index -> name
+  const emit = (op, operand, comment) => {
+    code.push({ op, operand: operand === undefined ? null : operand, comment: comment || "" });
+    return code.length - 1;
+  };
+  function slotOf(name, create, node){
+    if (slots.has(name)) return slots.get(name);
+    if (!create) throw LangError("Compile", "use of undefined variable '" + name + "'");
+    const s = slotName.length; slots.set(name, s); slotName.push(name); return s;
+  }
+  function cExpr(n){
+    switch (n.type){
+      case "Num": emit("PUSH", n.value, "push " + n.value); break;
+      case "Var": emit("LOAD", slotOf(n.name, false), "load " + n.name); break;
+      case "Unary": cExpr(n.operand); emit("NEG", null, "negate"); break;
+      case "Binary":
+        cExpr(n.left); cExpr(n.right);
+        emit(BINOP[n.op], null, OPWORD[n.op]); break;
+      default: throw LangError("Compile", "cannot compile expression " + n.type);
+    }
+  }
+  function cStmt(n){
+    switch (n.type){
+      case "Let": cExpr(n.value); emit("STORE", slotOf(n.name, true), "store " + n.name); break;
+      case "Assign": cExpr(n.value); emit("STORE", slotOf(n.name, false), "store " + n.name); break;
+      case "Print": cExpr(n.value); emit("PRINT", null, "print top"); break;
+      case "Block": n.body.forEach(cStmt); break;
+      case "If": {
+        cExpr(n.cond);
+        const jf = emit("JMPF", 0, "");
+        cStmt(n.then);
+        if (n.else){
+          const je = emit("JMP", 0, "");
+          code[jf].operand = code.length; code[jf].comment = "if 0 -> " + code.length;
+          cStmt(n.else);
+          code[je].operand = code.length; code[je].comment = "skip else -> " + code.length;
+        } else {
+          code[jf].operand = code.length; code[jf].comment = "if 0 -> " + code.length;
+        }
+        break;
+      }
+      case "While": {
+        const start = code.length;
+        cExpr(n.cond);
+        const jf = emit("JMPF", 0, "");
+        cStmt(n.body);
+        emit("JMP", start, "loop -> " + start);
+        code[jf].operand = code.length; code[jf].comment = "while 0 -> " + code.length;
+        break;
+      }
+      default: throw LangError("Compile", "cannot compile statement " + n.type);
+    }
+  }
+  ast.body.forEach(cStmt);
+  emit("HALT", null, "stop");
+  return { code, slotName };
+}
+
+/* LEB128 unsigned byte encoding (variable-length -> "smallest") */
+function leb128(n){
+  const out = [];
+  let v = n;
+  do {
+    let byte = v & 0x7f;
+    v = Math.floor(v / 128);
+    if (v !== 0) byte |= 0x80;
+    out.push(byte);
+  } while (v !== 0);
+  return out;
+}
+function encode(code){
+  const bytes = [];
+  const ranges = [];
+  for (const ins of code){
+    const start = bytes.length;
+    bytes.push(OPCODE[ins.op]);
+    if (HAS_OPERAND.has(ins.op)) for (const b of leb128(ins.operand)) bytes.push(b);
+    ranges.push([start, bytes.length]);
+  }
+  return { bytes, ranges };
+}
+
+/* ---------------- 4. stack VM ---------------- */
+const STEP_LIMIT = 500000;
+class VM {
+  constructor(compiled){
+    this.code = compiled.code;
+    this.slotName = compiled.slotName;
+    this.reset();
+  }
+  reset(){
+    this.pc = 0;
+    this.lastPc = -1;
+    this.stack = [];
+    this.vars = new Array(this.slotName.length).fill(undefined);
+    this.output = [];
+    this.halted = this.code.length === 0;
+    this.steps = 0;
+    this.error = null;
+    this.changedSlot = -1;
+    this.printed = false;
+    this.started = false;
+  }
+  step(){
+    if (this.halted) return false;
+    if (this.steps >= STEP_LIMIT){ this.error = "step limit reached (" + STEP_LIMIT + ") — possible infinite loop"; this.halted = true; return false; }
+    const ins = this.code[this.pc];
+    this.lastPc = this.pc;
+    this.changedSlot = -1;
+    this.printed = false;
+    this.started = true;
+    const st = this.stack;
+    let jumped = false;
+    const need = k => { if (st.length < k) throw new Error("stack underflow at pc " + this.pc + " (" + ins.op + ")"); };
+    switch (ins.op){
+      case "PUSH": st.push(ins.operand); break;
+      case "LOAD": {
+        const v = this.vars[ins.operand];
+        if (v === undefined) throw new Error("read of uninitialized variable '" + this.slotName[ins.operand] + "'");
+        st.push(v); break;
+      }
+      case "STORE": need(1); this.vars[ins.operand] = st.pop(); this.changedSlot = ins.operand; break;
+      case "ADD": need(2); { const b = st.pop(), a = st.pop(); st.push(a + b); } break;
+      case "SUB": need(2); { const b = st.pop(), a = st.pop(); st.push(a - b); } break;
+      case "MUL": need(2); { const b = st.pop(), a = st.pop(); st.push(a * b); } break;
+      case "DIV": need(2); { const b = st.pop(), a = st.pop(); if (b === 0) throw new Error("division by zero"); st.push(Math.trunc(a / b)); } break;
+      case "MOD": need(2); { const b = st.pop(), a = st.pop(); if (b === 0) throw new Error("modulo by zero"); st.push(a - Math.trunc(a / b) * b); } break;
+      case "NEG": need(1); st.push(-st.pop()); break;
+      case "EQ": need(2); { const b = st.pop(), a = st.pop(); st.push(a === b ? 1 : 0); } break;
+      case "NE": need(2); { const b = st.pop(), a = st.pop(); st.push(a !== b ? 1 : 0); } break;
+      case "LT": need(2); { const b = st.pop(), a = st.pop(); st.push(a < b ? 1 : 0); } break;
+      case "LE": need(2); { const b = st.pop(), a = st.pop(); st.push(a <= b ? 1 : 0); } break;
+      case "GT": need(2); { const b = st.pop(), a = st.pop(); st.push(a > b ? 1 : 0); } break;
+      case "GE": need(2); { const b = st.pop(), a = st.pop(); st.push(a >= b ? 1 : 0); } break;
+      case "JMP": this.pc = ins.operand; jumped = true; break;
+      case "JMPF": need(1); { const v = st.pop(); if (v === 0){ this.pc = ins.operand; jumped = true; } } break;
+      case "PRINT": need(1); this.output.push(st.pop()); this.printed = true; break;
+      case "HALT": this.halted = true; return false;
+      default: throw new Error("unknown opcode " + ins.op);
+    }
+    if (!jumped) this.pc++;
+    this.steps++;
+    if (this.pc >= this.code.length) this.halted = true;
+    return !this.halted;
+  }
+}
+
+/* =====================================================================
+   UI
+   ===================================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+const els = {
+  src: $("src"), sample: $("sample"),
+  stok: $("s-tok"), sast: $("s-ast"), sins: $("s-ins"), sbyt: $("s-byt"),
+  err: $("err"),
+  tokens: $("tokens"), tokCount: $("tok-count"),
+  ast: $("ast"), astCount: $("ast-count"),
+  bcBody: $("bc-body"), bcScroll: $("bc-scroll"), bcCount: $("bc-count"),
+  iset: $("iset"), hex: $("hex"), btnHex: $("btn-hex"),
+  stack: $("stack"), vars: $("vars"), console: $("console"),
+  btnStep: $("btn-step"), btnRun: $("btn-run"), btnReset: $("btn-reset"),
+  runIcon: $("run-icon"), runLabel: $("run-label"), speed: $("speed"),
+  bpc: $("b-pc"), bsteps: $("b-steps"), bstate: $("b-state"),
+};
+
+const state = { tokens: null, ast: null, compiled: null, vm: null, bcRows: [], ok: false };
+let runTimer = null;
+
+/* ---- opcode legend ---- */
+(function renderISet(){
+  const order = ["PUSH","LOAD","STORE","ADD","SUB","MUL","DIV","MOD","NEG","EQ","NE","LT","LE","GT","GE","JMP","JMPF","PRINT","HALT"];
+  els.iset.innerHTML = order.map(op => "<code>" + esc(op) + " 0x" + OPCODE[op].toString(16).padStart(2, "0") + "</code>").join("");
+})();
+
+/* ---- build pipeline ---- */
+function showError(kind, e){
+  const loc = e.line ? " <span class=\"loc\">line " + e.line + ":" + e.col + "</span>" : "";
+  els.err.innerHTML = esc(kind + ": " + e.message) + loc;
+  els.err.classList.add("show");
+}
+function clearError(){ els.err.classList.remove("show"); els.err.innerHTML = ""; }
+
+function build(){
+  stopRun();
+  clearError();
+  const srcText = els.src.value;
+  let tokens, ast, compiled;
+
+  try { tokens = lex(srcText); }
+  catch (e){ showError("Lex error", e); renderTokens(null); renderAST(null); renderBytecode(null); setStats(0,0,0,0); teardownVM(); return; }
+  renderTokens(tokens);
+
+  try { ast = parse(tokens); }
+  catch (e){ showError("Parse error", e); renderAST(null); renderBytecode(null); setStats(tokens.length - 1, 0, 0, 0); teardownVM(); return; }
+  renderAST(ast);
+
+  try {
+    const c = compile(ast);
+    const enc = encode(c.code);
+    compiled = { code: c.code, slotName: c.slotName, bytes: enc.bytes, ranges: enc.ranges };
+  }
+  catch (e){ showError("Compile error", e); renderBytecode(null); setStats(tokens.length - 1, countNodes(ast), 0, 0); teardownVM(); return; }
+
+  state.tokens = tokens; state.ast = ast; state.compiled = compiled; state.ok = true;
+  renderBytecode(compiled);
+  renderHex(compiled);
+  setStats(tokens.length - 1, countNodes(ast), compiled.code.length, compiled.bytes.length);
+  state.vm = new VM(compiled);
+  renderVM(true);
+}
+
+function teardownVM(){
+  state.ok = false; state.vm = null; state.compiled = null; state.bcRows = [];
+  renderStack([]); renderVars(null); renderConsole(null);
+  els.bpc.textContent = "0"; els.bsteps.textContent = "0";
+  setStateBadge("idle", "no program");
+  updateButtons();
+}
+
+/* ---- stats ---- */
+function setStats(t, a, i, b){
+  els.stok.textContent = t; els.sast.textContent = a; els.sins.textContent = i; els.sbyt.textContent = b;
+}
+function countNodes(n){
+  if (!n) return 0;
+  let c = 1;
+  const kids = astChildren(n);
+  for (const k of kids) c += countNodes(k.node);
+  return c;
+}
+
+/* ---- tokens ---- */
+const TCLASS = { kw: "kw", num: "num", id: "id", op: "op", punc: "punc" };
+const TLABEL = { kw: "kw", num: "num", id: "id", op: "op", punc: "sym" };
+function renderTokens(tokens){
+  if (!tokens){ els.tokens.innerHTML = "<div class=\"empty\">—</div>"; els.tokCount.textContent = ""; return; }
+  const real = tokens.filter(t => t.type !== "eof");
+  els.tokCount.textContent = real.length + " tokens";
+  if (!real.length){ els.tokens.innerHTML = "<div class=\"empty\">no tokens</div>"; return; }
+  els.tokens.innerHTML = real.map(t =>
+    "<span class=\"chip " + TCLASS[t.type] + "\"><span class=\"t " + TCLASS[t.type] + "\">" +
+    TLABEL[t.type] + "</span><span class=\"v\">" + esc(t.value) + "</span></span>"
+  ).join("");
+}
+
+/* ---- AST ---- */
+function astChildren(n){
+  switch (n.type){
+    case "Program": return n.body.map((c, i) => ({ label: "[" + i + "]", node: c }));
+    case "Block": return n.body.map((c, i) => ({ label: "[" + i + "]", node: c }));
+    case "Let": case "Assign": return [{ label: "value", node: n.value }];
+    case "Print": return [{ label: "value", node: n.value }];
+    case "If": {
+      const k = [{ label: "cond", node: n.cond }, { label: "then", node: n.then }];
+      if (n.else) k.push({ label: "else", node: n.else });
+      return k;
+    }
+    case "While": return [{ label: "cond", node: n.cond }, { label: "body", node: n.body }];
+    case "Binary": return [{ label: "left", node: n.left }, { label: "right", node: n.right }];
+    case "Unary": return [{ label: "operand", node: n.operand }];
+    default: return [];
+  }
+}
+function astLabel(n){
+  switch (n.type){
+    case "Let": case "Assign": return "<span class=\"nkind\">" + n.type + "</span> <span class=\"nname\">" + esc(n.name) + "</span>";
+    case "Var": return "<span class=\"nkind\">Var</span> <span class=\"nname\">" + esc(n.name) + "</span>";
+    case "Num": return "<span class=\"nkind\">Num</span> <span class=\"nval\">" + esc(n.value) + "</span>";
+    case "Binary": return "<span class=\"nkind\">Binary</span> <span class=\"nop\">" + esc(n.op) + "</span>";
+    case "Unary": return "<span class=\"nkind\">Unary</span> <span class=\"nop\">" + esc(n.op) + "</span>";
+    default: return "<span class=\"nkind\">" + n.type + "</span>";
+  }
+}
+function buildNode(n, field, isRoot){
+  const wrap = document.createElement("div");
+  wrap.className = "node" + (isRoot ? " root" : "");
+  const kids = astChildren(n);
+  const row = document.createElement("div");
+  row.className = "nrow" + (kids.length ? " has" : "");
+  const tw = document.createElement("span");
+  tw.className = "tw" + (kids.length ? " open" : " leaf");
+  tw.innerHTML = "<svg viewBox=\"0 0 24 24\" width=\"12\" height=\"12\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><polyline points=\"9 6 15 12 9 18\"/></svg>";
+  row.appendChild(tw);
+  const lab = document.createElement("span");
+  lab.innerHTML = (field ? "<span class=\"nfield\">" + field + ": </span>" : "") + astLabel(n);
+  row.appendChild(lab);
+  wrap.appendChild(row);
+  if (kids.length){
+    const kidBox = document.createElement("div");
+    kidBox.className = "kids";
+    for (const k of kids) kidBox.appendChild(buildNode(k.node, k.label, false));
+    wrap.appendChild(kidBox);
+    const toggle = () => { const open = tw.classList.toggle("open"); kidBox.classList.toggle("hide", !open); };
+    tw.addEventListener("click", toggle);
+    row.addEventListener("click", e => { if (e.target === tw || tw.contains(e.target)) return; toggle(); });
+  }
+  return wrap;
+}
+function renderAST(ast){
+  els.ast.innerHTML = "";
+  if (!ast){ els.ast.innerHTML = "<div class=\"empty\">—</div>"; els.astCount.textContent = ""; return; }
+  els.astCount.textContent = countNodes(ast) + " nodes";
+  els.ast.appendChild(buildNode(ast, null, true));
+}
+
+/* ---- bytecode listing ---- */
+function opClass(op){
+  if (op === "JMP" || op === "JMPF") return "op-jmp";
+  if (op === "HALT") return "op-halt";
+  if (op === "PRINT") return "op-print";
+  return "";
+}
+function operandCell(ins, slotName){
+  if (!HAS_OPERAND.has(ins.op)) return "";
+  if (ins.op === "LOAD" || ins.op === "STORE")
+    return "<span class=\"operand\">" + ins.operand + " <span class=\"slot\">&middot; " + esc(slotName[ins.operand]) + "</span></span>";
+  if (ins.op === "JMP" || ins.op === "JMPF")
+    return "<span class=\"operand\">&rarr; " + ins.operand + "</span>";
+  return "<span class=\"operand\">" + ins.operand + "</span>";
+}
+function renderBytecode(compiled){
+  els.bcBody.innerHTML = "";
+  state.bcRows = [];
+  if (!compiled){ els.bcBody.innerHTML = "<tr><td class=\"cmt\" style=\"padding:12px\">—</td></tr>"; els.bcCount.textContent = ""; return; }
+  els.bcCount.textContent = compiled.code.length + " instrs &middot; " + compiled.bytes.length + " B";
+  const rows = [
+    "<tr><th class=\"marker\"></th><th class=\"addr\">addr</th><th>op</th><th>operand</th><th>comment</th></tr>"
+  ];
+  compiled.code.forEach((ins, i) => {
+    const hx = OPCODE[ins.op].toString(16).padStart(2, "0");
+    rows.push(
+      "<tr class=\"" + opClass(ins.op) + "\" data-i=\"" + i + "\">" +
+      "<td class=\"marker\"></td>" +
+      "<td class=\"addr\">" + i + "</td>" +
+      "<td class=\"op\">" + esc(ins.op) + "<span class=\"hx\">" + hx + "</span></td>" +
+      "<td>" + operandCell(ins, compiled.slotName) + "</td>" +
+      "<td class=\"cmt\">" + esc(ins.comment) + "</td>" +
+      "</tr>"
+    );
+  });
+  els.bcBody.innerHTML = rows.join("");
+  state.bcRows = Array.from(els.bcBody.querySelectorAll("tr[data-i]"));
+}
+
+/* ---- hexdump ---- */
+function renderHex(compiled){
+  if (!compiled){ els.hex.textContent = ""; return; }
+  const b = compiled.bytes;
+  let out = "";
+  for (let off = 0; off < b.length; off += 16){
+    const slice = b.slice(off, off + 16);
+    const hex = slice.map(x => x.toString(16).padStart(2, "0")).join(" ");
+    out += "<span class=\"off\">" + off.toString(16).padStart(4, "0") + "</span>  " + hex + "\n";
+  }
+  els.hex.innerHTML = out || "<span class=\"off\">(empty)</span>";
+}
+
+/* ---- VM rendering ---- */
+function renderStack(stack){
+  if (!stack || !stack.length){ els.stack.innerHTML = "<div class=\"stack-empty\">empty</div>"; return; }
+  const top = stack.length - 1;
+  els.stack.innerHTML = stack.map((v, i) =>
+    "<div class=\"cell" + (i === top ? " top" : "") + "\"><span>" + esc(v) + "</span>" +
+    (i === top ? "<span class=\"tag\">top</span>" : "<span class=\"tag\" style=\"color:var(--muted)\">" + i + "</span>") + "</div>"
+  ).join("");
+}
+function renderVars(vm){
+  if (!vm || !vm.slotName.length){ els.vars.innerHTML = "<div class=\"empty\">no variables</div>"; return; }
+  els.vars.innerHTML = vm.slotName.map((name, i) => {
+    const v = vm.vars[i];
+    const unset = v === undefined;
+    const changed = vm.changedSlot === i;
+    return "<div class=\"vrow" + (unset ? " unset" : "") + (changed ? " changed" : "") + "\">" +
+      "<span class=\"vn\">" + esc(name) + "</span><span class=\"sl\">#" + i + "</span>" +
+      "<span class=\"eq\">=</span><span class=\"vv\">" + (unset ? "&middot;" : esc(v)) + "</span></div>";
+  }).join("");
+}
+function renderConsole(vm){
+  if (!vm){ els.console.innerHTML = "<div class=\"ph\">output appears here</div>"; return; }
+  let html = vm.output.map((v, i) =>
+    "<div class=\"oline" + (vm.printed && i === vm.output.length - 1 ? " fresh" : "") + "\"><span class=\"pfx\">" +
+    (i + 1) + "&rsaquo;</span>" + esc(v) + "</div>"
+  ).join("");
+  if (vm.error) html += "<div class=\"oline rt-err\">runtime error: " + esc(vm.error) + "</div>";
+  if (!html) html = "<div class=\"ph\">(no output yet)</div>";
+  els.console.innerHTML = html;
+  els.console.scrollTop = els.console.scrollHeight;
+}
+function highlightBC(vm){
+  for (const r of state.bcRows){ r.classList.remove("cur", "just"); const m = r.firstElementChild; if (m) m.textContent = ""; }
+  if (!vm) return;
+  if (vm.lastPc >= 0 && vm.lastPc !== vm.pc && state.bcRows[vm.lastPc]) state.bcRows[vm.lastPc].classList.add("just");
+  if (!vm.halted && state.bcRows[vm.pc]){
+    const row = state.bcRows[vm.pc];
+    row.classList.add("cur");
+    row.firstElementChild.textContent = "▸";
+    row.scrollIntoView({ block: "nearest" });
+  } else if (vm.halted && vm.lastPc >= 0 && state.bcRows[vm.lastPc]){
+    state.bcRows[vm.lastPc].classList.add("just");
+  }
+}
+function setStateBadge(cls, text){
+  els.bstate.className = "badge state-" + cls;
+  els.bstate.textContent = text;
+}
+function renderVM(){
+  const vm = state.vm;
+  renderStack(vm ? vm.stack : []);
+  renderVars(vm);
+  renderConsole(vm);
+  highlightBC(vm);
+  els.bpc.textContent = vm ? vm.pc : 0;
+  els.bsteps.textContent = vm ? vm.steps : 0;
+  if (vm){
+    if (vm.error) setStateBadge("err", "error");
+    else if (vm.halted) setStateBadge("halt", vm.started ? "halted" : "empty");
+    else if (isRunning()) setStateBadge("run", "running");
+    else setStateBadge("idle", vm.started ? "paused" : "ready");
+  }
+  updateButtons();
+}
+function updateButtons(){
+  const vm = state.vm;
+  const canStep = !!vm && !vm.halted;
+  els.btnStep.disabled = !canStep;
+  els.btnReset.disabled = !vm;
+  els.btnRun.disabled = !vm;
+}
+
+/* ---- run loop ---- */
+function isRunning(){ return runTimer !== null; }
+function delayForSpeed(v){ return Math.max(4, Math.round(600 * Math.pow(0.62, v - 1))); }
+function setRunUI(running){
+  els.runLabel.textContent = running ? "Pause" : "Run";
+  els.runIcon.innerHTML = running
+    ? "<rect x=\"6\" y=\"4\" width=\"4\" height=\"16\"/><rect x=\"14\" y=\"4\" width=\"4\" height=\"16\"/>"
+    : "<polygon points=\"6 4 20 12 6 20 6 4\"/>";
+}
+function doStep(){
+  const vm = state.vm;
+  if (!vm) return false;
+  try { vm.step(); }
+  catch (e){ vm.error = e.message; vm.halted = true; }
+  renderVM();
+  return !vm.halted;
+}
+function scheduleStep(){
+  runTimer = setTimeout(() => {
+    const alive = doStep();
+    if (alive) scheduleStep(); else stopRun();
+  }, delayForSpeed(+els.speed.value));
+}
+function startRun(){
+  const vm = state.vm;
+  if (!vm) return;
+  if (vm.halted) vm.reset();
+  setRunUI(true);
+  scheduleStep();
+  renderVM();
+}
+function stopRun(){
+  if (runTimer){ clearTimeout(runTimer); runTimer = null; }
+  setRunUI(false);
+  if (state.vm) renderVM();
+}
+
+/* ---- controls ---- */
+els.btnStep.addEventListener("click", () => {
+  stopRun();
+  const vm = state.vm;
+  if (!vm) return;
+  if (vm.halted) vm.reset();
+  doStep();
+});
+els.btnRun.addEventListener("click", () => { if (isRunning()) stopRun(); else startRun(); });
+els.btnReset.addEventListener("click", () => { stopRun(); if (state.vm){ state.vm.reset(); renderVM(); } });
+els.btnHex.addEventListener("click", () => { els.hex.classList.toggle("show"); });
+
+els.sample.addEventListener("change", () => { els.src.value = SAMPLES[els.sample.value]; build(); });
+
+let debounce = null;
+els.src.addEventListener("input", () => { clearTimeout(debounce); debounce = setTimeout(build, 220); });
+
+document.addEventListener("keydown", e => {
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === "TEXTAREA" || tag === "INPUT" || tag === "SELECT") return;
+  if (e.key === " "){ e.preventDefault(); els.btnStep.click(); }
+  else if (e.key === "Enter"){ e.preventDefault(); els.btnRun.click(); }
+  else if (e.key === "r" || e.key === "R"){ e.preventDefault(); els.btnReset.click(); }
+});
+
+/* ---- boot ---- */
+els.src.value = SAMPLES[els.sample.value];
+build();
+</script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+NOTICE - Compression Lab
+========================
+
+Contains fflate and brotli-wasm, vendored locally.
+
+Vendored artifacts
+------------------
+fflate.min.js - fflate browser build used for gzip, zlib, raw deflate, and
+matching decompression checks. fflate is licensed MIT.
+
+brotli_wasm.js and brotli_wasm_bg.wasm - brotli-wasm browser build used for
+Brotli compression and decompression checks. brotli-wasm is licensed
+Apache-2.0.
+
+Upstream projects
+-----------------
+- fflate: https://github.com/101arrowz/fflate (MIT)
+- brotli-wasm: https://github.com/httptoolkit/brotli-wasm (Apache-2.0)
+
+The app shell, measurement harness, entropy estimator, and UI are original
+Rocket Pudding code.

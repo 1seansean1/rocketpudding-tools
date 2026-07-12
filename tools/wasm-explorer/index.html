@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WASM Explorer</title>
+<meta name="description" content="Client-side WebAssembly workbench: assemble WAT to WASM, disassemble WASM to WAT, inspect bytes, exports, imports, sections, and run simple zero-argument exports. Powered by vendored WABT.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#08060f;--fg:#f4f1fc;--muted:#9c93c2;--faint:#5c5686;--line:#292041;--card:#120e20;--accent:#22d3ee;--accent2:#c24bff;--bad:#ff5b7d;--ok:#5ee38a;--warn:#ffd166;--mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{margin:0;background:
+radial-gradient(900px 460px at 5% -10%,rgba(34,211,238,.16),transparent 58%),
+radial-gradient(860px 520px at 105% 2%,rgba(194,75,255,.18),transparent 58%),
+var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+header{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:rgba(18,14,32,.86);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:4;backdrop-filter:blur(10px)}
+.sq{width:12px;height:12px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
+.brand{font-family:var(--mono);font-weight:700;font-size:13px;letter-spacing:1.4px}
+.back{margin-left:auto;color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:6px 10px;text-decoration:none;font:600 10px var(--mono);letter-spacing:.7px}
+.back:hover{color:var(--accent);border-color:var(--accent)}
+main{max-width:1280px;margin:0 auto;padding:22px 18px 18px}
+.hero{display:flex;justify-content:space-between;gap:20px;align-items:flex-end;margin-bottom:16px}
+h1{margin:0;font-size:28px;letter-spacing:-.015em}
+.hero p{max-width:740px;margin:8px 0 0;color:var(--muted);line-height:1.55;font-size:14px}
+.status{font:600 11px var(--mono);color:var(--muted);border:1px solid var(--line);border-radius:16px;padding:7px 10px;white-space:nowrap}
+.grid{display:grid;grid-template-columns:minmax(320px,1fr) minmax(360px,1fr);gap:14px}
+.panel{background:rgba(18,14,32,.88);border:1px solid var(--line);border-radius:8px;min-width:0;overflow:hidden}
+.panel h2{margin:0;padding:11px 12px;border-bottom:1px solid var(--line);font:700 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
+.toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+button,label.file{border:1px solid var(--line);background:#18122b;color:var(--fg);height:30px;border-radius:15px;padding:0 11px;font:700 10px var(--mono);letter-spacing:.5px;display:inline-flex;align-items:center;gap:7px;cursor:pointer}
+button:hover,label.file:hover{border-color:var(--accent);color:var(--accent)}
+button.primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08060f;border:0}
+button:disabled{opacity:.45;cursor:wait}
+select,input[type="number"]{height:30px;border:1px solid var(--line);border-radius:15px;background:#18122b;color:var(--fg);font:600 10px var(--mono);padding:0 9px}
+input[type="file"]{display:none}
+textarea,pre{width:100%;min-height:470px;margin:0;border:0;background:#0d0a19;color:var(--fg);font:400 12px/1.55 var(--mono);padding:13px;resize:vertical;tab-size:2;outline:none;overflow:auto}
+pre{white-space:pre-wrap;word-break:break-word}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid var(--line)}
+.tab{height:28px;border-radius:14px}
+.tab.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 12px rgba(34,211,238,.25)}
+.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0}
+.metric{background:rgba(18,14,32,.88);border:1px solid var(--line);border-radius:8px;padding:12px}
+.metric .k{font:700 9px var(--mono);letter-spacing:.9px;color:var(--muted);text-transform:uppercase}
+.metric .v{margin-top:6px;font:700 20px var(--mono);color:var(--fg)}
+.metric .s{margin-top:4px;font:500 10px var(--mono);color:var(--faint)}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.small{min-height:210px;max-height:360px}
+.log{color:var(--muted)}
+.error{color:var(--bad)}
+.ok{color:var(--ok)}
+.pillrow{display:flex;gap:8px;flex-wrap:wrap;padding:10px 12px;border-top:1px solid var(--line)}
+.pill{border:1px solid var(--line);border-radius:14px;padding:6px 9px;font:600 10px var(--mono);color:var(--muted);background:#0d0a19}
+footer{padding:16px 18px 22px;text-align:center;color:var(--muted);font:500 10px var(--mono)}
+footer a{color:var(--accent)}
+@media(max-width:900px){.grid,.split{grid-template-columns:1fr}.metrics{grid-template-columns:1fr 1fr}.hero{display:block}.status{display:inline-flex;margin-top:12px}textarea,pre{min-height:320px}}
+</style>
+</head>
+<body>
+<header><span class="sq"></span><div class="brand">ROCKET PUDDING / WASM EXPLORER</div><a class="back" href="../../">ALL TOOLS</a></header>
+<main>
+  <section class="hero">
+    <div>
+      <h1>WAT to WASM, WASM to WAT.</h1>
+      <p>Assemble WebAssembly text into real binary bytes, disassemble uploaded modules, inspect imports/exports/sections, and run simple zero-argument exports. Everything runs in this browser tab.</p>
+    </div>
+    <div class="status" id="status">loading WABT</div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Source</h2>
+      <div class="toolbar">
+        <button class="primary" id="assemble">Assemble</button>
+        <button id="sample">Sample</button>
+        <label class="file">Load .wasm<input type="file" id="file" accept=".wasm,application/wasm"></label>
+        <button id="download">Download WASM</button>
+        <select id="mode"><option value="wat">WAT source</option><option value="wasm">Uploaded WASM</option></select>
+      </div>
+      <textarea id="source" spellcheck="false"></textarea>
+      <div class="pillrow">
+        <span class="pill">no network</span>
+        <span class="pill">vendored WABT</span>
+        <span class="pill">local bytes only</span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Output</h2>
+      <div class="tabs">
+        <button class="tab active" data-tab="watOut">WAT</button>
+        <button class="tab" data-tab="hexOut">HEX</button>
+        <button class="tab" data-tab="metaOut">META</button>
+        <button class="tab" data-tab="runOut">RUN</button>
+      </div>
+      <pre id="watOut"></pre>
+      <pre id="hexOut" hidden></pre>
+      <pre id="metaOut" hidden></pre>
+      <pre id="runOut" hidden></pre>
+    </div>
+  </section>
+
+  <section class="metrics">
+    <div class="metric"><div class="k">WASM bytes</div><div class="v" id="mBytes">0</div><div class="s">binary module size</div></div>
+    <div class="metric"><div class="k">WAT chars</div><div class="v" id="mChars">0</div><div class="s">current text output</div></div>
+    <div class="metric"><div class="k">Exports</div><div class="v" id="mExports">0</div><div class="s">module interface</div></div>
+    <div class="metric"><div class="k">Sections</div><div class="v" id="mSections">0</div><div class="s">binary layout</div></div>
+  </section>
+</main>
+<footer>WABT is vendored locally under Apache-2.0. See <a href="LICENSE-wabt.txt">license</a> and <a href="NOTICE.txt">notice</a>.</footer>
+<script src="vendor/wabt.js"></script>
+<script>
+const $ = id => document.getElementById(id);
+const sampleWat = `(module
+  (func $add (param $a i32) (param $b i32) (result i32)
+    local.get $a
+    local.get $b
+    i32.add)
+  (func $answer (result i32)
+    i32.const 42)
+  (memory (export "memory") 1)
+  (export "add" (func $add))
+  (export "answer" (func $answer)))`;
+let wabt = null;
+let currentBytes = new Uint8Array();
+let currentText = "";
+let lastModule = null;
+
+function setStatus(text, cls=''){
+  $('status').textContent = text;
+  $('status').className = 'status ' + cls;
+}
+function bytesToHex(bytes){
+  return Array.from(bytes, (b,i) => (i && i % 16 === 0 ? '\n' : '') + b.toString(16).padStart(2,'0')).join(' ');
+}
+function formatBytes(n){ return n.toLocaleString() + ' B'; }
+function readU32(bytes, offset){
+  let result = 0, shift = 0, pos = offset;
+  while(pos < bytes.length){
+    const b = bytes[pos++];
+    result |= (b & 0x7f) << shift;
+    if(!(b & 0x80)) break;
+    shift += 7;
+  }
+  return [result >>> 0, pos];
+}
+function sectionName(id){
+  return ['custom','type','import','function','table','memory','global','export','start','element','code','data','data_count'][id] || ('section_' + id);
+}
+function inspectSections(bytes){
+  if(bytes.length < 8) return [];
+  let pos = 8, rows = [];
+  while(pos < bytes.length){
+    const id = bytes[pos++];
+    const len = readU32(bytes, pos); const size = len[0]; pos = len[1];
+    rows.push({id, name:sectionName(id), offset:pos, size});
+    pos += size;
+  }
+  return rows;
+}
+async function describe(bytes){
+  const mod = await WebAssembly.compile(bytes);
+  const imports = WebAssembly.Module.imports(mod);
+  const exports = WebAssembly.Module.exports(mod);
+  const sections = inspectSections(bytes);
+  $('mExports').textContent = exports.length;
+  $('mSections').textContent = sections.length;
+  const parts = [];
+  parts.push('Imports');
+  parts.push(imports.length ? imports.map(x => `  ${x.module}.${x.name} : ${x.kind}`).join('\n') : '  none');
+  parts.push('\nExports');
+  parts.push(exports.length ? exports.map(x => `  ${x.name} : ${x.kind}`).join('\n') : '  none');
+  parts.push('\nSections');
+  parts.push(sections.length ? sections.map(s => `  ${String(s.id).padStart(2,'0')} ${s.name.padEnd(10)} offset=${s.offset} size=${s.size}`).join('\n') : '  none');
+  $('metaOut').textContent = parts.join('\n');
+  return {mod, exports};
+}
+async function runExports(bytes){
+  const mod = await WebAssembly.compile(bytes);
+  const exports = WebAssembly.Module.exports(mod).filter(x => x.kind === 'function');
+  if(!exports.length){ $('runOut').textContent = 'No function exports.'; return; }
+  const imports = WebAssembly.Module.imports(mod);
+  if(imports.length){ $('runOut').textContent = 'Module has imports; automatic run is skipped.\n' + imports.map(i => `needs ${i.module}.${i.name}`).join('\n'); return; }
+  const inst = await WebAssembly.instantiate(mod, {});
+  const lines = [];
+  for(const ex of exports){
+    try{
+      const fn = inst.exports[ex.name];
+      if(typeof fn !== 'function') continue;
+      lines.push(`${ex.name}() => ${String(fn())}`);
+    }catch(err){
+      lines.push(`${ex.name}() skipped: ${err.message}`);
+    }
+  }
+  $('runOut').textContent = lines.join('\n') || 'No callable exports.';
+}
+function showError(err){
+  setStatus('error', 'error');
+  $('watOut').textContent = String(err && err.message || err);
+  $('watOut').className = 'error';
+}
+async function renderBytes(bytes, textHint=''){
+  currentBytes = bytes;
+  $('mBytes').textContent = formatBytes(bytes.length);
+  $('hexOut').textContent = bytesToHex(bytes);
+  const module = wabt.readWasm(bytes, {readDebugNames:true});
+  module.generateNames();
+  module.applyNames();
+  currentText = module.toText({foldExprs:false, inlineExport:false});
+  module.destroy();
+  $('watOut').className = '';
+  $('watOut').textContent = currentText;
+  $('mChars').textContent = currentText.length.toLocaleString();
+  lastModule = await describe(bytes);
+  await runExports(bytes);
+  setStatus(textHint || 'ready', 'ok');
+}
+async function assemble(){
+  if(!wabt) return;
+  try{
+    const module = wabt.parseWat('input.wat', $('source').value);
+    module.validate();
+    const out = module.toBinary({log:true, canonicalize_lebs:true, write_debug_names:true});
+    module.destroy();
+    $('mode').value = 'wat';
+    await renderBytes(out.buffer, 'assembled');
+    if(out.log && out.log.trim()) $('metaOut').textContent += '\n\nWABT log\n' + out.log;
+  }catch(err){ showError(err); }
+}
+function download(){
+  if(!currentBytes.length) return;
+  const blob = new Blob([currentBytes], {type:'application/wasm'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'module.wasm'; a.click();
+  URL.revokeObjectURL(url);
+}
+function switchTab(id){
+  for(const btn of document.querySelectorAll('.tab')){
+    const active = btn.dataset.tab === id;
+    btn.classList.toggle('active', active);
+    $(btn.dataset.tab).hidden = !active;
+  }
+}
+async function loadFile(file){
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  $('mode').value = 'wasm';
+  $('source').value = `;; loaded ${file.name}\n;; ${bytes.length} bytes\n;; disassembly is shown in the output pane`;
+  await renderBytes(bytes, 'loaded wasm');
+}
+document.querySelectorAll('.tab').forEach(b => b.addEventListener('click', () => switchTab(b.dataset.tab)));
+$('assemble').addEventListener('click', assemble);
+$('sample').addEventListener('click', () => { $('source').value = sampleWat; assemble(); });
+$('download').addEventListener('click', download);
+$('file').addEventListener('change', e => e.target.files[0] && loadFile(e.target.files[0]).catch(showError));
+$('source').value = sampleWat;
+(async function init(){
+  try{
+    wabt = await WabtModule();
+    setStatus('ready', 'ok');
+    await assemble();
+  }catch(err){ showError(err); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+NOTICE - WASM Explorer
+======================
+
+Contains WABT (WebAssembly Binary Toolkit), vendored as vendor/wabt.js.
+
+Vendored artifact
+-----------------
+vendor/wabt.js - browser build of WABT used to parse WAT, write WASM
+binaries, read WASM binaries, and print WAT text. The artifact is served
+locally and performs no runtime network requests.
+
+Upstream project
+----------------
+- WABT: https://github.com/WebAssembly/wabt (Apache-2.0)
+
+The app shell, UI, examples, metadata extraction, and run harness are original
+Rocket Pudding code.
