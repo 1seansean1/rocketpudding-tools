@@ -1,5 +1,7 @@
 # Rocket Pudding Tools
 
+**Live:** https://tools.rocketpudding.ai/  ·  Deploy updates with `scripts/deploy-rp2.sh`.
+
 A growing registry of self-contained web tools, hosted under **rocketpudding.ai**.
 Each tool is a single-purpose, no-install static page.
 
