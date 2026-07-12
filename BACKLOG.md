@@ -30,7 +30,19 @@ node lib-sanity) → orchestrator merges registry.json, browser-sweeps, ONE comm
 | nomnoml-studio | nomnoml@1 + graphre (MIT) | DONE — verified |
 On agent completion: merge entries → sweep → deploy via scripts/deploy-rp2.sh → verify live.
 
-## WAVE 2 — CODE-ANALYSIS SUITE (user directive: "AST, PDG, CPG, DPG")
+## WAVE 2 — IN FLIGHT (8 parallel agents, 2026-07-11 ~21:40 MT)
+| slug | lib (license) | status |
+|---|---|---|
+| ast-explorer | web-tree-sitter/acorn (MIT) | agent building |
+| pdg-viewer | acorn@8 + own analysis (MIT) | agent building |
+| cpg-lite | acorn@8 + own CFG/DFG (MIT) | agent building |
+| import-graph | fflate@0.8 (MIT) | agent building |
+| sqlite-workbench | sql.js@1.13 WASM (MIT/PD) | agent building |
+| graphviz-studio | @hpcc-js/wasm-graphviz (Apache-2.0+NOTICE) | agent building |
+| esbuild-playground | esbuild-wasm@0.24 (MIT) | agent building |
+| regex-lab | zero-dep (ours) | agent building |
+
+## WAVE 2 NOTES — CODE-ANALYSIS SUITE (user directive: "AST, PDG, CPG, DPG")
 - ast-explorer — tree-sitter WASM (MIT) universal AST explorer: paste code, pick grammar
   (js/ts/python/rust/go/c), walk the tree, hover-highlight source spans. web-tree-sitter + .wasm
   grammars all vendorable.
