@@ -730,6 +730,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "unit-converter",
+      "name": "Unit Converter",
+      "tagline": "Zero-dependency converter across 11 domains, offset-correct temperature and SI-vs-IEC data.",
+      "description": "A single-file converter across Length, Mass, Temperature, Volume, Area, Speed, Time, Data, Pressure, Energy and Angle. Pick a category, enter a value and unit, and get a live high-precision grid of every unit with per-value copy, plus a quick A↔B converter and a unit filter. Temperature uses proper offset formulas (C/F/K/R), and data units distinguish SI (MB) from IEC (MiB). Last category persists to localStorage.",
+      "path": "tools/unit-converter/",
+      "tags": [
+        "units",
+        "convert",
+        "measurement",
+        "temperature",
+        "data"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#22d3ee",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

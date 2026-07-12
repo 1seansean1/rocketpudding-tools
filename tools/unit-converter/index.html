@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unit Converter</title>
+<meta name="description" content="Zero-dependency multi-domain unit converter: length, mass, temperature (offset-correct), volume, area, speed, time, data (SI vs IEC), pressure, energy, angle. Live grid of every unit, quick A↔B, high precision, copy.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2322d3ee'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #22d3ee;
+    --accent-fg: #05323a;
+    --accent-soft: rgba(34, 211, 238, 0.12);
+    --ok: #2e8b57;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #22d3ee;
+      --accent-fg: #05323a;
+      --accent-soft: rgba(34, 211, 238, 0.16);
+      --ok: #5cbf82;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: var(--accent-fg); }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  /* ---- category tabs ---- */
+  .tabs-wrap { border-bottom: 1px solid var(--line); overflow-x: auto; }
+  .tabs {
+    display: flex;
+    gap: 4px;
+    padding: 10px 24px;
+    max-width: 980px;
+    margin: 0 auto;
+    min-width: max-content;
+  }
+  .tab {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    padding: 7px 14px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    cursor: pointer;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .tab:hover { color: var(--fg); border-color: var(--line); }
+  .tab.on { background: var(--accent); color: var(--accent-fg); font-weight: 600; }
+  .tab svg { flex: none; }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 26px 24px 56px;
+  }
+  section { margin-top: 26px; }
+  section:first-child { margin-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); flex: none; }
+  .section-head .spacer { margin-left: auto; }
+  .section-head .cat-name { color: var(--accent); font-weight: 600; letter-spacing: 0.06em; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  label.field-label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  input[type="text"], select {
+    width: 100%;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 15px;
+    padding: 11px 13px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input.invalid { border-color: var(--err); }
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 16 16' fill='none' stroke='%238a8d93' stroke-width='1.6'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 34px;
+    cursor: pointer;
+  }
+
+  /* ---- source row ---- */
+  .source-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 16px;
+  }
+  #source-value { font-size: 22px; font-weight: 500; }
+  #source-value::placeholder { color: var(--muted); opacity: 0.7; }
+  .filter-row { margin-top: 16px; position: relative; }
+  .filter-row svg {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    color: var(--muted); pointer-events: none;
+  }
+  #unit-filter { padding-left: 36px; font-size: 14px; }
+  #source-error {
+    display: none;
+    margin-top: 14px;
+    padding: 10px 14px;
+    border: 1px solid var(--err);
+    background: var(--err-bg);
+    color: var(--err);
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-family: "IBM Plex Mono", monospace;
+    gap: 8px;
+    align-items: center;
+  }
+  #source-error.show { display: flex; }
+  #source-error svg { flex: none; }
+
+  .cat-note {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 14px;
+    line-height: 1.6;
+    display: none;
+  }
+  .cat-note.show { display: block; }
+  .cat-note b { color: var(--fg); font-weight: 600; }
+
+  /* ---- results grid ---- */
+  #results {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 4px;
+  }
+  .ucell {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 13px 15px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    min-width: 0;
+  }
+  .ucell.src { border-color: var(--accent); background: var(--accent-soft); }
+  .ucell .col { min-width: 0; flex: 1; }
+  .ulabel {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 5px;
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    flex-wrap: wrap;
+  }
+  .ulabel .usym { color: var(--accent); font-weight: 600; letter-spacing: 0.02em; }
+  .ucell.src .ulabel .this { color: var(--accent); font-weight: 600; }
+  .uvalue {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 21px;
+    letter-spacing: -0.01em;
+    line-height: 1.2;
+    word-break: break-all;
+  }
+  .no-match {
+    grid-column: 1 / -1;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 10px 2px;
+  }
+
+  /* ---- copy button ---- */
+  .copy {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy.ok { border-color: var(--ok); color: var(--ok); }
+  .copy svg { pointer-events: none; }
+
+  /* ---- quick A<->B ---- */
+  .ab-grid { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: end; }
+  .ab-field { min-width: 0; }
+  .ab-field input { font-size: 18px; }
+  .ab-field select { margin-top: 8px; }
+  .ab-swap { align-self: end; margin-bottom: 1px; }
+  .ab-swap .btn { height: 46px; width: 46px; padding: 0; justify-content: center; }
+  .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn svg { flex: none; }
+  .ab-eq {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 16px;
+    word-break: break-word;
+  }
+  .ab-eq b { color: var(--fg); font-weight: 600; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 18px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 720px) {
+    .source-grid { grid-template-columns: 1fr; }
+    #results { grid-template-columns: 1fr; }
+    .ab-grid { grid-template-columns: 1fr; }
+    .ab-swap { justify-self: start; }
+    .uvalue { font-size: 19px; }
+    #source-value { font-size: 19px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Unit Converter</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<div class="tabs-wrap">
+  <div class="tabs" id="tabs" role="tablist"></div>
+</div>
+
+<main>
+  <!-- ================= SOURCE + GRID ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M2 6h12M2 10h12M5 6V4M8 10v2M11 6V4"></path>
+      </svg>
+      Convert from
+      <span class="spacer"></span>
+      <span class="cat-name" id="cat-name-badge"></span>
+    </div>
+    <div class="card">
+      <div class="source-grid">
+        <div>
+          <label class="field-label" for="source-value">Value</label>
+          <input id="source-value" type="text" inputmode="decimal" spellcheck="false" autocomplete="off" placeholder="1">
+        </div>
+        <div>
+          <label class="field-label" for="source-unit">Source unit</label>
+          <select id="source-unit" aria-label="Source unit"></select>
+        </div>
+      </div>
+      <div class="filter-row">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="7" cy="7" r="5"></circle><path d="M11 11l3.5 3.5"></path>
+        </svg>
+        <input id="unit-filter" type="text" spellcheck="false" autocomplete="off" placeholder="filter units in this category…">
+      </div>
+      <div id="source-error" role="alert">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+          <circle cx="8" cy="8" r="6.5"></circle><line x1="8" y1="4.5" x2="8" y2="8.8"></line>
+          <circle cx="8" cy="11.4" r="0.8" fill="currentColor" stroke="none"></circle>
+        </svg>
+        <span id="source-error-text"></span>
+      </div>
+      <div class="cat-note" id="cat-note"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:22px">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="2.5" y="2.5" width="4.5" height="4.5" rx="1"></rect>
+        <rect x="9" y="2.5" width="4.5" height="4.5" rx="1"></rect>
+        <rect x="2.5" y="9" width="4.5" height="4.5" rx="1"></rect>
+        <rect x="9" y="9" width="4.5" height="4.5" rx="1"></rect>
+      </svg>
+      All units
+    </div>
+    <div id="results"></div>
+  </section>
+
+  <!-- ================= QUICK A <-> B ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M3 5h8l-2-2M13 11H5l2 2"></path>
+      </svg>
+      Quick A &harr; B
+    </div>
+    <div class="card">
+      <div class="ab-grid">
+        <div class="ab-field">
+          <label class="field-label" for="ab-a-val">A</label>
+          <input id="ab-a-val" type="text" inputmode="decimal" spellcheck="false" autocomplete="off">
+          <select id="ab-a-unit" aria-label="Unit A"></select>
+        </div>
+        <div class="ab-swap">
+          <button class="btn" id="ab-swap" type="button" title="Swap A and B" aria-label="Swap A and B">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+              <path d="M4 3v10M4 13l-2.2-2.2M4 13l2.2-2.2M12 13V3M12 3l-2.2 2.2M12 3l2.2 2.2"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="ab-field">
+          <label class="field-label" for="ab-b-val">B</label>
+          <input id="ab-b-val" type="text" inputmode="decimal" spellcheck="false" autocomplete="off">
+          <select id="ab-b-unit" aria-label="Unit B"></select>
+        </div>
+      </div>
+      <div class="ab-eq" id="ab-eq"></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>zero dependencies</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var $ = function (id) { return document.getElementById(id); };
+
+  var ICON_COPY = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>';
+  var ICON_CHECK = '<svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.2 3.2L13 5"></path></svg>';
+
+  /* ---------------- copy ---------------- */
+  function flashCopy(btn) {
+    btn.classList.add("ok"); btn.innerHTML = ICON_CHECK;
+    setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = ICON_COPY; }, 950);
+  }
+  function copyText(text, btn) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove(); if (btn) flashCopy(btn);
+      } catch (e) {}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { if (btn) flashCopy(btn); }, fallback);
+    } else { fallback(); }
+  }
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest(".copy") : null;
+    if (!btn) return;
+    var text = btn.getAttribute("data-copy") || "";
+    if (text && text !== "—") copyText(text, btn);
+  });
+
+  /* ---------------- number formatting ---------------- */
+  var SIG = 12;
+  function trimExp(s) {
+    var p = s.split("e");
+    var m = p[0];
+    if (m.indexOf(".") !== -1) m = m.replace(/0+$/, "").replace(/\.$/, "");
+    var exp = p[1];
+    if (exp.charAt(0) === "+") exp = exp.slice(1);
+    return m + "e" + exp;
+  }
+  function fmt(x) {
+    if (x === null || x === undefined || typeof x !== "number" || !isFinite(x)) return "—";
+    if (x === 0) return "0";
+    var a = Math.abs(x);
+    if (a >= 1e15 || a < 1e-9) return trimExp(x.toExponential(9));
+    var s = x.toPrecision(SIG);
+    if (s.indexOf("e") !== -1 || s.indexOf("E") !== -1) return trimExp(x.toExponential(9));
+    if (s.indexOf(".") !== -1) s = s.replace(/0+$/, "").replace(/\.$/, "");
+    return s;
+  }
+
+  /* ---------------- unit catalogue ----------------
+     Linear categories: each unit has `f` = base units per 1 of this unit.
+     Temperature: units carry toBase/fromBase (base = Kelvin).                */
+  var PI = Math.PI;
+  var CATEGORIES = [
+    { key: "length", name: "Length", units: [
+      { id: "nm",  n: "Nanometer",     s: "nm", f: 1e-9 },
+      { id: "um",  n: "Micrometer",    s: "µm", f: 1e-6 },
+      { id: "mm",  n: "Millimeter",    s: "mm", f: 1e-3 },
+      { id: "cm",  n: "Centimeter",    s: "cm", f: 1e-2 },
+      { id: "m",   n: "Meter",         s: "m",  f: 1 },
+      { id: "km",  n: "Kilometer",     s: "km", f: 1000 },
+      { id: "in",  n: "Inch",          s: "in", f: 0.0254 },
+      { id: "ft",  n: "Foot",          s: "ft", f: 0.3048 },
+      { id: "yd",  n: "Yard",          s: "yd", f: 0.9144 },
+      { id: "mi",  n: "Mile",          s: "mi", f: 1609.344 },
+      { id: "nmi", n: "Nautical mile", s: "nmi", f: 1852 },
+      { id: "ang", n: "Ångström", s: "Å", f: 1e-10 }
+    ], def: "m" },
+
+    { key: "mass", name: "Mass", units: [
+      { id: "ug",  n: "Microgram",       s: "µg", f: 1e-9 },
+      { id: "mg",  n: "Milligram",       s: "mg", f: 1e-6 },
+      { id: "g",   n: "Gram",            s: "g",  f: 1e-3 },
+      { id: "kg",  n: "Kilogram",        s: "kg", f: 1 },
+      { id: "t",   n: "Metric tonne",    s: "t",  f: 1000 },
+      { id: "ct",  n: "Carat",           s: "ct", f: 0.0002 },
+      { id: "oz",  n: "Ounce",           s: "oz", f: 0.028349523125 },
+      { id: "lb",  n: "Pound",           s: "lb", f: 0.45359237 },
+      { id: "st",  n: "Stone",           s: "st", f: 6.35029318 },
+      { id: "tonUS", n: "US ton (short)",  s: "ton", f: 907.18474 },
+      { id: "tonUK", n: "Imperial ton (long)", s: "long ton", f: 1016.0469088 }
+    ], def: "kg" },
+
+    { key: "temperature", name: "Temperature", temp: true, units: [
+      { id: "C", n: "Celsius",    s: "°C",
+        toBase: function (v) { return v + 273.15; },
+        fromBase: function (k) { return k - 273.15; } },
+      { id: "F", n: "Fahrenheit", s: "°F",
+        toBase: function (v) { return (v - 32) * 5 / 9 + 273.15; },
+        fromBase: function (k) { return (k - 273.15) * 9 / 5 + 32; } },
+      { id: "K", n: "Kelvin",     s: "K",
+        toBase: function (v) { return v; },
+        fromBase: function (k) { return k; } },
+      { id: "R", n: "Rankine",    s: "°R",
+        toBase: function (v) { return v * 5 / 9; },
+        fromBase: function (k) { return k * 9 / 5; } }
+    ], def: "C",
+      note: "Temperature is converted with offset-correct formulas, not ratios: K = °C + 273.15, K = (°F − 32)×5/9 + 273.15, K = °R×5/9. So <b>0 °C = 32 °F = 273.15 K = 491.67 °R</b>." },
+
+    { key: "volume", name: "Volume", units: [
+      { id: "ml",  n: "Milliliter",       s: "mL",  f: 0.001 },
+      { id: "cl",  n: "Centiliter",       s: "cL",  f: 0.01 },
+      { id: "l",   n: "Liter",            s: "L",   f: 1 },
+      { id: "cm3", n: "Cubic centimeter", s: "cm³", f: 0.001 },
+      { id: "m3",  n: "Cubic meter",      s: "m³",  f: 1000 },
+      { id: "tspUS", n: "US teaspoon",    s: "tsp", f: 0.00492892159375 },
+      { id: "tbspUS", n: "US tablespoon", s: "tbsp", f: 0.01478676478125 },
+      { id: "flozUS", n: "US fluid ounce", s: "fl oz", f: 0.0295735295625 },
+      { id: "cupUS", n: "US cup",         s: "cup", f: 0.2365882365 },
+      { id: "ptUS", n: "US pint",         s: "pt",  f: 0.473176473 },
+      { id: "qtUS", n: "US quart",        s: "qt",  f: 0.946352946 },
+      { id: "galUS", n: "US gallon",      s: "gal", f: 3.785411784 },
+      { id: "flozUK", n: "Imperial fl oz", s: "imp fl oz", f: 0.0284130625 },
+      { id: "ptUK", n: "Imperial pint",   s: "imp pt", f: 0.56826125 },
+      { id: "galUK", n: "Imperial gallon", s: "imp gal", f: 4.54609 },
+      { id: "in3", n: "Cubic inch",       s: "in³", f: 0.016387064 },
+      { id: "ft3", n: "Cubic foot",       s: "ft³", f: 28.316846592 }
+    ], def: "l" },
+
+    { key: "area", name: "Area", units: [
+      { id: "mm2", n: "Square millimeter", s: "mm²", f: 1e-6 },
+      { id: "cm2", n: "Square centimeter", s: "cm²", f: 1e-4 },
+      { id: "m2",  n: "Square meter",      s: "m²",  f: 1 },
+      { id: "ha",  n: "Hectare",           s: "ha",  f: 10000 },
+      { id: "km2", n: "Square kilometer",  s: "km²", f: 1e6 },
+      { id: "in2", n: "Square inch",       s: "in²", f: 0.00064516 },
+      { id: "ft2", n: "Square foot",       s: "ft²", f: 0.09290304 },
+      { id: "yd2", n: "Square yard",       s: "yd²", f: 0.83612736 },
+      { id: "ac",  n: "Acre",              s: "ac",  f: 4046.8564224 },
+      { id: "mi2", n: "Square mile",       s: "mi²", f: 2589988.110336 }
+    ], def: "m2" },
+
+    { key: "speed", name: "Speed", units: [
+      { id: "mps",  n: "Meter / second",     s: "m/s",  f: 1 },
+      { id: "kmh",  n: "Kilometer / hour",   s: "km/h", f: 1000 / 3600 },
+      { id: "mph",  n: "Mile / hour",        s: "mph",  f: 0.44704 },
+      { id: "fps",  n: "Foot / second",      s: "ft/s", f: 0.3048 },
+      { id: "kn",   n: "Knot",               s: "kn",   f: 1852 / 3600 },
+      { id: "mach", n: "Mach (sea level, 20°C)", s: "M", f: 343 }
+    ], def: "kmh",
+      note: "Mach uses the speed of sound at sea level, 20 °C (≈ 343 m/s); the true value varies with altitude and temperature." },
+
+    { key: "time", name: "Time", units: [
+      { id: "ns",  n: "Nanosecond",   s: "ns",  f: 1e-9 },
+      { id: "us",  n: "Microsecond",  s: "µs", f: 1e-6 },
+      { id: "ms",  n: "Millisecond",  s: "ms",  f: 1e-3 },
+      { id: "s",   n: "Second",       s: "s",   f: 1 },
+      { id: "min", n: "Minute",       s: "min", f: 60 },
+      { id: "h",   n: "Hour",         s: "h",   f: 3600 },
+      { id: "d",   n: "Day",          s: "d",   f: 86400 },
+      { id: "wk",  n: "Week",         s: "wk",  f: 604800 },
+      { id: "mo",  n: "Month (30 d)", s: "mo",  f: 2592000 },
+      { id: "yr",  n: "Year (365 d)", s: "yr",  f: 31536000 },
+      { id: "yrj", n: "Year (Julian 365.25 d)", s: "yrⱼ", f: 31557600 }
+    ], def: "s",
+      note: "Month = 30 days and year = 365 days are nominal averages; calendar months and leap years vary." },
+
+    { key: "data", name: "Data", units: [
+      { id: "bit",  n: "Bit",       s: "bit", f: 1 },
+      { id: "byte", n: "Byte",      s: "B",   f: 8 },
+      { id: "kbit", n: "Kilobit (SI, 10³)",  s: "kbit", f: 1e3 },
+      { id: "kibit", n: "Kibibit (IEC, 2¹⁰)", s: "Kibit", f: 1024 },
+      { id: "kB",  n: "Kilobyte (SI, 10³)",  s: "kB",  f: 8e3 },
+      { id: "KiB", n: "Kibibyte (IEC, 2¹⁰)", s: "KiB", f: 8 * 1024 },
+      { id: "mB",  n: "Megabit (SI, 10⁶)",   s: "Mbit", f: 1e6 },
+      { id: "MB",  n: "Megabyte (SI, 10⁶)",  s: "MB",  f: 8e6 },
+      { id: "MiB", n: "Mebibyte (IEC, 2²⁰)", s: "MiB", f: 8 * 1024 * 1024 },
+      { id: "gB",  n: "Gigabit (SI, 10⁹)",   s: "Gbit", f: 1e9 },
+      { id: "GB",  n: "Gigabyte (SI, 10⁹)",  s: "GB",  f: 8e9 },
+      { id: "GiB", n: "Gibibyte (IEC, 2³⁰)", s: "GiB", f: 8 * Math.pow(1024, 3) },
+      { id: "TB",  n: "Terabyte (SI, 10¹²)", s: "TB", f: 8e12 },
+      { id: "TiB", n: "Tebibyte (IEC, 2⁴⁰)", s: "TiB", f: 8 * Math.pow(1024, 4) },
+      { id: "PB",  n: "Petabyte (SI, 10¹⁵)", s: "PB", f: 8e15 },
+      { id: "PiB", n: "Pebibyte (IEC, 2⁵⁰)", s: "PiB", f: 8 * Math.pow(1024, 5) }
+    ], def: "MiB",
+      note: "<b>SI</b> prefixes are powers of 10 (1 kB = 1000 B); <b>IEC</b> prefixes are powers of 2 (1 KiB = 1024 B). A byte is 8 bits, so <b>1 MiB = 1024×1024 = 1,048,576 bytes</b> while 1 MB = 1,000,000 bytes." },
+
+    { key: "pressure", name: "Pressure", units: [
+      { id: "pa",  n: "Pascal",       s: "Pa",  f: 1 },
+      { id: "hpa", n: "Hectopascal",  s: "hPa", f: 100 },
+      { id: "kpa", n: "Kilopascal",   s: "kPa", f: 1000 },
+      { id: "mpa", n: "Megapascal",   s: "MPa", f: 1e6 },
+      { id: "mbar", n: "Millibar",    s: "mbar", f: 100 },
+      { id: "bar", n: "Bar",          s: "bar", f: 1e5 },
+      { id: "atm", n: "Atmosphere",   s: "atm", f: 101325 },
+      { id: "torr", n: "Torr",        s: "Torr", f: 101325 / 760 },
+      { id: "mmhg", n: "mm mercury",  s: "mmHg", f: 133.322387415 },
+      { id: "inhg", n: "in mercury",  s: "inHg", f: 3386.389 },
+      { id: "psi", n: "Pound / sq in", s: "psi", f: 6894.757293168 }
+    ], def: "bar" },
+
+    { key: "energy", name: "Energy", units: [
+      { id: "j",   n: "Joule",          s: "J",   f: 1 },
+      { id: "kj",  n: "Kilojoule",      s: "kJ",  f: 1000 },
+      { id: "cal", n: "Calorie (thermo)", s: "cal", f: 4.184 },
+      { id: "kcal", n: "Kilocalorie / food Cal", s: "kcal", f: 4184 },
+      { id: "wh",  n: "Watt-hour",      s: "Wh",  f: 3600 },
+      { id: "kwh", n: "Kilowatt-hour",  s: "kWh", f: 3.6e6 },
+      { id: "ev",  n: "Electronvolt",   s: "eV",  f: 1.602176634e-19 },
+      { id: "btu", n: "British thermal unit", s: "BTU", f: 1055.05585262 },
+      { id: "ftlb", n: "Foot-pound",    s: "ft·lb", f: 1.3558179483314004 },
+      { id: "erg", n: "Erg",            s: "erg", f: 1e-7 }
+    ], def: "kj" },
+
+    { key: "angle", name: "Angle", units: [
+      { id: "rad",  n: "Radian",       s: "rad", f: 1 },
+      { id: "mrad", n: "Milliradian",  s: "mrad", f: 0.001 },
+      { id: "deg",  n: "Degree",       s: "°", f: PI / 180 },
+      { id: "grad", n: "Gradian",      s: "grad", f: PI / 200 },
+      { id: "arcmin", n: "Arcminute",  s: "′", f: PI / 10800 },
+      { id: "arcsec", n: "Arcsecond",  s: "″", f: PI / 648000 },
+      { id: "turn", n: "Revolution / turn", s: "turn", f: 2 * PI }
+    ], def: "deg" }
+  ];
+
+  var CAT_BY_KEY = {};
+  CATEGORIES.forEach(function (c) {
+    c.byId = {};
+    c.units.forEach(function (u) { c.byId[u.id] = u; });
+    CAT_BY_KEY[c.key] = c;
+  });
+
+  /* ---------------- conversion core ---------------- */
+  function toBase(u, v) { return u.toBase ? u.toBase(v) : v * u.f; }
+  function fromBase(u, b) { return u.fromBase ? u.fromBase(b) : b / u.f; }
+  function convert(from, to, v) { return fromBase(to, toBase(from, v)); }
+
+  /* ---------------- state ---------------- */
+  var LS_KEY = "unit-converter.category.v1";
+  var current = null;      // active category object
+  var srcUnitId = null;    // active source unit id
+
+  function loadCategory() {
+    try {
+      var k = localStorage.getItem(LS_KEY);
+      if (k && CAT_BY_KEY[k]) return CAT_BY_KEY[k];
+    } catch (e) {}
+    return CATEGORIES[0];
+  }
+  function saveCategory() { try { localStorage.setItem(LS_KEY, current.key); } catch (e) {} }
+
+  /* ---------------- tabs ---------------- */
+  var tabsEl = $("tabs");
+  CATEGORIES.forEach(function (c) {
+    var b = document.createElement("button");
+    b.className = "tab"; b.type = "button"; b.textContent = c.name;
+    b.setAttribute("role", "tab");
+    b.addEventListener("click", function () { selectCategory(c); });
+    c._tab = b;
+    tabsEl.appendChild(b);
+  });
+
+  /* ---------------- dropdown builders ---------------- */
+  function fillUnitSelect(sel, selectedId) {
+    sel.innerHTML = "";
+    current.units.forEach(function (u) {
+      var o = document.createElement("option");
+      o.value = u.id;
+      o.textContent = u.n + " (" + u.s + ")";
+      if (u.id === selectedId) o.selected = true;
+      sel.appendChild(o);
+    });
+  }
+
+  /* ---------------- source value parsing ---------------- */
+  var NUM_RE = /^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
+  var srcValueEl = $("source-value");
+  var srcErr = $("source-error");
+  var srcErrText = $("source-error-text");
+
+  function currentSourceValue() {
+    var raw = srcValueEl.value.trim();
+    if (raw === "") return { empty: true };
+    if (!NUM_RE.test(raw)) return { error: "Enter a valid number (decimals and 1e3 notation are allowed)." };
+    var v = Number(raw);
+    if (!isFinite(v)) return { error: "That number is out of range." };
+    return { v: v };
+  }
+
+  /* ---------------- results grid render ---------------- */
+  var resultsEl = $("results");
+  var filterEl = $("unit-filter");
+
+  function renderResults() {
+    var srcUnit = current.byId[srcUnitId];
+    var parsed = currentSourceValue();
+    srcErr.classList.remove("show");
+    srcValueEl.classList.remove("invalid");
+
+    var value = null;
+    if (parsed.error) {
+      srcErrText.textContent = parsed.error;
+      srcErr.classList.add("show");
+      srcValueEl.classList.add("invalid");
+    } else if (!parsed.empty) {
+      value = parsed.v;
+    }
+
+    var filter = filterEl.value.trim().toLowerCase();
+    resultsEl.innerHTML = "";
+    var shown = 0;
+
+    current.units.forEach(function (u) {
+      if (filter) {
+        var hay = (u.n + " " + u.s + " " + u.id).toLowerCase();
+        if (hay.indexOf(filter) === -1) return;
+      }
+      shown++;
+      var out = (value === null) ? null : convert(srcUnit, u, value);
+      var text = fmt(out);
+
+      var cell = document.createElement("div");
+      cell.className = "ucell" + (u.id === srcUnitId ? " src" : "");
+
+      var col = document.createElement("div"); col.className = "col";
+      var lab = document.createElement("div"); lab.className = "ulabel";
+      var nm = document.createElement("span"); nm.textContent = u.n;
+      var sym = document.createElement("span"); sym.className = "usym"; sym.textContent = u.s;
+      lab.appendChild(nm); lab.appendChild(sym);
+      if (u.id === srcUnitId) {
+        var th = document.createElement("span"); th.className = "this"; th.textContent = "• source";
+        lab.appendChild(th);
+      }
+      var val = document.createElement("div"); val.className = "uvalue"; val.textContent = text;
+      col.appendChild(lab); col.appendChild(val);
+
+      var cp = document.createElement("button");
+      cp.className = "copy"; cp.type = "button"; cp.title = "Copy value";
+      cp.setAttribute("aria-label", "Copy " + u.n + " value");
+      cp.setAttribute("data-copy", text);
+      cp.innerHTML = ICON_COPY;
+
+      cell.appendChild(col); cell.appendChild(cp);
+      resultsEl.appendChild(cell);
+    });
+
+    if (shown === 0) {
+      var nm2 = document.createElement("div");
+      nm2.className = "no-match";
+      nm2.textContent = "No units match “" + filter + "” in " + current.name + ".";
+      resultsEl.appendChild(nm2);
+    }
+  }
+
+  /* ---------------- quick A<->B ---------------- */
+  var abA = $("ab-a-val"), abB = $("ab-b-val");
+  var abAU = $("ab-a-unit"), abBU = $("ab-b-unit");
+  var abEq = $("ab-eq");
+  var abLast = "a"; // which side the user last edited
+
+  function abUnits() { return { a: current.byId[abAU.value], b: current.byId[abBU.value] }; }
+
+  function renderAbEq() {
+    var u = abUnits();
+    var one = convert(u.a, u.b, 1);
+    abEq.innerHTML = "<b>1 " + u.a.s + "</b> = <b>" + fmt(one) + " " + u.b.s + "</b>";
+  }
+
+  function abRecompute(driver) {
+    var u = abUnits();
+    if (driver === "a" || (driver === "unit" && abLast === "a")) {
+      var raw = abA.value.trim();
+      if (raw === "" ) { abB.value = ""; abA.classList.remove("invalid"); renderAbEq(); return; }
+      if (!NUM_RE.test(raw)) { abA.classList.add("invalid"); abB.value = ""; renderAbEq(); return; }
+      abA.classList.remove("invalid");
+      abB.value = fmt(convert(u.a, u.b, Number(raw)));
+    } else {
+      var rb = abB.value.trim();
+      if (rb === "") { abA.value = ""; abB.classList.remove("invalid"); renderAbEq(); return; }
+      if (!NUM_RE.test(rb)) { abB.classList.add("invalid"); abA.value = ""; renderAbEq(); return; }
+      abB.classList.remove("invalid");
+      abA.value = fmt(convert(u.b, u.a, Number(rb)));
+    }
+    renderAbEq();
+  }
+
+  abA.addEventListener("input", function () { abLast = "a"; abRecompute("a"); });
+  abB.addEventListener("input", function () { abLast = "b"; abRecompute("b"); });
+  abAU.addEventListener("change", function () { abRecompute("unit"); });
+  abBU.addEventListener("change", function () { abRecompute("unit"); });
+  $("ab-swap").addEventListener("click", function () {
+    var ua = abAU.value, ub = abBU.value;
+    var va = abA.value, vb = abB.value;
+    abAU.value = ub; abBU.value = ua;
+    abA.value = vb; abB.value = va;
+    abLast = "a";
+    abRecompute("a");
+  });
+
+  /* ---------------- category selection ---------------- */
+  function selectCategory(c) {
+    current = c;
+    srcUnitId = c.def;
+    saveCategory();
+
+    CATEGORIES.forEach(function (x) { x._tab.classList.toggle("on", x === c); });
+    $("cat-name-badge").textContent = c.name;
+
+    fillUnitSelect($("source-unit"), srcUnitId);
+
+    var noteEl = $("cat-note");
+    if (c.note) { noteEl.innerHTML = c.note; noteEl.classList.add("show"); }
+    else { noteEl.innerHTML = ""; noteEl.classList.remove("show"); }
+
+    filterEl.value = "";
+    if (srcValueEl.value.trim() === "") srcValueEl.value = "1";
+
+    // A<->B defaults: source unit + a distinct second unit
+    var second = c.units.find(function (u) { return u.id !== srcUnitId; }) || c.units[0];
+    fillUnitSelect(abAU, srcUnitId);
+    fillUnitSelect(abBU, second.id);
+    abA.value = "1"; abLast = "a"; abRecompute("a");
+
+    renderResults();
+  }
+
+  /* ---------------- wiring ---------------- */
+  $("source-unit").addEventListener("change", function () {
+    srcUnitId = this.value;
+    renderResults();
+  });
+  srcValueEl.addEventListener("input", renderResults);
+  filterEl.addEventListener("input", renderResults);
+
+  /* ---------------- init ---------------- */
+  selectCategory(loadCategory());
+})();
+</script>
+</body>
+</html>
