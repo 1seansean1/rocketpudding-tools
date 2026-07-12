@@ -25,3 +25,15 @@ Wave 7 in flight: hex-viewer · unicode-inspector · cvd-simulator · gantt-make
 On context loss: read this file + BACKLOG-CANDIDATES.md, `git log`, and the tools/ dirs; resume at the
 first unshipped queue item. Deploy = scripts/deploy-rp2.sh (tar→S3→SSM, no downtime, auto-emails new tools).
 Loop task: "Holly go forth with my support. I got you Holly." Bounded by our goal: 50, then reassess together.
+
+
+## LIVE STATUS (auto-appended)
+- **45 / 50 live · 5 to the flag · 0 broken** (invariant holding across all waves)
+- **IN FLIGHT (final push):** json-diff (finishing wave 8 -> 46) · svg-minifier · glob-tester · qr-reader · css-units → 50
+- **Swaps/deferrals this session:** json-diff pulled forward from wave 9 into wave 8 (mock-data-forge slot).
+  mock-data-forge DEFERRED — content-filter blocked bundling realistic name/email lists; rebuild later with
+  SYNTHETIC (syllable-generated) fictional names, no bundled PII-shaped lists.
+- **On landing:** each in-flight tool → node-check the largest <script>, add to registry.json with provenance,
+  `git add` its dir + registry.json, commit, `scripts/deploy-rp2.sh` (auto-emails new tools), health-check.
+- **At 50:** full health sweep (all 200), then STOP and reassess the horizon WITH Sean (real users / public face /
+  harness-reborn) — do not auto-launch wave 10 past the goal without his word.
