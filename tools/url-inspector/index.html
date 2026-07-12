@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>URL Inspector</title>
+<meta name="description" content="Zero-dependency URL parser and builder on the native URL and URLSearchParams APIs. Break a URL into its parts, edit each one, rebuild it live, and manage query parameters in an editable table with duplicate-key support.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%23ff2d95'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #ff2d95;
+    --accent-soft: rgba(255, 45, 149, 0.10);
+    --ok: #2e8b57;
+    --err: #b3261e;
+    --err-bg: rgba(179, 38, 30, 0.08);
+    --c-proto: #2f8fd0;
+    --c-user:  #9b6dd6;
+    --c-port:  #c67a1c;
+    --c-path:  #2d7d5a;
+    --c-qkey:  #b0562d;
+    --c-qval:  #7a6ad0;
+    --c-hash:  #c0407a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #ff2d95;
+      --accent-soft: rgba(255, 45, 149, 0.18);
+      --ok: #5cbf82;
+      --err: #ff6b60;
+      --err-bg: rgba(255, 107, 96, 0.09);
+      --c-proto: #63b6f0;
+      --c-user:  #c09bf0;
+      --c-port:  #e0a457;
+      --c-path:  #5cc294;
+      --c-qkey:  #e89b6a;
+      --c-qval:  #a99bf0;
+      --c-hash:  #ff7aae;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { min-height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  a { color: inherit; text-decoration: none; }
+  .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+  ::selection { background: var(--accent); color: #fff; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; border-radius: 3px; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 28px 24px 56px;
+  }
+  section { margin-top: 26px; }
+  section:first-child { margin-top: 0; }
+
+  .section-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 12px;
+  }
+  .section-head svg { color: var(--accent); flex: none; }
+  .section-head .spacer { margin-left: auto; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 20px;
+  }
+
+  /* ---- copy button ---- */
+  .copy {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1px solid var(--line);
+    background: var(--bg);
+    color: var(--muted);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color .15s, color .15s;
+  }
+  .copy:hover { border-color: var(--accent); color: var(--accent); }
+  .copy.ok { border-color: var(--ok); color: var(--ok); }
+  .copy svg { pointer-events: none; }
+  .copy.sm { width: 28px; height: 28px; border-radius: 7px; }
+
+  /* ---- inputs ---- */
+  label.field-label {
+    display: block;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 8px;
+  }
+  input[type="text"], textarea, select {
+    width: 100%;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 14.5px;
+    padding: 10px 12px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    outline: none;
+  }
+  textarea { resize: vertical; min-height: 78px; line-height: 1.45; }
+  input:focus, textarea:focus, select:focus { border-color: var(--accent); }
+  input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; }
+
+  #url-input { font-size: 17px; font-weight: 500; }
+
+  .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 7px 12px;
+    background: transparent;
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    cursor: pointer;
+    letter-spacing: 0.02em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn svg { flex: none; }
+  .btn.solid { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.solid:hover { color: #fff; opacity: 0.9; }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; align-items: center; }
+  .toolbar .lbl {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted); margin-right: 2px;
+  }
+
+  /* ---- segmented ---- */
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; }
+  .seg button {
+    font-family: "IBM Plex Mono", monospace; font-size: 12px; letter-spacing: 0.03em;
+    padding: 6px 13px; background: transparent; color: var(--muted);
+    border: none; border-right: 1px solid var(--line); cursor: pointer;
+  }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--accent); color: #fff; }
+
+  /* ---- status ---- */
+  .status {
+    display: flex; align-items: flex-start; gap: 8px; margin-top: 14px;
+    font-family: "IBM Plex Mono", monospace; font-size: 13px; padding: 10px 14px;
+    border-radius: 8px; border: 1px solid var(--line);
+  }
+  .status svg { flex: none; margin-top: 1px; }
+  .status.neutral { color: var(--muted); }
+  .status.valid { color: var(--ok); border-color: var(--ok); background: rgba(46,139,87,0.07); }
+  .status.invalid { color: var(--err); border-color: var(--err); background: var(--err-bg); }
+  .status .msg { word-break: break-word; }
+
+  /* ---- component fields ---- */
+  .field-row { display: grid; gap: 14px; margin-top: 14px; }
+  .field-row:first-child { margin-top: 0; }
+  .cols-3 { grid-template-columns: 1fr 1.7fr 0.7fr; }
+  .cols-2 { grid-template-columns: 1fr 1fr; }
+  .field { min-width: 0; }
+  .input-row { display: flex; gap: 8px; align-items: stretch; }
+  .input-row input { flex: 1; min-width: 0; }
+
+  /* ---- path segments ---- */
+  .seg-list { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+  .seg-item { display: flex; gap: 8px; align-items: center; }
+  .seg-item .segn {
+    font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted);
+    width: 20px; text-align: right; flex: none;
+  }
+  .seg-item input { flex: 1; min-width: 0; }
+  .mini {
+    flex: none; display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border: 1px solid var(--line); background: var(--bg);
+    color: var(--muted); border-radius: 7px; cursor: pointer;
+  }
+  .mini:hover { border-color: var(--accent); color: var(--accent); }
+  .mini.danger:hover { border-color: var(--err); color: var(--err); }
+  .mini:disabled { opacity: 0.35; cursor: not-allowed; }
+  .mini svg { pointer-events: none; }
+  .empty-note { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; color: var(--muted); padding: 4px 0; }
+
+  /* ---- params table ---- */
+  .table-wrap { overflow-x: auto; margin-top: 4px; }
+  table.params { width: 100%; border-collapse: collapse; }
+  table.params th {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); text-align: left; font-weight: 500;
+    padding: 0 8px 8px; border-bottom: 1px solid var(--line);
+  }
+  table.params td { padding: 6px 8px; vertical-align: middle; }
+  table.params td.idx { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); width: 26px; }
+  table.params td.ctl { width: 1%; white-space: nowrap; }
+  table.params td.ctl .mini { width: 28px; height: 28px; }
+  table.params .ord { display: inline-flex; gap: 4px; }
+  table.params input { padding: 8px 10px; }
+  tr.dup td.idx::after {
+    content: "dup"; display: block; font-size: 8.5px; letter-spacing: 0.06em;
+    color: var(--accent); margin-top: 2px;
+  }
+  .kv-col { min-width: 150px; }
+
+  /* ---- outputs ---- */
+  .out-block { margin-top: 14px; }
+  .out-label {
+    font-family: "IBM Plex Mono", monospace; font-size: 10px; letter-spacing: 0.12em;
+    text-transform: uppercase; color: var(--muted); margin-bottom: 7px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .out-box {
+    display: flex; gap: 8px; align-items: flex-start;
+    background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 13px 14px;
+  }
+  .out-text {
+    flex: 1; min-width: 0; font-family: "IBM Plex Mono", monospace; font-size: 14px;
+    line-height: 1.6; white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere;
+  }
+  .pretty { white-space: pre-wrap; word-break: break-all; overflow-wrap: anywhere; }
+  .p-proto { color: var(--c-proto); font-weight: 600; }
+  .p-user  { color: var(--c-user); }
+  .p-host  { color: var(--accent); font-weight: 600; }
+  .p-port  { color: var(--c-port); }
+  .p-path  { color: var(--c-path); }
+  .p-qkey  { color: var(--c-qkey); }
+  .p-qval  { color: var(--c-qval); }
+  .p-hash  { color: var(--c-hash); }
+  .p-sep   { color: var(--muted); }
+
+  .readout { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-top: 14px; }
+  .ro-cell {
+    background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 9px 12px; min-width: 0;
+  }
+  .ro-cell .k { font-family: "IBM Plex Mono", monospace; font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+  .ro-cell .v { font-family: "IBM Plex Mono", monospace; font-size: 13px; word-break: break-all; margin-top: 3px; }
+  .ro-cell.wide { grid-column: 1 / -1; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 18px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  @media (max-width: 720px) {
+    .cols-3, .cols-2 { grid-template-columns: 1fr; }
+    .readout { grid-template-columns: 1fr; }
+    #url-input { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>URL Inspector</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
+<main>
+  <!-- ================= SOURCE ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M6.5 9.5a2.5 2.5 0 0 0 3.6.1l2.3-2.3a2.5 2.5 0 1 0-3.5-3.5l-1 1"></path>
+        <path d="M9.5 6.5a2.5 2.5 0 0 0-3.6-.1L3.6 8.7a2.5 2.5 0 1 0 3.5 3.5l1-1"></path>
+      </svg>
+      Source URL
+    </div>
+    <div class="card">
+      <label class="field-label" for="url-input">Paste or edit a URL &mdash; parsed with the native <span class="mono">URL</span> API</label>
+      <input id="url-input" type="text" spellcheck="false" autocomplete="off" autocapitalize="off"
+             placeholder="https://user:pass@example.com:8443/path/to/page?q=hello+world&amp;tag=a&amp;tag=b#section">
+      <div class="toolbar">
+        <span class="lbl">Samples</span>
+        <button class="btn" data-sample="api" type="button">api</button>
+        <button class="btn" data-sample="auth" type="button">userinfo</button>
+        <button class="btn" data-sample="idn" type="button">unicode / idn</button>
+        <button class="btn" data-sample="mailto" type="button">mailto</button>
+        <button class="btn" data-sample="db" type="button">postgres</button>
+      </div>
+      <div class="toolbar">
+        <span class="lbl">Whole URL</span>
+        <button class="btn" id="url-decode" type="button">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 3H4v10h5M4 8h6M12 6l2 2-2 2"></path></svg>
+          decode
+        </button>
+        <button class="btn" id="url-encode" type="button">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 3h5v10H7M12 8H6M4 6L2 8l2 2"></path></svg>
+          encode
+        </button>
+        <button class="btn" id="url-clear" type="button">clear</button>
+      </div>
+      <div class="status neutral" id="status" role="status">
+        <span id="status-icon"></span>
+        <span class="msg" id="status-msg">Paste a URL above to inspect it.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PARTS ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <rect x="2" y="2.5" width="5" height="5" rx="1"></rect><rect x="9" y="2.5" width="5" height="5" rx="1"></rect>
+        <rect x="2" y="8.5" width="5" height="5" rx="1"></rect><rect x="9" y="8.5" width="5" height="5" rx="1"></rect>
+      </svg>
+      Parts &mdash; each individually editable
+    </div>
+    <div class="card">
+      <div class="field-row cols-3">
+        <div class="field">
+          <label class="field-label" for="p-proto">Protocol</label>
+          <div class="input-row">
+            <input id="p-proto" type="text" spellcheck="false" autocomplete="off" placeholder="https">
+            <button class="copy" data-copy-input="p-proto" title="Copy protocol" aria-label="Copy protocol"></button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="p-host">Host</label>
+          <div class="input-row">
+            <input id="p-host" type="text" spellcheck="false" autocomplete="off" placeholder="example.com">
+            <button class="copy" data-copy-input="p-host" title="Copy host" aria-label="Copy host"></button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="p-port">Port</label>
+          <div class="input-row">
+            <input id="p-port" type="text" spellcheck="false" autocomplete="off" inputmode="numeric" placeholder="443">
+            <button class="copy" data-copy-input="p-port" title="Copy port" aria-label="Copy port"></button>
+          </div>
+        </div>
+      </div>
+      <div class="field-row cols-2">
+        <div class="field">
+          <label class="field-label" for="p-user">Username</label>
+          <div class="input-row">
+            <input id="p-user" type="text" spellcheck="false" autocomplete="off" placeholder="(none)">
+            <button class="copy" data-copy-input="p-user" title="Copy username" aria-label="Copy username"></button>
+          </div>
+        </div>
+        <div class="field">
+          <label class="field-label" for="p-pass">Password</label>
+          <div class="input-row">
+            <input id="p-pass" type="text" spellcheck="false" autocomplete="off" placeholder="(none)">
+            <button class="copy" data-copy-input="p-pass" title="Copy password" aria-label="Copy password"></button>
+          </div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label" id="path-label">Path segments &mdash; decoded, one per row</label>
+          <div class="seg-list" id="seg-list"></div>
+          <div class="toolbar" id="seg-toolbar">
+            <button class="btn" id="seg-add" type="button">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="8" y1="3" x2="8" y2="13"></line><line x1="3" y1="8" x2="13" y2="8"></line></svg>
+              add segment
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label class="field-label" for="p-hash">Hash / fragment</label>
+          <div class="input-row">
+            <input id="p-hash" type="text" spellcheck="false" autocomplete="off" placeholder="(none)">
+            <button class="copy" data-copy-input="p-hash" title="Copy hash" aria-label="Copy hash"></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= QUERY ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M2.5 4h11M2.5 8h11M2.5 12h11"></path>
+      </svg>
+      Query parameters
+      <span class="spacer"></span>
+      <span id="param-count" class="mono" style="text-transform:none;letter-spacing:0">0 params</span>
+    </div>
+    <div class="card">
+      <div class="toolbar" style="margin-top:0;margin-bottom:14px">
+        <span class="lbl">View</span>
+        <div class="seg" id="enc-seg" role="group" aria-label="Encoding view">
+          <button type="button" data-enc="decoded" class="on">decoded</button>
+          <button type="button" data-enc="encoded">percent-encoded</button>
+        </div>
+        <span class="spacer" style="margin-left:auto"></span>
+        <button class="btn" id="param-add" type="button">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="8" y1="3" x2="8" y2="13"></line><line x1="3" y1="8" x2="13" y2="8"></line></svg>
+          add param
+        </button>
+        <button class="btn" id="param-json" type="button">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 2.5C4 2.5 4.5 6 3 8c1.5 2 1 5.5 3 5.5M10 2.5c2 0 1.5 3.5 3 5.5-1.5 2-1 5.5-3 5.5"></path></svg>
+          copy as JSON
+        </button>
+      </div>
+      <div class="table-wrap">
+        <table class="params">
+          <thead>
+            <tr>
+              <th style="width:26px">#</th>
+              <th class="kv-col">Key</th>
+              <th class="kv-col">Value</th>
+              <th style="width:1%">Order</th>
+              <th style="width:1%"></th>
+            </tr>
+          </thead>
+          <tbody id="param-rows"></tbody>
+        </table>
+      </div>
+      <div class="empty-note" id="param-empty" style="display:none">No query parameters. Use &ldquo;add param&rdquo; to create one &mdash; duplicate keys are allowed.</div>
+    </div>
+  </section>
+
+  <!-- ================= REBUILT ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M8 2.5l5.5 3v5L8 13.5 2.5 10.5v-5z"></path><path d="M2.5 5.5L8 8.5l5.5-3M8 8.5v5"></path>
+      </svg>
+      Rebuilt URL
+    </div>
+    <div class="card">
+      <div class="out-block">
+        <div class="out-label">Raw &mdash; canonical, percent-encoded</div>
+        <div class="out-box">
+          <div class="out-text mono" id="raw-out">&mdash;</div>
+          <button class="copy" id="copy-raw" title="Copy URL" aria-label="Copy rebuilt URL"></button>
+        </div>
+      </div>
+      <div class="out-block">
+        <div class="out-label">Pretty &mdash; decoded &amp; colorized by part</div>
+        <div class="out-box">
+          <div class="out-text pretty" id="pretty-out">&mdash;</div>
+        </div>
+      </div>
+      <div class="readout" id="readout"></div>
+    </div>
+  </section>
+
+  <!-- ================= ENCODE / DECODE ================= -->
+  <section>
+    <div class="section-head">
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+        <path d="M5 3L2 8l3 5M11 3l3 5-3 5"></path>
+      </svg>
+      Percent-encode helpers &mdash; whole URL or a single value
+    </div>
+    <div class="card">
+      <label class="field-label" for="enc-input">Text</label>
+      <textarea id="enc-input" spellcheck="false" autocomplete="off" placeholder="hello world / caf&eacute; & co?"></textarea>
+      <div class="toolbar">
+        <span class="lbl">Mode</span>
+        <div class="seg" id="enc-mode" role="group" aria-label="Encoding mode">
+          <button type="button" data-mode="component" class="on">component</button>
+          <button type="button" data-mode="uri">full URI</button>
+        </div>
+        <span class="spacer" style="margin-left:auto"></span>
+        <button class="btn solid" id="enc-do" type="button">encode &#8595;</button>
+        <button class="btn" id="dec-do" type="button">decode &#8593;</button>
+        <button class="btn" id="enc-swap" type="button">swap</button>
+        <button class="btn" id="enc-clear" type="button">clear</button>
+      </div>
+      <div class="out-block">
+        <div class="out-label">Result</div>
+        <div class="out-box">
+          <div class="out-text mono" id="enc-out">&mdash;</div>
+          <button class="copy" data-copy-from="enc-out" title="Copy result" aria-label="Copy result"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <span>zero dependencies &middot; native URL API</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- helpers ---------------- */
+  var $ = function (id) { return document.getElementById(id); };
+  var SPECIAL = { http: 1, https: 1, ws: 1, wss: 1, ftp: 1, file: 1 };
+  function isSpecial(scheme) { return !!SPECIAL[String(scheme).toLowerCase()]; }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  function safeDecode(s) {
+    try { return decodeURIComponent(s); } catch (e) { return s; }
+  }
+  function safeDecodeURI(s) {
+    try { return decodeURI(s); } catch (e) { return s; }
+  }
+
+  var ICON_COPY  = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5"></rect><path d="M10.5 5.5V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v5A1.5 1.5 0 0 0 4 10.5h1.5"></path></svg>';
+  var ICON_CHECK = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8.5l3.2 3.2L13 5"></path></svg>';
+  var ICON_UP    = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 12V4M4.5 7.5L8 4l3.5 3.5"></path></svg>';
+  var ICON_DOWN  = '<svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M8 4v8M4.5 8.5L8 12l3.5-3.5"></path></svg>';
+  var ICON_X     = '<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7"><line x1="4" y1="4" x2="12" y2="12"></line><line x1="12" y1="4" x2="4" y2="12"></line></svg>';
+  var ICON_OK_S  = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.5"></circle><path d="M5 8.2l2 2L11 6"></path></svg>';
+  var ICON_ERR_S = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.5"></circle><line x1="8" y1="4.5" x2="8" y2="9"></line><circle cx="8" cy="11.4" r="0.7" fill="currentColor" stroke="none"></circle></svg>';
+  var ICON_INFO_S= '<svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="8" cy="8" r="6.5"></circle><line x1="8" y1="7.2" x2="8" y2="11.5"></line><circle cx="8" cy="4.7" r="0.7" fill="currentColor" stroke="none"></circle></svg>';
+
+  Array.prototype.forEach.call(document.querySelectorAll(".copy"), function (b) {
+    if (!b.innerHTML.trim()) b.innerHTML = ICON_COPY;
+  });
+
+  function flashCopy(btn) {
+    var prev = btn.innerHTML;
+    btn.classList.add("ok"); btn.innerHTML = ICON_CHECK;
+    setTimeout(function () { btn.classList.remove("ok"); btn.innerHTML = prev; }, 950);
+  }
+  function copyText(text, btn) {
+    function fallback() {
+      try {
+        var ta = document.createElement("textarea");
+        ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+        document.body.appendChild(ta); ta.focus(); ta.select();
+        document.execCommand("copy"); ta.remove(); if (btn) flashCopy(btn);
+      } catch (e) {}
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { if (btn) flashCopy(btn); }, fallback);
+    } else { fallback(); }
+  }
+
+  /* delegated copy for [data-copy-from] / [data-copy-input] / [data-copy] */
+  document.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest(".copy") : null;
+    if (!btn) return;
+    var text = "";
+    if (btn.hasAttribute("data-copy-from")) {
+      var src = $(btn.getAttribute("data-copy-from")); text = src ? src.textContent : "";
+    } else if (btn.hasAttribute("data-copy-input")) {
+      var inp = $(btn.getAttribute("data-copy-input")); text = inp ? inp.value : "";
+    } else if (btn.hasAttribute("data-copy")) {
+      text = btn.getAttribute("data-copy");
+    }
+    if (text !== "" && text !== "—") copyText(text, btn);
+  });
+
+  /* ---------------- state ---------------- */
+  var state = {
+    segments: [],   // decoded path segments
+    params: [],     // { k, v } decoded
+    opaque: false,  // opaque path (e.g. mailto:, data:)
+    opaquePath: ""
+  };
+  var encView = false;      // params table: show percent-encoded
+  var encMode = "component"; // encode helper mode
+
+  var urlInput = $("url-input");
+  var protoI = $("p-proto"), userI = $("p-user"), passI = $("p-pass"),
+      hostI = $("p-host"), portI = $("p-port"), hashI = $("p-hash");
+  var segList = $("seg-list"), segToolbar = $("seg-toolbar"), pathLabel = $("path-label");
+  var paramRows = $("param-rows"), paramEmpty = $("param-empty"), paramCount = $("param-count");
+  var rawOut = $("raw-out"), prettyOut = $("pretty-out"), readoutEl = $("readout");
+
+  /* ---------------- parse ---------------- */
+  function parseUrl(str) {
+    str = str.trim();
+    if (!str) return { empty: true };
+    try { return { ok: true, url: new URL(str) }; }
+    catch (e) { return { ok: false, error: (e && e.message) ? e.message : "Invalid URL" }; }
+  }
+
+  function pathToSegments(pathname) {
+    var p = pathname;
+    if (p.charAt(0) === "/") p = p.slice(1);
+    if (p === "") return [];
+    return p.split("/").map(safeDecode);
+  }
+
+  /* ---------------- load components from a URL object ---------------- */
+  function loadFromUrl(url) {
+    protoI.value = url.protocol.replace(/:$/, "");
+    userI.value  = safeDecode(url.username);
+    passI.value  = safeDecode(url.password);
+    hostI.value  = url.hostname;
+    portI.value  = url.port;
+    hashI.value  = safeDecode(url.hash.replace(/^#/, ""));
+
+    // opaque path: no "//" right after "scheme:"
+    var afterScheme = url.href.slice(url.protocol.length, url.protocol.length + 2);
+    state.opaque = (afterScheme !== "//");
+    if (state.opaque) {
+      state.opaquePath = url.pathname;
+      state.segments = [];
+    } else {
+      state.opaque = false;
+      state.segments = pathToSegments(url.pathname);
+    }
+
+    state.params = [];
+    url.searchParams.forEach(function (v, k) { state.params.push({ k: k, v: v }); });
+
+    renderSegments();
+    renderParams();
+  }
+
+  function clearComponents() {
+    protoI.value = ""; userI.value = ""; passI.value = "";
+    hostI.value = ""; portI.value = ""; hashI.value = "";
+    state.segments = []; state.params = []; state.opaque = false; state.opaquePath = "";
+    renderSegments(); renderParams();
+  }
+
+  /* ---------------- assemble a URL string from components ---------------- */
+  function encPart(s) { return encodeURIComponent(s); }
+
+  function assemble() {
+    var scheme = protoI.value.trim().replace(/:+$/, "");
+    var user = userI.value, pass = passI.value;
+    var host = hostI.value.trim(), port = portI.value.trim();
+    var hash = hashI.value;
+    var special = isSpecial(scheme);
+
+    var out = "";
+    if (scheme) out += scheme + ":";
+
+    var authority = special || host !== "" || user !== "" || pass !== "" || port !== "";
+    if (authority) {
+      out += "//";
+      if (user !== "" || pass !== "") {
+        out += encPart(user);
+        if (pass !== "") out += ":" + encPart(pass);
+        out += "@";
+      }
+      out += host;
+      if (port !== "") out += ":" + port;
+    }
+
+    // path
+    if (state.opaque && !authority) {
+      out += state.opaquePath;
+    } else if (state.segments.length) {
+      out += "/" + state.segments.map(encPart).join("/");
+    }
+
+    // query
+    if (state.params.length) {
+      var q = state.params.map(function (p) { return encPart(p.k) + "=" + encPart(p.v); }).join("&");
+      out += "?" + q;
+    }
+
+    // hash
+    if (hash !== "") out += "#" + encodeURI(hash).replace(/#/g, "%23");
+
+    return out;
+  }
+
+  /* ---------------- render: path segments ---------------- */
+  function moveInArray(arr, i, dir) {
+    var j = i + dir;
+    if (j < 0 || j >= arr.length) return false;
+    var t = arr[i]; arr[i] = arr[j]; arr[j] = t; return true;
+  }
+  function miniBtn(icon, title, danger) {
+    var b = document.createElement("button");
+    b.type = "button"; b.className = "mini" + (danger ? " danger" : "");
+    b.title = title; b.setAttribute("aria-label", title); b.innerHTML = icon;
+    return b;
+  }
+
+  function renderSegments() {
+    segList.innerHTML = "";
+    if (state.opaque) {
+      pathLabel.innerHTML = "Opaque path &mdash; scheme has no authority (e.g. mailto:, data:)";
+      segToolbar.style.display = "none";
+      var row = document.createElement("div");
+      row.className = "seg-item";
+      var inp = document.createElement("input");
+      inp.type = "text"; inp.spellcheck = false; inp.value = state.opaquePath; inp.placeholder = "opaque path";
+      inp.addEventListener("input", function () { state.opaquePath = inp.value; rebuild(); });
+      row.appendChild(inp);
+      var cp = miniBtn(ICON_COPY, "Copy path");
+      cp.addEventListener("click", function () { copyText(inp.value, cp); });
+      row.appendChild(cp);
+      segList.appendChild(row);
+      return;
+    }
+    pathLabel.innerHTML = "Path segments &mdash; decoded, one per row";
+    segToolbar.style.display = "flex";
+
+    if (!state.segments.length) {
+      var note = document.createElement("div");
+      note.className = "empty-note";
+      note.textContent = "No path — the URL points at the root.";
+      segList.appendChild(note);
+      return;
+    }
+    state.segments.forEach(function (seg, i) {
+      var row = document.createElement("div");
+      row.className = "seg-item";
+      var n = document.createElement("span"); n.className = "segn"; n.textContent = String(i + 1);
+      var inp = document.createElement("input");
+      inp.type = "text"; inp.spellcheck = false; inp.value = seg; inp.setAttribute("data-i", i);
+      inp.addEventListener("input", function () { state.segments[i] = inp.value; rebuild(); });
+      var up = miniBtn(ICON_UP, "Move up"); up.disabled = (i === 0);
+      up.addEventListener("click", function () { if (moveInArray(state.segments, i, -1)) { renderSegments(); rebuild(); } });
+      var dn = miniBtn(ICON_DOWN, "Move down"); dn.disabled = (i === state.segments.length - 1);
+      dn.addEventListener("click", function () { if (moveInArray(state.segments, i, 1)) { renderSegments(); rebuild(); } });
+      var rm = miniBtn(ICON_X, "Remove segment", true);
+      rm.addEventListener("click", function () { state.segments.splice(i, 1); renderSegments(); rebuild(); });
+      row.appendChild(n); row.appendChild(inp); row.appendChild(up); row.appendChild(dn); row.appendChild(rm);
+      segList.appendChild(row);
+    });
+  }
+
+  $("seg-add").addEventListener("click", function () {
+    state.segments.push(""); renderSegments(); rebuild();
+    var inputs = segList.querySelectorAll("input");
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  });
+
+  /* ---------------- render: params table ---------------- */
+  function paramDisplay(v) { return encView ? encPart(v) : v; }
+  function paramStore(raw) { return encView ? safeDecode(raw) : raw; }
+
+  function renderParams() {
+    paramRows.innerHTML = "";
+    paramCount.textContent = state.params.length + (state.params.length === 1 ? " param" : " params");
+    paramEmpty.style.display = state.params.length ? "none" : "block";
+
+    // duplicate key detection
+    var counts = {};
+    state.params.forEach(function (p) { counts[p.k] = (counts[p.k] || 0) + 1; });
+
+    state.params.forEach(function (p, i) {
+      var tr = document.createElement("tr");
+      if (p.k !== "" && counts[p.k] > 1) tr.className = "dup";
+
+      var tdIdx = document.createElement("td"); tdIdx.className = "idx"; tdIdx.textContent = String(i + 1);
+
+      var tdK = document.createElement("td"); tdK.className = "kv-col";
+      var ki = document.createElement("input");
+      ki.type = "text"; ki.spellcheck = false; ki.value = paramDisplay(p.k); ki.placeholder = "key";
+      ki.addEventListener("input", function () { state.params[i].k = paramStore(ki.value); rebuild(); refreshDup(); });
+      tdK.appendChild(ki);
+
+      var tdV = document.createElement("td"); tdV.className = "kv-col";
+      var vi = document.createElement("input");
+      vi.type = "text"; vi.spellcheck = false; vi.value = paramDisplay(p.v); vi.placeholder = "value";
+      vi.addEventListener("input", function () { state.params[i].v = paramStore(vi.value); rebuild(); });
+      tdV.appendChild(vi);
+
+      var tdOrd = document.createElement("td"); tdOrd.className = "ctl";
+      var ord = document.createElement("div"); ord.className = "ord";
+      var up = miniBtn(ICON_UP, "Move up"); up.disabled = (i === 0);
+      up.addEventListener("click", function () { if (moveInArray(state.params, i, -1)) { renderParams(); rebuild(); } });
+      var dn = miniBtn(ICON_DOWN, "Move down"); dn.disabled = (i === state.params.length - 1);
+      dn.addEventListener("click", function () { if (moveInArray(state.params, i, 1)) { renderParams(); rebuild(); } });
+      ord.appendChild(up); ord.appendChild(dn); tdOrd.appendChild(ord);
+
+      var tdRm = document.createElement("td"); tdRm.className = "ctl";
+      var rm = miniBtn(ICON_X, "Remove param", true);
+      rm.addEventListener("click", function () { state.params.splice(i, 1); renderParams(); rebuild(); });
+      tdRm.appendChild(rm);
+
+      tr.appendChild(tdIdx); tr.appendChild(tdK); tr.appendChild(tdV); tr.appendChild(tdOrd); tr.appendChild(tdRm);
+      paramRows.appendChild(tr);
+    });
+  }
+
+  /* update duplicate badges without re-rendering inputs (keeps focus) */
+  function refreshDup() {
+    var counts = {};
+    state.params.forEach(function (p) { counts[p.k] = (counts[p.k] || 0) + 1; });
+    var rows = paramRows.children;
+    for (var i = 0; i < rows.length; i++) {
+      var dup = state.params[i] && state.params[i].k !== "" && counts[state.params[i].k] > 1;
+      rows[i].className = dup ? "dup" : "";
+    }
+  }
+
+  $("param-add").addEventListener("click", function () {
+    state.params.push({ k: "", v: "" }); renderParams(); rebuild();
+    var inputs = paramRows.querySelectorAll("input");
+    if (inputs.length >= 2) inputs[inputs.length - 2].focus();
+  });
+
+  $("param-json").addEventListener("click", function () {
+    copyText(paramsToJson(), this);
+  });
+
+  function paramsToJson() {
+    var obj = {};
+    state.params.forEach(function (p) {
+      if (Object.prototype.hasOwnProperty.call(obj, p.k)) {
+        if (Object.prototype.toString.call(obj[p.k]) === "[object Array]") obj[p.k].push(p.v);
+        else obj[p.k] = [obj[p.k], p.v];
+      } else obj[p.k] = p.v;
+    });
+    return JSON.stringify(obj, null, 2);
+  }
+
+  /* encoding-view toggle */
+  Array.prototype.forEach.call($("enc-seg").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      encView = (b.getAttribute("data-enc") === "encoded");
+      Array.prototype.forEach.call($("enc-seg").querySelectorAll("button"), function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+      renderParams();
+    });
+  });
+
+  /* ---------------- outputs ---------------- */
+  function setStatus(kind, msg) {
+    var el = $("status"), icon = $("status-icon"), m = $("status-msg");
+    el.className = "status " + kind;
+    if (kind === "valid") { icon.innerHTML = ICON_OK_S; m.textContent = "Valid URL — parsed by the native URL API."; }
+    else if (kind === "invalid") { icon.innerHTML = ICON_ERR_S; m.textContent = "Invalid URL — " + (msg || "cannot parse."); }
+    else { icon.innerHTML = ICON_INFO_S; m.textContent = msg || "Paste a URL above to inspect it."; }
+  }
+
+  function prettyHtml(url) {
+    var h = "";
+    var scheme = url.protocol.replace(/:$/, "");
+    h += '<span class="p-proto">' + esc(scheme) + '</span><span class="p-sep">:</span>';
+    var afterScheme = url.href.slice(url.protocol.length, url.protocol.length + 2);
+    var hasAuth = (afterScheme === "//");
+    if (hasAuth) {
+      h += '<span class="p-sep">//</span>';
+      if (url.username !== "" || url.password !== "") {
+        h += '<span class="p-user">' + esc(safeDecode(url.username)) + '</span>';
+        if (url.password !== "") h += '<span class="p-sep">:</span><span class="p-user">' + esc(safeDecode(url.password)) + '</span>';
+        h += '<span class="p-sep">@</span>';
+      }
+      h += '<span class="p-host">' + esc(url.hostname) + '</span>';
+      if (url.port !== "") h += '<span class="p-sep">:</span><span class="p-port">' + esc(url.port) + '</span>';
+    }
+    if (url.pathname) {
+      var parts = url.pathname.split("/");
+      for (var i = 0; i < parts.length; i++) {
+        if (i > 0) h += '<span class="p-sep">/</span>';
+        if (parts[i] !== "") h += '<span class="p-path">' + esc(safeDecode(parts[i])) + '</span>';
+      }
+    }
+    if (url.search) {
+      h += '<span class="p-sep">?</span>';
+      var qs = [];
+      url.searchParams.forEach(function (v, k) {
+        qs.push('<span class="p-qkey">' + esc(k) + '</span><span class="p-sep">=</span><span class="p-qval">' + esc(v) + '</span>');
+      });
+      h += qs.join('<span class="p-sep">&amp;</span>');
+    }
+    if (url.hash) {
+      h += '<span class="p-sep">#</span><span class="p-hash">' + esc(safeDecode(url.hash.replace(/^#/, ""))) + '</span>';
+    }
+    return h;
+  }
+
+  function roCell(k, v, wide) {
+    return '<div class="ro-cell' + (wide ? ' wide' : '') + '"><div class="k">' + esc(k) +
+      '</div><div class="v">' + (v === "" ? '<span class="p-sep">(empty)</span>' : esc(v)) + '</div></div>';
+  }
+  function renderReadout(url) {
+    var h = "";
+    h += roCell("origin", url.origin === "null" ? "(opaque)" : url.origin);
+    h += roCell("host", url.host);
+    h += roCell("pathname", url.pathname, true);
+    h += roCell("search", url.search);
+    h += roCell("hash", url.hash);
+    h += roCell("params", String(state.params.length));
+    readoutEl.innerHTML = h;
+  }
+
+  function renderOutputs(str) {
+    var res = parseUrl(str);
+    if (res.empty) {
+      setStatus("neutral");
+      rawOut.textContent = "—";
+      prettyOut.innerHTML = "—";
+      readoutEl.innerHTML = "";
+      return;
+    }
+    if (!res.ok) {
+      setStatus("invalid", res.error);
+      rawOut.textContent = str;
+      prettyOut.innerHTML = '<span class="p-sep">cannot render — the URL is not valid</span>';
+      readoutEl.innerHTML = "";
+      return;
+    }
+    setStatus("valid");
+    rawOut.textContent = res.url.href;
+    prettyOut.innerHTML = prettyHtml(res.url);
+    renderReadout(res.url);
+  }
+
+  /* rebuild from components (called on any component/param/segment edit) */
+  function rebuild() {
+    var assembled = assemble();
+    if (document.activeElement !== urlInput) urlInput.value = assembled;
+    renderOutputs(assembled);
+  }
+
+  /* ---------------- source input handling ---------------- */
+  function handleUrlInput() {
+    var res = parseUrl(urlInput.value);
+    if (res.empty) { clearComponents(); renderOutputs(""); return; }
+    if (!res.ok) { renderOutputs(urlInput.value); return; }
+    loadFromUrl(res.url);
+    renderOutputs(res.url.href);
+  }
+  urlInput.addEventListener("input", handleUrlInput);
+
+  /* component simple fields rebuild on edit */
+  [protoI, userI, passI, hostI, portI, hashI].forEach(function (el) {
+    el.addEventListener("input", rebuild);
+  });
+
+  $("url-decode").addEventListener("click", function () {
+    urlInput.value = safeDecode(urlInput.value); handleUrlInput();
+  });
+  $("url-encode").addEventListener("click", function () {
+    try { urlInput.value = encodeURI(urlInput.value); } catch (e) {}
+    handleUrlInput();
+  });
+  $("url-clear").addEventListener("click", function () {
+    urlInput.value = ""; handleUrlInput(); urlInput.focus();
+  });
+
+  /* ---------------- samples ---------------- */
+  var SAMPLES = {
+    api: "https://user:p%40ss@api.example.com:8443/v2/search/results?q=hello%20world&tag=a&tag=b&page=2&sort=desc#top",
+    auth: "https://admin:s3cr3t@dashboard.example.org/panel/settings?theme=dark&debug=true#profile",
+    idn: "https://例え.テスト/パス/page?q=日本語&x=1#フラグ",
+    mailto: "mailto:someone@example.com?subject=Hi%20there&cc=team@example.com&body=Line%20one",
+    db: "postgres://appuser:secret@db.internal:5432/appdb?sslmode=require&pool=10&connect_timeout=15"
+  };
+  Array.prototype.forEach.call(document.querySelectorAll("[data-sample]"), function (b) {
+    b.addEventListener("click", function () {
+      urlInput.value = SAMPLES[b.getAttribute("data-sample")] || "";
+      handleUrlInput();
+    });
+  });
+
+  /* ---------------- encode / decode helper ---------------- */
+  var encInput = $("enc-input"), encOut = $("enc-out");
+  Array.prototype.forEach.call($("enc-mode").querySelectorAll("button"), function (b) {
+    b.addEventListener("click", function () {
+      encMode = b.getAttribute("data-mode");
+      Array.prototype.forEach.call($("enc-mode").querySelectorAll("button"), function (x) { x.classList.remove("on"); });
+      b.classList.add("on");
+    });
+  });
+  function encSet(text) { encOut.textContent = (text === "" ? "—" : text); }
+  $("enc-do").addEventListener("click", function () {
+    var v = encInput.value;
+    encSet(encMode === "component" ? encodeURIComponent(v) : encodeURI(v));
+  });
+  $("dec-do").addEventListener("click", function () {
+    var v = encInput.value;
+    try { encSet(encMode === "component" ? decodeURIComponent(v) : decodeURI(v)); }
+    catch (e) { encSet("—"); encOut.innerHTML = '<span class="p-sep">malformed percent-encoding — ' + esc(e.message) + '</span>'; }
+  });
+  $("enc-swap").addEventListener("click", function () {
+    var t = encOut.textContent; if (t === "—") return; encInput.value = t; encInput.focus();
+  });
+  $("enc-clear").addEventListener("click", function () { encInput.value = ""; encSet(""); encInput.focus(); });
+
+  /* ---------------- init ---------------- */
+  setStatus("neutral");
+  renderSegments();
+  renderParams();
+  urlInput.value = SAMPLES.api;
+  handleUrlInput();
+})();
+</script>
+</body>
+</html>
