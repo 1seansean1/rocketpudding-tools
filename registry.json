@@ -970,6 +970,30 @@
         "version": "",
         "url": ""
       }
+    },
+    {
+      "slug": "cvd-simulator",
+      "name": "Color Vision Simulator",
+      "tagline": "See your images and palettes through color-blind eyes — and catch collapses.",
+      "description": "Zero-dependency color-vision-deficiency simulator for accessibility. Drop an image to see it under protanopia, deuteranopia, tritanopia, their milder anomalous forms (severity slider), and achromatopsia, using a correct sRGB→linear→matrix→sRGB pipeline (Machado 2009). Or enter a palette / a foreground-background pair to see how each color shifts under every CVD type and get flagged when two colors become indistinguishable — 'these collapse for 8% of men.' Everything runs in your browser.",
+      "path": "tools/cvd-simulator/",
+      "tags": [
+        "color",
+        "accessibility",
+        "colorblind",
+        "a11y",
+        "vision"
+      ],
+      "added": "2026-07-11",
+      "status": "live",
+      "accent": "#ff2d95",
+      "origin": "vendored",
+      "provenance": {
+        "lib": "zero dependencies",
+        "license": "MIT",
+        "version": "",
+        "url": ""
+      }
     }
   ]
 }

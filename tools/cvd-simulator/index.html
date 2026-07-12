@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Color Vision Simulator</title>
+<meta name="description" content="Zero-dependency color-blindness (CVD) simulator: render any image under protanopia, deuteranopia, tritanopia, anomalous trichromacy, and achromatopsia using physiologically-based Machado 2009 matrices in a correct linear-light pipeline; audit palettes for color pairs that collapse for people with CVD via CIEDE2000. Nothing is uploaded.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f4f3ef;
+  --fg: #191b1e;
+  --muted: #8a8d93;
+  --line: #dcd9d2;
+  --card: #ffffff;
+  --accent: #ff2d95;
+  --accent-fg: #ffffff;
+  --ok: #2e9e5b;
+  --warn: #d98324;
+  --danger: #cb4b3f;
+  --hover: rgba(0,0,0,0.035);
+  --shadow: 0 1px 2px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.05);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16171a;
+    --fg: #eceae4;
+    --muted: #8a8d93;
+    --line: #2b2d31;
+    --card: #1e2024;
+    --accent: #ff2d95;
+    --accent-fg: #ffffff;
+    --ok: #38b46b;
+    --warn: #e6a24a;
+    --danger: #e2685c;
+    --hover: rgba(255,255,255,0.045);
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 10px 30px rgba(0,0,0,0.35);
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 400 14px/1.55 "IBM Plex Sans", system-ui, sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  -webkit-font-smoothing: antialiased;
+}
+.mono { font-family: "IBM Plex Mono", ui-monospace, monospace; }
+::selection { background: color-mix(in srgb, var(--accent) 30%, transparent); }
+
+/* ---------- header / footer ---------- */
+header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 24px;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  backdrop-filter: blur(10px);
+  z-index: 20;
+}
+.sq { width: 13px; height: 13px; background: var(--accent); flex: none; border-radius: 2px; }
+header h1 {
+  font: 700 14px "IBM Plex Mono", monospace;
+  letter-spacing: 0.24em;
+}
+.back {
+  margin-left: auto;
+  font: 500 12px "IBM Plex Mono", monospace;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 5px 8px;
+  border-radius: 5px;
+  transition: color .15s, background .15s;
+}
+.back:hover, .back:focus-visible { color: var(--fg); background: var(--hover); outline: none; }
+footer {
+  margin-top: auto;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  font: 400 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+footer .sq { width: 8px; height: 8px; opacity: .8; }
+
+/* ---------- layout ---------- */
+main {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 22px 24px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+}
+.subhead {
+  font: 700 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.icon { width: 15px; height: 15px; flex: none; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.lbl {
+  display: block;
+  font: 500 10px "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 7px;
+}
+.hint { font: 400 12px "IBM Plex Sans", sans-serif; color: var(--muted); }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; border: 1px solid var(--line); background: var(--card); border-radius: 10px; padding: 4px; box-shadow: var(--shadow); align-self: flex-start; }
+.tab {
+  font: 600 12px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--muted); background: none; border: none; cursor: pointer;
+  padding: 8px 16px; border-radius: 7px; display: inline-flex; align-items: center; gap: 7px;
+  transition: color .15s, background .15s;
+}
+.tab:hover { color: var(--fg); background: var(--hover); }
+.tab.active { color: var(--accent-fg); background: var(--accent); }
+.tab.active .icon { color: var(--accent-fg); }
+.tabpanel { display: flex; flex-direction: column; gap: 20px; }
+
+/* ---------- buttons / inputs ---------- */
+button {
+  font: 500 13px "IBM Plex Sans", sans-serif;
+  cursor: pointer; border: 1px solid var(--line); background: var(--card); color: var(--fg);
+  border-radius: 8px; padding: 8px 14px; transition: background .15s, border-color .15s, transform .05s;
+  display: inline-flex; align-items: center; gap: 7px;
+}
+button:hover { background: var(--hover); border-color: var(--muted); }
+button:active { transform: translateY(1px); }
+button:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.primary:hover { filter: brightness(1.06); background: var(--accent); }
+button.primary .icon { color: var(--accent-fg); }
+button.sm { padding: 6px 10px; font-size: 12px; }
+textarea, input[type="text"], input[type="number"], select {
+  width: 100%; background: var(--bg); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 7px; padding: 10px 12px;
+  font: 500 13px "IBM Plex Mono", monospace; transition: border-color .15s, box-shadow .15s;
+}
+textarea { resize: vertical; min-height: 92px; line-height: 1.6; }
+input[type="text"]:focus, textarea:focus, input[type="number"]:focus, select:focus {
+  outline: none; border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+input[type="color"] {
+  -webkit-appearance: none; appearance: none; width: 40px; height: 40px;
+  border: 1px solid var(--line); border-radius: 8px; background: none; cursor: pointer; padding: 4px; flex: none;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 5px; }
+input[type="range"] { accent-color: var(--accent); width: 100%; cursor: pointer; }
+svg { display: block; }
+.hidden { display: none !important; }
+
+/* ---------- dropzone ---------- */
+#drop {
+  border: 1.5px dashed var(--line); border-radius: 12px; padding: 44px 24px;
+  text-align: center; cursor: pointer; transition: border-color .15s, background .15s; background: var(--card);
+}
+#drop:hover, #drop.drag { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, var(--card)); }
+#drop .big-icon { width: 40px; height: 40px; color: var(--accent); margin: 0 auto 12px; display: block; stroke-width: 1.6; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+#drop h3 { font: 600 16px "IBM Plex Sans", sans-serif; margin-bottom: 6px; }
+#drop p { color: var(--muted); font-size: 13px; }
+#drop .kbd { font-family: "IBM Plex Mono", monospace; font-size: 11px; background: var(--hover); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+#drop .drop-actions { margin-top: 16px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ---------- control bar ---------- */
+.ctrlbar { display: flex; flex-wrap: wrap; gap: 18px 24px; align-items: center; }
+.sevwrap { display: flex; align-items: center; gap: 12px; flex: 1 1 320px; min-width: 260px; }
+.sevwrap .lbl { margin: 0; white-space: nowrap; }
+.sevwrap input[type=range] { flex: 1; min-width: 120px; }
+.sevval { font: 600 13px "IBM Plex Mono", monospace; color: var(--accent); width: 42px; text-align: right; flex: none; }
+.spacer { flex: 1 1 auto; }
+
+/* ---------- sim grid ---------- */
+.simgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); gap: 14px; }
+.tile { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--card); transition: transform .1s, box-shadow .1s, border-color .1s; }
+.tile.click { cursor: zoom-in; }
+.tile.click:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(0,0,0,.16); border-color: var(--muted); }
+.tile.ref { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); }
+.tile .canvwrap { line-height: 0; background: repeating-conic-gradient(var(--hover) 0% 25%, transparent 0% 50%) 0 0 / 18px 18px; }
+.tile canvas { width: 100%; height: auto; display: block; }
+.tile .cap { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-top: 1px solid var(--line); }
+.tile .cap .nm { font: 600 12px "IBM Plex Sans", sans-serif; }
+.tile .cap .pv { font: 500 10px "IBM Plex Mono", monospace; color: var(--muted); }
+.tile .cap .dl { margin-left: auto; background: none; border: none; padding: 4px; color: var(--muted); border-radius: 5px; }
+.tile .cap .dl:hover { color: var(--accent); background: var(--hover); }
+.tile .cap .dl .icon { width: 15px; height: 15px; }
+.tag { font: 600 9px "IBM Plex Mono", monospace; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+
+/* ---------- palette ---------- */
+.pal-controls { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 20px; }
+@media (max-width: 780px) { .pal-controls { grid-template-columns: 1fr; } }
+.pair-row { display: flex; gap: 10px; align-items: center; margin-top: 8px; }
+.pair-row input[type=text] { flex: 1; }
+.mini-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.thresh-row { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+.thresh-row .lbl { margin: 0; white-space: nowrap; }
+.thresh-row input[type=range] { flex: 1; }
+
+.prev-banner { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 9px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); background: color-mix(in srgb, var(--accent) 8%, transparent); font: 500 13px "IBM Plex Sans", sans-serif; }
+.prev-banner .icon { color: var(--accent); width: 20px; height: 20px; }
+.prev-banner b { font-weight: 700; }
+
+.matrix-scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+table.matrix { border-collapse: collapse; width: 100%; font: 500 12px "IBM Plex Mono", monospace; }
+table.matrix th, table.matrix td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 0; text-align: center; white-space: nowrap; }
+table.matrix th:last-child, table.matrix td:last-child { border-right: none; }
+table.matrix tr:last-child th, table.matrix tr:last-child td { border-bottom: none; }
+table.matrix thead th { background: var(--bg); padding: 8px 10px; font-weight: 600; font-size: 11px; }
+table.matrix thead th .swlab { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+table.matrix thead th .swdot { width: 26px; height: 20px; border-radius: 4px; border: 1px solid color-mix(in srgb, var(--fg) 18%, transparent); }
+table.matrix tbody th { background: var(--bg); text-align: left; padding: 8px 12px; font-weight: 600; font-size: 11px; position: sticky; left: 0; }
+table.matrix tbody th .trow { display: flex; flex-direction: column; gap: 2px; }
+table.matrix tbody th .tp { font: 500 9px "IBM Plex Mono", monospace; color: var(--muted); letter-spacing: .04em; }
+.swcell { width: 46px; height: 40px; cursor: pointer; position: relative; }
+.swcell:hover::after { content: ""; position: absolute; inset: 3px; border-radius: 4px; box-shadow: 0 0 0 2px var(--fg); }
+
+/* ---------- collapse report ---------- */
+.report-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+.rep { border: 1px solid var(--line); border-radius: 10px; padding: 14px; background: var(--card); }
+.rep .rhead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+.rep .rhead .rt { font: 600 13px "IBM Plex Sans", sans-serif; }
+.rep .rhead .rp { font: 500 10px "IBM Plex Mono", monospace; color: var(--muted); margin-left: auto; }
+.rep .rmin { font: 500 11px "IBM Plex Mono", monospace; color: var(--muted); margin-bottom: 10px; }
+.rep.clean { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); }
+.rep.flagged { border-color: color-mix(in srgb, var(--danger) 45%, var(--line)); }
+.pair { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px dashed var(--line); }
+.pair:first-of-type { border-top: none; }
+.pair .duo { display: flex; flex: none; }
+.pair .duo span { width: 20px; height: 20px; border: 1px solid color-mix(in srgb, var(--fg) 20%, transparent); }
+.pair .duo span:first-child { border-radius: 5px 0 0 5px; border-right: none; }
+.pair .duo span:last-child { border-radius: 0 5px 5px 0; }
+.pair .arrow { color: var(--muted); }
+.pair .duo2 span:first-child { border-radius: 5px 0 0 5px; border-right: none; }
+.pair .duo2 span:last-child { border-radius: 0 5px 5px 0; }
+.pair .pnames { font: 500 11px "IBM Plex Mono", monospace; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.pair .de { font: 600 11px "IBM Plex Mono", monospace; margin-left: auto; flex: none; padding: 2px 7px; border-radius: 20px; }
+.de.b0 { color: #fff; background: var(--danger); }
+.de.b1 { color: #fff; background: color-mix(in srgb, var(--danger) 78%, var(--warn)); }
+.de.b2 { color: var(--fg); background: color-mix(in srgb, var(--warn) 55%, transparent); }
+.de.b3 { color: var(--fg); background: color-mix(in srgb, var(--muted) 30%, transparent); }
+.rep .clean-msg { font: 500 12px "IBM Plex Sans", sans-serif; color: var(--ok); display: flex; align-items: center; gap: 7px; }
+.rep .clean-msg .icon { color: var(--ok); }
+
+/* ---------- method tab ---------- */
+.prose { font: 400 13.5px/1.65 "IBM Plex Sans", sans-serif; }
+.prose p { margin-bottom: 12px; }
+.prose h3 { font: 700 11px "IBM Plex Mono", monospace; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 22px 0 10px; }
+.prose h3:first-child { margin-top: 0; }
+.prose code { font: 500 12px "IBM Plex Mono", monospace; background: var(--hover); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; }
+.prose ul { margin: 0 0 12px 18px; }
+.prose li { margin-bottom: 5px; }
+.prose a { color: var(--accent); }
+.pipe { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 14px; }
+.pipe .step { font: 600 11px "IBM Plex Mono", monospace; border: 1px solid var(--line); border-radius: 7px; padding: 7px 11px; background: var(--bg); }
+.pipe .step.acc { border-color: var(--accent); color: var(--accent); }
+.pipe .ar { color: var(--muted); }
+table.mat9 { border-collapse: collapse; font: 500 11.5px "IBM Plex Mono", monospace; margin-bottom: 8px; }
+table.mat9 caption { text-align: left; font: 600 11px "IBM Plex Mono", monospace; color: var(--muted); padding-bottom: 6px; letter-spacing: .06em; }
+table.mat9 td { border: 1px solid var(--line); padding: 5px 10px; text-align: right; }
+.prevtable { width: 100%; border-collapse: collapse; font: 500 12.5px "IBM Plex Sans", sans-serif; }
+.prevtable th, .prevtable td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.prevtable th { font: 600 10px "IBM Plex Mono", monospace; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.prevtable td.n { font-family: "IBM Plex Mono", monospace; }
+
+/* ---------- modal ---------- */
+#modal { position: fixed; inset: 0; z-index: 60; display: none; align-items: center; justify-content: center; padding: 28px; background: color-mix(in srgb, #000 62%, transparent); backdrop-filter: blur(4px); }
+#modal.show { display: flex; }
+.modal-box { background: var(--card); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--shadow); max-width: 96vw; max-height: 92vh; display: flex; flex-direction: column; overflow: hidden; }
+.modal-box .mhead { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--line); }
+.modal-box .mhead .mt { font: 600 14px "IBM Plex Sans", sans-serif; }
+.modal-box .mhead .mp { font: 500 11px "IBM Plex Mono", monospace; color: var(--muted); }
+.modal-box .mhead .mx { margin-left: auto; display: flex; gap: 8px; }
+.modal-box .mbody { overflow: auto; background: repeating-conic-gradient(var(--hover) 0% 25%, transparent 0% 50%) 0 0 / 22px 22px; }
+.modal-box .mbody canvas { display: block; max-width: 100%; height: auto; margin: 0 auto; }
+
+/* ---------- toast ---------- */
+#toast {
+  position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(16px);
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 9px;
+  font: 500 12.5px "IBM Plex Mono", monospace; box-shadow: 0 8px 30px rgba(0,0,0,.3);
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+  display: flex; align-items: center; gap: 9px; z-index: 70; max-width: 90vw;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast .icon { color: var(--accent); width: 15px; height: 15px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="sq"></div>
+  <h1>COLOR VISION SIM</h1>
+  <a class="back mono" href="../../">&larr; tools</a>
+</header>
+
+<main>
+  <div class="tabs" role="tablist">
+    <button class="tab active" data-tab="image" role="tab"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>Image</button>
+    <button class="tab" data-tab="palette" role="tab"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="8" cy="10" r="1.3"/><circle cx="12" cy="7.5" r="1.3"/><circle cx="16" cy="10" r="1.3"/><path d="M12 21a4 4 0 004-4c0-1.5-2-2-2-3.5S15.5 12 17 12"/></svg>Palette</button>
+    <button class="tab" data-tab="method" role="tab"><svg class="icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>Method</button>
+  </div>
+
+  <!-- ============================ IMAGE ============================ -->
+  <section id="tab-image" class="tabpanel">
+    <div id="drop" tabindex="0" role="button" aria-label="Drop, click, or paste an image">
+      <svg class="big-icon" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      <h3>Drop an image, click to pick, or paste</h3>
+      <p>Everything runs locally in your browser &mdash; <span class="kbd">Ctrl/&#8984; V</span> to paste from the clipboard. Nothing is uploaded.</p>
+      <div class="drop-actions">
+        <button class="primary" id="sampleBtn" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M3 12h18"/><circle cx="12" cy="12" r="9"/></svg> Load a sample chart</button>
+      </div>
+      <input id="file" type="file" accept="image/*" class="hidden">
+    </div>
+
+    <div id="imgResults" class="hidden" style="display:flex;flex-direction:column;gap:20px;">
+      <section class="card">
+        <div class="ctrlbar">
+          <div class="sevwrap">
+            <span class="lbl">Anomaly severity</span>
+            <input type="range" id="imgSeverity" min="0" max="1" step="0.05" value="0.6" aria-label="Anomaly severity">
+            <span class="sevval mono" id="imgSevVal">0.60</span>
+          </div>
+          <div class="hint">Severity drives the three <em>anomalous</em> tiles (mild&nbsp;&rarr;&nbsp;strong). The three <em>-opia</em> tiles are full dichromacy (severity&nbsp;1.0).</div>
+          <div class="spacer"></div>
+          <button class="sm" id="imgReset" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M3 12a9 9 0 109-9"/><path d="M3 4v5h5"/></svg> New image</button>
+        </div>
+      </section>
+
+      <div class="simgrid" id="simGrid"></div>
+    </div>
+  </section>
+
+  <!-- ============================ PALETTE ============================ -->
+  <section id="tab-palette" class="tabpanel hidden">
+    <section class="card">
+      <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg> Palette input</div>
+      <div class="pal-controls">
+        <div>
+          <span class="lbl">Colors &mdash; hex, rgb(), or CSS names (any separator)</span>
+          <textarea id="palInput" spellcheck="false" autocomplete="off" placeholder="#e41a1c  #377eb8  #4daf4a  #984ea3  #ff7f00  #ffff33"></textarea>
+          <div class="mini-actions">
+            <button class="sm" id="palApply" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> Analyze palette</button>
+            <button class="sm" id="palDemo" type="button">Load demo (Set1)</button>
+            <button class="sm" id="palDemoChart" type="button">Load demo (traffic)</button>
+          </div>
+        </div>
+        <div>
+          <span class="lbl">Or check one foreground / background pair</span>
+          <div class="pair-row">
+            <input type="color" id="fgPick" value="#4daf4a" aria-label="Foreground">
+            <input type="text" class="mono" id="fgHex" value="#4daf4a" spellcheck="false" aria-label="Foreground hex">
+          </div>
+          <div class="pair-row">
+            <input type="color" id="bgPick" value="#e41a1c" aria-label="Background">
+            <input type="text" class="mono" id="bgHex" value="#e41a1c" spellcheck="false" aria-label="Background hex">
+          </div>
+          <div class="mini-actions">
+            <button class="sm" id="pairApply" type="button">Load this pair</button>
+          </div>
+          <div class="thresh-row">
+            <span class="lbl">Collapse &Delta;E&#8320;&#8320; &le;</span>
+            <input type="range" id="threshold" min="1" max="25" step="0.5" value="10" aria-label="Collapse threshold">
+            <span class="sevval mono" id="threshVal">10</span>
+          </div>
+          <div class="thresh-row">
+            <span class="lbl">Anomaly sev.</span>
+            <input type="range" id="palSeverity" min="0" max="1" step="0.05" value="0.6" aria-label="Palette anomaly severity">
+            <span class="sevval mono" id="palSevVal">0.60</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="prev-banner">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>
+      <span>Red&ndash;green color-vision deficiency affects <b>~8% of men</b> and <b>~0.5% of women</b> &mdash; roughly <b>1 in 12 men</b>. A pair that "reads fine" to you can collapse for them.</span>
+    </div>
+
+    <section class="card">
+      <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18"/><rect x="7" y="8" width="3" height="9"/><rect x="14" y="5" width="3" height="12"/></svg> How the palette looks to each vision type <span class="tag" style="margin-left:6px">click a swatch to copy</span></div>
+      <div class="matrix-scroll">
+        <table class="matrix" id="palMatrix"></table>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="subhead"><svg class="icon" viewBox="0 0 24 24"><path d="M12 9v4"/><path d="M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg> Collapse report <span class="tag" id="collapseCount" style="margin-left:6px">&mdash;</span></div>
+      <div class="report-grid" id="report"></div>
+    </section>
+  </section>
+
+  <!-- ============================ METHOD ============================ -->
+  <section id="tab-method" class="tabpanel hidden">
+    <section class="card">
+      <div class="prose">
+        <h3>The simulation pipeline</h3>
+        <p>Color-vision deficiency (CVD) is simulated per pixel in <b>linear light</b>, not on the gamma-encoded values you see on screen. sRGB channels are decoded to linear, multiplied by a physiologically-derived 3&times;3 matrix, then re-encoded:</p>
+        <div class="pipe">
+          <span class="step">sRGB 0&ndash;255</span><span class="ar">&rarr;</span>
+          <span class="step">decode &gamma; (IEC&nbsp;61966-2-1)</span><span class="ar">&rarr;</span>
+          <span class="step acc">3&times;3 CVD matrix M(sev)</span><span class="ar">&rarr;</span>
+          <span class="step">clamp [0,1]</span><span class="ar">&rarr;</span>
+          <span class="step">encode &gamma;</span><span class="ar">&rarr;</span>
+          <span class="step">sRGB out</span>
+        </div>
+        <p>The matrices come from <b>Machado, Oliveira &amp; Fernandes (2009)</b>, <em>"A Physiologically-based Model for Simulation of Color Vision Deficiency"</em> (IEEE TVCG 15(6):1291&ndash;1298, doi:10.1109/TVCG.2009.113). They span the three cone-based deficiencies at 11 severity steps (0.0&ndash;1.0); intermediate severities are linearly interpolated between adjacent matrices. A <b>protanopia / deuteranopia / tritanopia</b> tile is that family at severity&nbsp;1.0 (full dichromacy); a <b>-anomaly</b> tile uses the severity slider. Machado's matrices are formulated for a linearized RGB working space, which is why the decode/encode gamma steps matter &mdash; applying the matrix directly to gamma-encoded sRGB (a common shortcut) shifts the result. See DaltonLens's open-source-simulation review for the comparison.</p>
+
+        <h3>Achromatopsia (total color blindness)</h3>
+        <p>Rendered as luminance: <code>Y = 0.2126&middot;R + 0.7152&middot;G + 0.0722&middot;B</code> computed on the <b>linear</b> channels (Rec.&nbsp;709 / WCAG relative-luminance coefficients), then written to all three channels. Because R, G and B become identical in linear light, the re-encoded output is a true neutral gray.</p>
+
+        <h3>Dichromat matrices used (severity 1.0)</h3>
+        <div id="methodMatrices"></div>
+
+        <h3>Palette collapse detection</h3>
+        <p>Each palette color is simulated under every vision type, then every color pair's perceptual distance is measured with <b>CIEDE2000</b> (Sharma, Wu &amp; Dalal 2005) in CIELAB (D65). Pairs whose &Delta;E&#8320;&#8320; falls at or below the threshold are flagged as at risk of becoming indistinguishable. Reference bands: &Delta;E&#8320;&#8320;&nbsp;&lt;&nbsp;1 is imperceptible, ~2.3 is the just-noticeable difference, and categorical chart colors generally want a comfortable margin (&asymp;10+) so they survive CVD.</p>
+
+        <h3>Prevalence (approximate, of the stated group)</h3>
+        <table class="prevtable">
+          <thead><tr><th>Type</th><th>Cone affected</th><th>Prevalence</th></tr></thead>
+          <tbody>
+            <tr><td>Deuteranomaly</td><td>M (green), shifted</td><td class="n">~5% of men &mdash; most common</td></tr>
+            <tr><td>Deuteranopia</td><td>M (green), absent</td><td class="n">~1% of men</td></tr>
+            <tr><td>Protanomaly</td><td>L (red), shifted</td><td class="n">~1% of men</td></tr>
+            <tr><td>Protanopia</td><td>L (red), absent</td><td class="n">~1% of men</td></tr>
+            <tr><td>Tritanomaly / Tritanopia</td><td>S (blue)</td><td class="n">~0.01% of people</td></tr>
+            <tr><td>Achromatopsia</td><td>no functional cones</td><td class="n">~0.003% (1 in ~33,000)</td></tr>
+          </tbody>
+        </table>
+        <p class="hint" style="margin-top:12px">Figures vary by population and study; red&ndash;green deficiency is markedly more common in men because the L/M opsin genes are X-linked. Everything here runs entirely in your browser &mdash; no image or color ever leaves the page.</p>
+      </div>
+    </section>
+  </section>
+</main>
+
+<footer>
+  <div class="sq"></div>
+  <span class="mono">zero dependencies &middot; Machado 2009 matrices</span>
+</footer>
+
+<div id="modal" role="dialog" aria-modal="true">
+  <div class="modal-box">
+    <div class="mhead">
+      <span class="mt" id="modalTitle">&mdash;</span>
+      <span class="mp" id="modalPrev"></span>
+      <div class="mx">
+        <button class="sm" id="modalDl" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg> PNG</button>
+        <button class="sm" id="modalClose" type="button"><svg class="icon" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg> Close</button>
+      </div>
+    </div>
+    <div class="mbody"><canvas id="modalCanvas"></canvas></div>
+  </div>
+</div>
+
+<div id="toast"><span id="toastIcon"><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg></span><span id="toastMsg"></span></div>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ============================================================
+   * PURE COLOR-SCIENCE CORE  (unit-testable under Node, no DOM)
+   * ============================================================ */
+
+  function clamp(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
+  function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
+  function clamp255(x) { x = Math.round(x); return x < 0 ? 0 : x > 255 ? 255 : x; }
+
+  /* sRGB transfer function — IEC 61966-2-1 */
+  function srgbToLinear(c) { return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  function linearToSrgb(c) { return c <= 0.0031308 ? 12.92 * c : 1.055 * Math.pow(c, 1 / 2.4) - 0.055; }
+
+  /* ---- Machado, Oliveira & Fernandes 2009 severity-parameterized matrices ----
+     Each family holds 11 row-major 3x3 matrices for severity 0.0 .. 1.0 (step 0.1).
+     Applied in LINEAR RGB. */
+  var MACHADO = {
+    protan: [
+      [1,0,0, 0,1,0, 0,0,1],
+      [0.856167,0.182038,-0.038205, 0.029342,0.955115,0.015544, -0.002880,-0.001563,1.004443],
+      [0.734766,0.334872,-0.069637, 0.051840,0.919198,0.028963, -0.004928,-0.004209,1.009137],
+      [0.630323,0.465641,-0.095964, 0.069181,0.890046,0.040773, -0.006308,-0.007724,1.014032],
+      [0.539009,0.579343,-0.118352, 0.082546,0.866121,0.051332, -0.007136,-0.011959,1.019095],
+      [0.458064,0.679578,-0.137642, 0.092785,0.846313,0.060902, -0.007494,-0.016807,1.024301],
+      [0.385450,0.769005,-0.154455, 0.100526,0.829802,0.069673, -0.007442,-0.022190,1.029632],
+      [0.319627,0.849633,-0.169261, 0.106241,0.815969,0.077790, -0.007025,-0.028051,1.035076],
+      [0.259411,0.923008,-0.182420, 0.110296,0.804340,0.085364, -0.006276,-0.034346,1.040622],
+      [0.203876,0.990338,-0.194214, 0.112975,0.794542,0.092483, -0.005222,-0.041043,1.046265],
+      [0.152286,1.052583,-0.204868, 0.114503,0.786281,0.099216, -0.003882,-0.048116,1.051998]
+    ],
+    deutan: [
+      [1,0,0, 0,1,0, 0,0,1],
+      [0.866435,0.177704,-0.044139, 0.049567,0.939063,0.011370, -0.003453,0.007233,0.996220],
+      [0.760729,0.319078,-0.079807, 0.090568,0.889315,0.020117, -0.006027,0.013325,0.992702],
+      [0.675425,0.433850,-0.109275, 0.125303,0.847755,0.026942, -0.007950,0.018572,0.989378],
+      [0.605511,0.528560,-0.134071, 0.155318,0.812366,0.032316, -0.009376,0.023176,0.986200],
+      [0.547494,0.607765,-0.155259, 0.181692,0.781742,0.036566, -0.010410,0.027275,0.983136],
+      [0.498864,0.674741,-0.173604, 0.205199,0.754872,0.039929, -0.011131,0.030969,0.980162],
+      [0.457771,0.731899,-0.189670, 0.226409,0.731012,0.042579, -0.011595,0.034333,0.977261],
+      [0.422823,0.781057,-0.203881, 0.245752,0.709602,0.044646, -0.011843,0.037423,0.974421],
+      [0.392952,0.823610,-0.216562, 0.263559,0.690210,0.046232, -0.011910,0.040281,0.971630],
+      [0.367322,0.860646,-0.227968, 0.280085,0.672501,0.047413, -0.011820,0.042940,0.968881]
+    ],
+    tritan: [
+      [1,0,0, 0,1,0, 0,0,1],
+      [0.926670,0.092514,-0.019184, 0.021191,0.964503,0.014306, 0.008437,0.054813,0.936750],
+      [0.895720,0.133330,-0.029050, 0.029997,0.945400,0.024603, 0.013027,0.104707,0.882266],
+      [0.905871,0.127791,-0.033662, 0.026856,0.941251,0.031893, 0.013410,0.148296,0.838294],
+      [0.948035,0.089490,-0.037526, 0.014364,0.946792,0.038844, 0.010853,0.193991,0.795156],
+      [1.017277,0.027029,-0.044306, -0.006113,0.958479,0.047634, 0.006379,0.248708,0.744913],
+      [1.104996,-0.046633,-0.058363, -0.032137,0.971635,0.060503, 0.001336,0.317922,0.680742],
+      [1.193214,-0.109812,-0.083402, -0.058496,0.979410,0.079086, -0.002346,0.403492,0.598854],
+      [1.257728,-0.139648,-0.118081, -0.078003,0.975409,0.102594, -0.003316,0.501214,0.502102],
+      [1.278864,-0.125333,-0.153531, -0.084748,0.957674,0.127074, -0.000989,0.601151,0.399838],
+      [1.255528,-0.076749,-0.178779, -0.078411,0.930809,0.147602, 0.004733,0.691367,0.303900]
+    ]
+  };
+
+  /* Interpolated matrix for a family at an arbitrary severity in [0,1]. */
+  function getMatrix(family, severity) {
+    var table = MACHADO[family];
+    var s = clamp01(severity);
+    var x = s * 10;
+    var i = Math.floor(x);
+    if (i >= 10) return table[10].slice();
+    var f = x - i;
+    var a = table[i], b = table[i + 1], out = new Array(9);
+    for (var k = 0; k < 9; k++) out[k] = a[k] * (1 - f) + b[k] * f;
+    return out;
+  }
+
+  /* Full sRGB->sRGB simulation for one cone-deficiency family (exact math). */
+  function simulateRGB(family, severity, r, g, b) {
+    var m = getMatrix(family, severity);
+    var lr = srgbToLinear(r / 255), lg = srgbToLinear(g / 255), lb = srgbToLinear(b / 255);
+    var nr = m[0] * lr + m[1] * lg + m[2] * lb;
+    var ng = m[3] * lr + m[4] * lg + m[5] * lb;
+    var nb = m[6] * lr + m[7] * lg + m[8] * lb;
+    return [clamp255(linearToSrgb(clamp01(nr)) * 255),
+            clamp255(linearToSrgb(clamp01(ng)) * 255),
+            clamp255(linearToSrgb(clamp01(nb)) * 255)];
+  }
+
+  /* Achromatopsia: luminance in linear light -> neutral gray (R=G=B). */
+  function achromatopsiaRGB(r, g, b) {
+    var lr = srgbToLinear(r / 255), lg = srgbToLinear(g / 255), lb = srgbToLinear(b / 255);
+    var y = 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+    var s = clamp255(linearToSrgb(clamp01(y)) * 255);
+    return [s, s, s];
+  }
+
+  /* Dispatcher used by palette + tests. type -> {family, severity} or gray/none. */
+  function simulate(type, severity, rgb) {
+    if (type === "normal") return rgb.slice();
+    if (type === "achromatopsia") return achromatopsiaRGB(rgb[0], rgb[1], rgb[2]);
+    var map = {
+      protanopia: ["protan", 1], deuteranopia: ["deutan", 1], tritanopia: ["tritan", 1],
+      protanomaly: ["protan", severity], deuteranomaly: ["deutan", severity], tritanomaly: ["tritan", severity]
+    };
+    var d = map[type];
+    return simulateRGB(d[0], d[1], rgb[0], rgb[1], rgb[2]);
+  }
+
+  /* ---- CIELAB (D65) + CIEDE2000 ---- */
+  function rgbToXyz(r, g, b) {
+    var R = srgbToLinear(r / 255), G = srgbToLinear(g / 255), B = srgbToLinear(b / 255);
+    return [
+      R * 0.4124564 + G * 0.3575761 + B * 0.1804375,
+      R * 0.2126729 + G * 0.7151522 + B * 0.0721750,
+      R * 0.0193339 + G * 0.1191920 + B * 0.9503041
+    ];
+  }
+  function xyzToLab(x, y, z) {
+    var Xn = 0.95047, Yn = 1.0, Zn = 1.08883;
+    function f(t) { return t > 0.008856451679 ? Math.cbrt(t) : (7.787037 * t + 16 / 116); }
+    var fx = f(x / Xn), fy = f(y / Yn), fz = f(z / Zn);
+    return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
+  }
+  function rgbToLab(r, g, b) { var xyz = rgbToXyz(r, g, b); return xyzToLab(xyz[0], xyz[1], xyz[2]); }
+
+  function ciede2000(lab1, lab2) {
+    var L1 = lab1[0], a1 = lab1[1], b1 = lab1[2];
+    var L2 = lab2[0], a2 = lab2[1], b2 = lab2[2];
+    var kL = 1, kC = 1, kH = 1;
+    var rad = Math.PI / 180, deg = 180 / Math.PI;
+    var C1 = Math.sqrt(a1 * a1 + b1 * b1), C2 = Math.sqrt(a2 * a2 + b2 * b2);
+    var Cbar = (C1 + C2) / 2;
+    var Cbar7 = Math.pow(Cbar, 7);
+    var G = 0.5 * (1 - Math.sqrt(Cbar7 / (Cbar7 + Math.pow(25, 7))));
+    var a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+    var C1p = Math.sqrt(a1p * a1p + b1 * b1), C2p = Math.sqrt(a2p * a2p + b2 * b2);
+    function hp(bb, aa) { if (bb === 0 && aa === 0) return 0; var h = Math.atan2(bb, aa) * deg; return h < 0 ? h + 360 : h; }
+    var h1p = hp(b1, a1p), h2p = hp(b2, a2p);
+    var dLp = L2 - L1;
+    var dCp = C2p - C1p;
+    var dhp;
+    if (C1p * C2p === 0) dhp = 0;
+    else { dhp = h2p - h1p; if (dhp > 180) dhp -= 360; else if (dhp < -180) dhp += 360; }
+    var dHp = 2 * Math.sqrt(C1p * C2p) * Math.sin((dhp / 2) * rad);
+    var Lbp = (L1 + L2) / 2;
+    var Cbp = (C1p + C2p) / 2;
+    var hbp;
+    if (C1p * C2p === 0) hbp = h1p + h2p;
+    else if (Math.abs(h1p - h2p) > 180) hbp = (h1p + h2p + (h1p + h2p < 360 ? 360 : -360)) / 2;
+    else hbp = (h1p + h2p) / 2;
+    var T = 1 - 0.17 * Math.cos((hbp - 30) * rad) + 0.24 * Math.cos((2 * hbp) * rad)
+              + 0.32 * Math.cos((3 * hbp + 6) * rad) - 0.20 * Math.cos((4 * hbp - 63) * rad);
+    var dTheta = 30 * Math.exp(-Math.pow((hbp - 275) / 25, 2));
+    var Cbp7 = Math.pow(Cbp, 7);
+    var Rc = 2 * Math.sqrt(Cbp7 / (Cbp7 + Math.pow(25, 7)));
+    var Sl = 1 + (0.015 * Math.pow(Lbp - 50, 2)) / Math.sqrt(20 + Math.pow(Lbp - 50, 2));
+    var Sc = 1 + 0.045 * Cbp;
+    var Sh = 1 + 0.015 * Cbp * T;
+    var Rt = -Math.sin((2 * dTheta) * rad) * Rc;
+    var tL = dLp / (kL * Sl), tC = dCp / (kC * Sc), tH = dHp / (kH * Sh);
+    return Math.sqrt(tL * tL + tC * tC + tH * tH + Rt * tC * tH);
+  }
+  function deltaE(rgbA, rgbB) { return ciede2000(rgbToLab(rgbA[0], rgbA[1], rgbA[2]), rgbToLab(rgbB[0], rgbB[1], rgbB[2])); }
+
+  /* ---- small color parser (hex / rgb() / a few names) ---- */
+  var NAMED = {
+    black:"#000000", white:"#ffffff", red:"#ff0000", lime:"#00ff00", blue:"#0000ff",
+    yellow:"#ffff00", cyan:"#00ffff", aqua:"#00ffff", magenta:"#ff00ff", fuchsia:"#ff00ff",
+    silver:"#c0c0c0", gray:"#808080", grey:"#808080", maroon:"#800000", olive:"#808000",
+    green:"#008000", purple:"#800080", teal:"#008080", navy:"#000080", orange:"#ffa500",
+    gold:"#ffd700", pink:"#ffc0cb", crimson:"#dc143c", tomato:"#ff6347", coral:"#ff7f50",
+    salmon:"#fa8072", indigo:"#4b0082", violet:"#ee82ee", turquoise:"#40e0d0",
+    skyblue:"#87ceeb", steelblue:"#4682b4", royalblue:"#4169e1", dodgerblue:"#1e90ff",
+    seagreen:"#2e8b57", forestgreen:"#228b22", limegreen:"#32cd32", brown:"#a52a2a",
+    tan:"#d2b48c", khaki:"#f0e68c", rebeccapurple:"#663399"
+  };
+  function parseColor(str) {
+    if (str == null) return null;
+    str = String(str).trim().toLowerCase();
+    if (!str) return null;
+    if (Object.prototype.hasOwnProperty.call(NAMED, str)) str = NAMED[str];
+    var m = str.match(/^#?([0-9a-f]{3})$/);
+    if (m) { var h = m[1]; return [parseInt(h[0] + h[0], 16), parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16)]; }
+    m = str.match(/^#?([0-9a-f]{6})$/);
+    if (m) { var s = m[1]; return [parseInt(s.slice(0, 2), 16), parseInt(s.slice(2, 4), 16), parseInt(s.slice(4, 6), 16)]; }
+    m = str.match(/^rgba?\(([^)]+)\)$/);
+    if (m) {
+      var p = m[1].split(/[\s,\/]+/).filter(Boolean);
+      if (p.length >= 3) {
+        function ch(v) { return v.indexOf("%") >= 0 ? clamp255(parseFloat(v) / 100 * 255) : clamp255(parseFloat(v)); }
+        return [ch(p[0]), ch(p[1]), ch(p[2])];
+      }
+    }
+    return null;
+  }
+  function rgbToHex(r, g, b) { return "#" + [r, g, b].map(function (x) { return clamp255(x).toString(16).padStart(2, "0"); }).join(""); }
+
+  /* Export for Node unit tests (harmless in the browser). */
+  if (typeof module !== "undefined" && module.exports) {
+    module.exports = {
+      clamp: clamp, clamp01: clamp01, clamp255: clamp255,
+      srgbToLinear: srgbToLinear, linearToSrgb: linearToSrgb,
+      MACHADO: MACHADO, getMatrix: getMatrix, simulateRGB: simulateRGB,
+      achromatopsiaRGB: achromatopsiaRGB, simulate: simulate,
+      rgbToXyz: rgbToXyz, xyzToLab: xyzToLab, rgbToLab: rgbToLab,
+      ciede2000: ciede2000, deltaE: deltaE, parseColor: parseColor, rgbToHex: rgbToHex
+    };
+  }
+
+  /* ============================================================
+   * DOM LAYER (skipped entirely under Node)
+   * ============================================================ */
+  if (typeof document === "undefined") return;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var MAX_DIM = 1000; // cap the working-canvas long edge for responsiveness
+
+  /* Fast lookup tables for the image hot path (a quantized version of the
+     exact math above; error is well under 1/255). */
+  var S2L = new Float32Array(256);
+  for (var i = 0; i < 256; i++) S2L[i] = srgbToLinear(i / 255);
+  var TO = new Uint8ClampedArray(4097);
+  for (var j = 0; j <= 4096; j++) TO[j] = Math.round(linearToSrgb(j / 4096) * 255);
+  function l2sIdx(v) { v = v < 0 ? 0 : v > 1 ? 1 : v; return (v * 4096) | 0; }
+
+  /* Vision types shown as tiles / rows. */
+  var TYPES = [
+    { key: "normal",        label: "Original",       prev: "reference",     kind: "ref" },
+    { key: "protanopia",    label: "Protanopia",     prev: "~1% of men",    fam: "protan", sev: 1,     tag: "dichromacy" },
+    { key: "deuteranopia",  label: "Deuteranopia",   prev: "~1% of men",    fam: "deutan", sev: 1,     tag: "dichromacy" },
+    { key: "tritanopia",    label: "Tritanopia",     prev: "~0.01%",        fam: "tritan", sev: 1,     tag: "dichromacy" },
+    { key: "protanomaly",   label: "Protanomaly",    prev: "~1% of men",    fam: "protan", sev: "s",   tag: "anomalous" },
+    { key: "deuteranomaly", label: "Deuteranomaly",  prev: "~5% of men",    fam: "deutan", sev: "s",   tag: "anomalous" },
+    { key: "tritanomaly",   label: "Tritanomaly",    prev: "~0.01%",        fam: "tritan", sev: "s",   tag: "anomalous" },
+    { key: "achromatopsia", label: "Achromatopsia",  prev: "~0.003%",       kind: "gray",  tag: "total" }
+  ];
+
+  /* ---------- toast / clipboard ---------- */
+  var toastT = null;
+  function toast(msg) {
+    $("toastMsg").textContent = msg;
+    $("toast").classList.add("show");
+    clearTimeout(toastT);
+    toastT = setTimeout(function () { $("toast").classList.remove("show"); }, 1500);
+  }
+  function copyText(t) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(t).then(function () { toast("Copied  " + t); }, function () { fallbackCopy(t); });
+    } else fallbackCopy(t);
+  }
+  function fallbackCopy(t) {
+    var ta = document.createElement("textarea");
+    ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("Copied  " + t); } catch (e) { toast("Copy failed"); }
+    ta.remove();
+  }
+
+  /* ---------- tabs ---------- */
+  var tabs = document.querySelectorAll(".tab");
+  tabs.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      tabs.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      var name = btn.getAttribute("data-tab");
+      ["image", "palette", "method"].forEach(function (t) {
+        $("tab-" + t).classList.toggle("hidden", t !== name);
+      });
+    });
+  });
+
+  /* ============================================================
+   * IMAGE MODE
+   * ============================================================ */
+  var imgState = { img: null, name: "image", srcData: null, w: 0, h: 0, tiles: {} };
+
+  function handleFile(file) {
+    if (!file || !/^image\//.test(file.type)) { toast("Not an image file"); return; }
+    imgState.name = (file.name || "image").replace(/\.[^.]+$/, "");
+    var rd = new FileReader();
+    rd.onload = function () {
+      var img = new Image();
+      img.onload = function () { imgState.img = img; buildImage(); };
+      img.onerror = function () { toast("Could not decode image"); };
+      img.src = rd.result;
+    };
+    rd.readAsDataURL(file);
+  }
+
+  function buildImage() {
+    var img = imgState.img;
+    var nW = img.naturalWidth, nH = img.naturalHeight;
+    var scale = Math.min(1, MAX_DIM / Math.max(nW, nH));
+    var w = Math.max(1, Math.round(nW * scale)), h = Math.max(1, Math.round(nH * scale));
+    imgState.w = w; imgState.h = h;
+
+    var src = document.createElement("canvas");
+    src.width = w; src.height = h;
+    var sctx = src.getContext("2d", { willReadFrequently: true });
+    sctx.drawImage(img, 0, 0, w, h);
+    imgState.srcData = sctx.getImageData(0, 0, w, h);
+
+    // build tiles
+    var grid = $("simGrid");
+    grid.innerHTML = "";
+    imgState.tiles = {};
+    TYPES.forEach(function (t) {
+      var tile = document.createElement("div");
+      tile.className = "tile click" + (t.kind === "ref" ? " ref" : "");
+      var cw = document.createElement("div"); cw.className = "canvwrap";
+      var cv = document.createElement("canvas"); cv.width = w; cv.height = h;
+      cw.appendChild(cv);
+      var cap = document.createElement("div"); cap.className = "cap";
+      cap.innerHTML = '<span class="nm">' + t.label + '</span><span class="pv">' + t.prev + '</span>' +
+        '<button class="dl" title="Download PNG" aria-label="Download PNG"><svg class="icon" viewBox="0 0 24 24"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg></button>';
+      tile.appendChild(cw); tile.appendChild(cap);
+      grid.appendChild(tile);
+      imgState.tiles[t.key] = cv;
+
+      tile.addEventListener("click", function (e) {
+        if (e.target.closest(".dl")) return;
+        openModal(t);
+      });
+      cap.querySelector(".dl").addEventListener("click", function (e) {
+        e.stopPropagation(); downloadCanvas(cv, "cvd-" + t.key + "-" + imgState.name + ".png");
+      });
+    });
+
+    renderTiles("all");
+    $("drop").classList.add("hidden");
+    $("imgResults").classList.remove("hidden");
+  }
+
+  function applyMatrixData(src, m) {
+    var d = src.data, n = d.length, out = new Uint8ClampedArray(n);
+    for (var i = 0; i < n; i += 4) {
+      var lr = S2L[d[i]], lg = S2L[d[i + 1]], lb = S2L[d[i + 2]];
+      out[i]     = TO[l2sIdx(m[0] * lr + m[1] * lg + m[2] * lb)];
+      out[i + 1] = TO[l2sIdx(m[3] * lr + m[4] * lg + m[5] * lb)];
+      out[i + 2] = TO[l2sIdx(m[6] * lr + m[7] * lg + m[8] * lb)];
+      out[i + 3] = d[i + 3];
+    }
+    return new ImageData(out, src.width, src.height);
+  }
+  function grayData(src) {
+    var d = src.data, n = d.length, out = new Uint8ClampedArray(n);
+    for (var i = 0; i < n; i += 4) {
+      var y = TO[l2sIdx(0.2126 * S2L[d[i]] + 0.7152 * S2L[d[i + 1]] + 0.0722 * S2L[d[i + 2]])];
+      out[i] = out[i + 1] = out[i + 2] = y; out[i + 3] = d[i + 3];
+    }
+    return new ImageData(out, src.width, src.height);
+  }
+
+  function renderTiles(which) {
+    if (!imgState.srcData) return;
+    var sev = parseFloat($("imgSeverity").value);
+    TYPES.forEach(function (t) {
+      if (which === "anom" && t.sev !== "s") return;
+      var cv = imgState.tiles[t.key];
+      if (!cv) return;
+      var ctx = cv.getContext("2d");
+      var data;
+      if (t.kind === "ref") data = imgState.srcData;
+      else if (t.kind === "gray") data = grayData(imgState.srcData);
+      else data = applyMatrixData(imgState.srcData, getMatrix(t.fam, t.sev === "s" ? sev : t.sev));
+      ctx.putImageData(data, 0, 0);
+    });
+  }
+
+  $("imgSeverity").addEventListener("input", function () {
+    $("imgSevVal").textContent = parseFloat(this.value).toFixed(2);
+    requestAnimationFrame(function () { renderTiles("anom"); });
+  });
+
+  /* ---------- modal ---------- */
+  var modalType = null;
+  function openModal(t) {
+    modalType = t;
+    var src = imgState.tiles[t.key];
+    var mc = $("modalCanvas");
+    mc.width = src.width; mc.height = src.height;
+    mc.getContext("2d").drawImage(src, 0, 0);
+    $("modalTitle").textContent = t.label;
+    $("modalPrev").textContent = t.prev === "reference" ? "unaltered reference" : "affects " + t.prev;
+    $("modal").classList.add("show");
+  }
+  function closeModal() { $("modal").classList.remove("show"); }
+  $("modalClose").addEventListener("click", closeModal);
+  $("modal").addEventListener("click", function (e) { if (e.target === $("modal")) closeModal(); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeModal(); });
+  $("modalDl").addEventListener("click", function () {
+    if (modalType) downloadCanvas(imgState.tiles[modalType.key], "cvd-" + modalType.key + "-" + imgState.name + ".png");
+  });
+
+  function downloadCanvas(cv, filename) {
+    cv.toBlob(function (blob) {
+      if (!blob) { toast("Export failed"); return; }
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      toast("Saved  " + filename);
+    }, "image/png");
+  }
+
+  /* ---------- input wiring ---------- */
+  $("drop").addEventListener("click", function (e) { if (!e.target.closest("button")) $("file").click(); });
+  $("drop").addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("file").click(); } });
+  $("file").addEventListener("change", function () { if (this.files[0]) handleFile(this.files[0]); });
+  ["dragenter", "dragover"].forEach(function (ev) { $("drop").addEventListener(ev, function (e) { e.preventDefault(); $("drop").classList.add("drag"); }); });
+  ["dragleave", "drop"].forEach(function (ev) { $("drop").addEventListener(ev, function (e) { e.preventDefault(); $("drop").classList.remove("drag"); }); });
+  $("drop").addEventListener("drop", function (e) { var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) handleFile(f); });
+  document.addEventListener("paste", function (e) {
+    var items = e.clipboardData && e.clipboardData.items; if (!items) return;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].type && items[i].type.indexOf("image") === 0) { var f = items[i].getAsFile(); if (f) { handleFile(f); e.preventDefault(); return; } }
+    }
+  });
+  $("imgReset").addEventListener("click", function () {
+    imgState.img = null; imgState.srcData = null;
+    $("imgResults").classList.add("hidden");
+    $("drop").classList.remove("hidden");
+    $("file").value = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  });
+  $("sampleBtn").addEventListener("click", function (e) { e.stopPropagation(); loadSample(); });
+
+  /* ---------- synthetic sample image (no external assets) ---------- */
+  function loadSample() {
+    var w = 760, h = 460;
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var x = c.getContext("2d");
+    x.fillStyle = "#ffffff"; x.fillRect(0, 0, w, h);
+
+    // title
+    x.fillStyle = "#191b1e";
+    x.font = "700 20px 'IBM Plex Sans', sans-serif";
+    x.fillText("Quarterly status", 28, 42);
+    x.font = "500 12px 'IBM Plex Mono', monospace";
+    x.fillStyle = "#8a8d93";
+    x.fillText("a synthetic test chart — watch it collapse under CVD", 28, 62);
+
+    // hue spectrum strip
+    for (var i = 0; i < w - 56; i++) {
+      x.fillStyle = "hsl(" + (i / (w - 56) * 360) + ",90%,50%)";
+      x.fillRect(28 + i, 82, 1, 34);
+    }
+    x.strokeStyle = "#dcd9d2"; x.strokeRect(28, 82, w - 56, 34);
+
+    // categorical swatches (ColorBrewer Set1 — a red/green heavy palette)
+    var set1 = ["#e41a1c", "#377eb8", "#4daf4a", "#984ea3", "#ff7f00", "#a65628"];
+    var names = ["Sales", "Ops", "Growth", "Risk", "Support", "Other"];
+    var bw = (w - 56) / set1.length;
+    for (var s = 0; s < set1.length; s++) {
+      x.fillStyle = set1[s];
+      x.fillRect(28 + s * bw + 4, 140, bw - 8, 70);
+      x.fillStyle = "#ffffff"; x.font = "600 12px 'IBM Plex Sans', sans-serif";
+      x.fillText(names[s], 28 + s * bw + 12, 205);
+    }
+
+    // traffic-light status pills (classic red/green trap)
+    var pills = [["#2e9e5b", "On track"], ["#e0b000", "At risk"], ["#d33", "Blocked"], ["#2e9e5b", "Shipped"]];
+    for (var p = 0; p < pills.length; p++) {
+      var px = 28 + p * 176;
+      x.fillStyle = pills[p][0];
+      roundRect(x, px, 244, 150, 40, 20); x.fill();
+      x.fillStyle = "#ffffff"; x.font = "600 13px 'IBM Plex Sans', sans-serif";
+      x.fillText(pills[p][1], px + 22, 269);
+    }
+
+    // two overlapping trend lines: red vs green
+    x.lineWidth = 3;
+    drawLine(x, "#d62728", [40, 400, 160, 360, 280, 380, 400, 330, 520, 350, 660, 300, 730, 320]);
+    drawLine(x, "#2ca02c", [40, 420, 160, 410, 280, 340, 400, 370, 520, 300, 660, 340, 730, 290]);
+    x.fillStyle = "#8a8d93"; x.font = "500 11px 'IBM Plex Mono', monospace";
+    x.fillText("red line vs green line", 28, 452);
+
+    var img = new Image();
+    img.onload = function () { imgState.img = img; imgState.name = "sample-chart"; buildImage(); };
+    img.src = c.toDataURL("image/png");
+  }
+  function roundRect(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
+  function drawLine(x, color, pts) { x.strokeStyle = color; x.beginPath(); x.moveTo(pts[0], pts[1]); for (var i = 2; i < pts.length; i += 2) x.lineTo(pts[i], pts[i + 1]); x.stroke(); }
+
+  /* ============================================================
+   * PALETTE MODE
+   * ============================================================ */
+  var PAL_TYPES = TYPES.filter(function (t) { return t.key !== "normal"; }); // simulated columns/rows
+
+  function bandClass(de) { return de < 1 ? "b0" : de < 2.3 ? "b1" : de < 5 ? "b2" : "b3"; }
+
+  function currentPalette() {
+    var toks = $("palInput").value.split(/[\s,;]+/).filter(Boolean);
+    var out = [];
+    var seen = {};
+    toks.forEach(function (tk) {
+      var rgb = parseColor(tk);
+      if (rgb) {
+        var hex = rgbToHex(rgb[0], rgb[1], rgb[2]);
+        if (!seen[hex]) { seen[hex] = 1; out.push({ token: tk, rgb: rgb, hex: hex }); }
+      }
+    });
+    return out;
+  }
+
+  function renderPalette() {
+    var pal = currentPalette();
+    var sev = parseFloat($("palSeverity").value);
+    var thresh = parseFloat($("threshold").value);
+
+    // ---- matrix table: rows = Original + each sim type, cols = colors ----
+    var tbl = $("palMatrix");
+    if (!pal.length) { tbl.innerHTML = '<tbody><tr><td style="padding:16px" class="hint">Enter at least one valid color above.</td></tr></tbody>'; $("report").innerHTML = ""; $("collapseCount").innerHTML = "&mdash;"; return; }
+
+    var head = '<thead><tr><th style="text-align:left">Vision&nbsp;type</th>';
+    pal.forEach(function (c) {
+      head += '<th><div class="swlab"><span class="swdot" style="background:' + c.hex + '"></span><span>' + c.hex.slice(1) + '</span></div></th>';
+    });
+    head += '</tr></thead>';
+
+    function rowFor(t) {
+      var label = t.key === "normal" ? "Original" : t.label;
+      var sub = t.key === "normal" ? "as authored" : (t.tag + (t.sev === "s" ? " · sev " + sev.toFixed(2) : ""));
+      var row = '<tr><th><div class="trow"><span>' + label + '</span><span class="tp">' + sub + '</span></div></th>';
+      pal.forEach(function (c) {
+        var sim = t.key === "normal" ? c.rgb : simulate(t.key, sev, c.rgb);
+        var hx = rgbToHex(sim[0], sim[1], sim[2]);
+        row += '<td class="swcell" title="' + c.hex + ' → ' + hx + ' (copy)" data-copy="' + hx + '" style="background:' + hx + '"></td>';
+      });
+      return row + '</tr>';
+    }
+    var body = '<tbody>';
+    body += rowFor({ key: "normal" });
+    PAL_TYPES.forEach(function (t) { body += rowFor(t); });
+    body += '</tbody>';
+    tbl.innerHTML = head + body;
+
+    // ---- collapse report ----
+    var report = $("report");
+    report.innerHTML = "";
+    var totalFlagged = 0;
+    PAL_TYPES.forEach(function (t) {
+      var sims = pal.map(function (c) { return simulate(t.key, sev, c.rgb); });
+      var pairs = [];
+      var minDe = Infinity;
+      for (var a = 0; a < pal.length; a++) {
+        for (var b = a + 1; b < pal.length; b++) {
+          var de = deltaE(sims[a], sims[b]);
+          if (de < minDe) minDe = de;
+          if (de <= thresh) pairs.push({ a: a, b: b, de: de });
+        }
+      }
+      pairs.sort(function (p, q) { return p.de - q.de; });
+      totalFlagged += pairs.length;
+
+      var card = document.createElement("div");
+      card.className = "rep " + (pairs.length ? "flagged" : "clean");
+      var prevTxt = t.prev === "reference" ? "" : "affects " + t.prev;
+      var h = '<div class="rhead"><span class="rt">' + t.label + '</span><span class="rp">' + prevTxt + '</span></div>';
+      h += '<div class="rmin">min &Delta;E&#8320;&#8320; = ' + (pal.length > 1 ? minDe.toFixed(1) : "n/a") + (pairs.length ? ' &middot; ' + pairs.length + ' pair' + (pairs.length > 1 ? "s" : "") + ' flagged' : '') + '</div>';
+      if (!pairs.length) {
+        h += '<div class="clean-msg"><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg> All pairs stay distinct</div>';
+      } else {
+        pairs.slice(0, 8).forEach(function (pr) {
+          var ca = pal[pr.a], cb = pal[pr.b];
+          var sa = rgbToHex(sims[pr.a][0], sims[pr.a][1], sims[pr.a][2]);
+          var sb = rgbToHex(sims[pr.b][0], sims[pr.b][1], sims[pr.b][2]);
+          h += '<div class="pair">' +
+            '<span class="duo"><span style="background:' + ca.hex + '"></span><span style="background:' + cb.hex + '"></span></span>' +
+            '<span class="arrow">&rarr;</span>' +
+            '<span class="duo duo2"><span style="background:' + sa + '"></span><span style="background:' + sb + '"></span></span>' +
+            '<span class="pnames">' + ca.hex + ' / ' + cb.hex + '</span>' +
+            '<span class="de ' + bandClass(pr.de) + '">' + pr.de.toFixed(1) + '</span></div>';
+        });
+        if (pairs.length > 8) h += '<div class="rmin" style="margin-top:8px;margin-bottom:0">+' + (pairs.length - 8) + ' more</div>';
+      }
+      card.innerHTML = h;
+      report.appendChild(card);
+    });
+
+    if (pal.length < 2) $("collapseCount").textContent = "add 2+ colors to compare";
+    else if (totalFlagged === 0) $("collapseCount").textContent = "0 collapses — palette is CVD-safe";
+    else $("collapseCount").textContent = totalFlagged + " at-risk pair" + (totalFlagged > 1 ? "s" : "") + " across vision types";
+  }
+
+  // swatch copy delegation
+  $("palMatrix").addEventListener("click", function (e) {
+    var cell = e.target.closest("[data-copy]");
+    if (cell) copyText(cell.getAttribute("data-copy"));
+  });
+
+  $("palApply").addEventListener("click", renderPalette);
+  $("palInput").addEventListener("input", debounce(renderPalette, 250));
+  $("threshold").addEventListener("input", function () { $("threshVal").textContent = parseFloat(this.value).toFixed(this.value % 1 ? 1 : 0); renderPalette(); });
+  $("palSeverity").addEventListener("input", function () { $("palSevVal").textContent = parseFloat(this.value).toFixed(2); renderPalette(); });
+  $("palDemo").addEventListener("click", function () { $("palInput").value = "#e41a1c  #377eb8  #4daf4a  #984ea3  #ff7f00  #ffff33"; renderPalette(); });
+  $("palDemoChart").addEventListener("click", function () { $("palInput").value = "#2e9e5b  #e0b000  #d33  #377eb8"; renderPalette(); });
+
+  function syncPair() {
+    var fg = parseColor($("fgHex").value), bg = parseColor($("bgHex").value);
+    if (fg) $("fgPick").value = rgbToHex(fg[0], fg[1], fg[2]);
+    if (bg) $("bgPick").value = rgbToHex(bg[0], bg[1], bg[2]);
+  }
+  $("fgPick").addEventListener("input", function () { $("fgHex").value = this.value; });
+  $("bgPick").addEventListener("input", function () { $("bgHex").value = this.value; });
+  $("fgHex").addEventListener("input", syncPair);
+  $("bgHex").addEventListener("input", syncPair);
+  $("pairApply").addEventListener("click", function () {
+    var fg = parseColor($("fgHex").value), bg = parseColor($("bgHex").value);
+    if (!fg || !bg) { toast("Enter two valid colors"); return; }
+    $("palInput").value = rgbToHex(fg[0], fg[1], fg[2]) + "  " + rgbToHex(bg[0], bg[1], bg[2]);
+    renderPalette();
+  });
+
+  function debounce(fn, ms) { var t; return function () { clearTimeout(t); t = setTimeout(fn, ms); }; }
+
+  /* ---------- method tab: render dichromat matrices ---------- */
+  function renderMethodMatrices() {
+    var host = $("methodMatrices");
+    var fams = [["protan", "Protanopia"], ["deutan", "Deuteranopia"], ["tritan", "Tritanopia"]];
+    var html = '<div style="display:flex;flex-wrap:wrap;gap:22px">';
+    fams.forEach(function (f) {
+      var m = MACHADO[f[0]][10];
+      html += '<table class="mat9"><caption>' + f[1] + ' (sev 1.0)</caption>';
+      for (var r = 0; r < 3; r++) {
+        html += '<tr>';
+        for (var c = 0; c < 3; c++) html += '<td>' + m[r * 3 + c].toFixed(4) + '</td>';
+        html += '</tr>';
+      }
+      html += '</table>';
+    });
+    host.innerHTML = html + '</div>';
+  }
+
+  /* ---------- boot ---------- */
+  $("palInput").value = "#e41a1c  #377eb8  #4daf4a  #984ea3  #ff7f00  #ffff33";
+  renderPalette();
+  renderMethodMatrices();
+})();
+</script>
+</body>
+</html>
