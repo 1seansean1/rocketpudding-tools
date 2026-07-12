@@ -1,173 +1,901 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Text Toolkit</title>
-<meta name="description" content="Zero-dependency text operations bench: sort, dedupe, reverse, trim, wrap, number, prefix, suffix, filter, count, and copy line-based text transformations.">
+<meta name="description" content="Zero-dependency swiss-army text transformer: case, line ops, whitespace, slugify, wrap, extract, and guarded regex find and replace with a live stats bar. Copy, download, chain.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-:root{--bg:#08060f;--fg:#f4f1fc;--muted:#9c93c2;--faint:#5c5686;--line:#292041;--card:#120e20;--accent:#5ee38a;--accent2:#22d3ee;--bad:#ff5b7d;--mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;--sans:'IBM Plex Sans',system-ui,sans-serif}
-*{box-sizing:border-box}
-html,body{min-height:100%}
-body{margin:0;background:radial-gradient(900px 520px at 2% -8%,rgba(94,227,138,.16),transparent 60%),radial-gradient(760px 460px at 105% 0%,rgba(34,211,238,.14),transparent 58%),var(--bg);color:var(--fg);font-family:var(--sans);-webkit-font-smoothing:antialiased}
-header{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;background:rgba(18,14,32,.88);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:3;backdrop-filter:blur(10px)}
-.sq{width:12px;height:12px;border-radius:2px;background:var(--accent);box-shadow:0 0 16px var(--accent)}
-.brand{font:700 13px var(--mono);letter-spacing:1.4px}
-.back{margin-left:auto;color:var(--muted);border:1px solid var(--line);border-radius:14px;padding:6px 10px;text-decoration:none;font:700 10px var(--mono);letter-spacing:.7px}
-.back:hover{color:var(--accent);border-color:var(--accent)}
-main{max-width:1280px;margin:0 auto;padding:22px 18px}
-.hero{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;margin-bottom:16px}
-h1{margin:0;font-size:28px;letter-spacing:-.015em}
-.hero p{max-width:760px;margin:8px 0 0;color:var(--muted);font-size:14px;line-height:1.55}
-.badge{border:1px solid var(--line);border-radius:16px;padding:7px 10px;font:700 10px var(--mono);color:var(--muted);white-space:nowrap}
-.grid{display:grid;grid-template-columns:minmax(330px,1fr) minmax(330px,1fr);gap:14px}
-.panel{background:rgba(18,14,32,.9);border:1px solid var(--line);border-radius:8px;overflow:hidden;min-width:0}
-.panel h2{margin:0;padding:11px 12px;border-bottom:1px solid var(--line);font:700 11px var(--mono);letter-spacing:1px;text-transform:uppercase;color:var(--accent)}
-textarea{width:100%;min-height:410px;margin:0;border:0;background:#0d0a19;color:var(--fg);font:400 12px/1.55 var(--mono);padding:13px;resize:vertical;outline:none;tab-size:2}
-.tools{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px;margin:14px 0}
-button,input{height:30px;border:1px solid var(--line);border-radius:15px;background:#18122b;color:var(--fg);font:700 10px var(--mono);letter-spacing:.45px}
-button{padding:0 10px;cursor:pointer}
-button:hover{border-color:var(--accent);color:var(--accent)}
-button.primary{border:0;background:linear-gradient(135deg,var(--accent),var(--accent2));color:#08060f}
-input{padding:0 10px;width:100%}
-.opts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
-.opt{background:rgba(18,14,32,.9);border:1px solid var(--line);border-radius:8px;padding:10px}
-.opt label{display:block;font:700 9px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--muted);margin-bottom:7px}
-.metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
-.metric{background:rgba(18,14,32,.9);border:1px solid var(--line);border-radius:8px;padding:11px}
-.metric .k{font:700 9px var(--mono);letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
-.metric .v{margin-top:5px;font:700 19px var(--mono)}
-.log{min-height:42px;color:var(--muted);font:600 10px var(--mono);padding:10px 12px;border-top:1px solid var(--line)}
-footer{padding:16px 18px 22px;text-align:center;color:var(--muted);font:500 10px var(--mono)}
-@media(max-width:980px){.grid,.opts{grid-template-columns:1fr}.tools{grid-template-columns:repeat(3,1fr)}.metrics{grid-template-columns:repeat(2,1fr)}.hero{display:block}.badge{display:inline-flex;margin-top:12px}textarea{min-height:280px}}
+  :root {
+    --bg: #f4f3ef;
+    --fg: #191b1e;
+    --muted: #8a8d93;
+    --line: #dcd9d2;
+    --card: #ffffff;
+    --accent: #c24bff;
+    --accent-soft: rgba(194, 75, 255, 0.12);
+    --warn-bg: rgba(179, 38, 30, 0.10);
+    --warn-fg: #b3261e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #16171a;
+      --fg: #eceae4;
+      --muted: #8a8d93;
+      --line: #2b2d31;
+      --card: #1e2024;
+      --accent: #c24bff;
+      --accent-soft: rgba(194, 75, 255, 0.18);
+      --warn-bg: rgba(255, 107, 96, 0.13);
+      --warn-fg: #ff6b60;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+  code, .mono { font-family: "IBM Plex Mono", monospace; }
+
+  header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 18px 24px;
+    border-bottom: 1px solid var(--line);
+  }
+  .accent-square { width: 14px; height: 14px; background: var(--accent); flex: none; }
+  header h1 {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+  }
+  header .back {
+    margin-left: auto;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    color: var(--muted);
+    text-decoration: none;
+    letter-spacing: 0.06em;
+  }
+  header .back:hover { color: var(--accent); }
+
+  main {
+    flex: 1;
+    width: 100%;
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 22px 24px 48px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 16px 18px;
+  }
+  .card-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 10px;
+  }
+  .card-label .aux { text-transform: none; letter-spacing: 0.04em; font-size: 11px; display: inline-flex; gap: 8px; }
+
+  /* ---- stats bar ---- */
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 14px;
+  }
+  .stat {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 78px;
+    padding: 6px 12px 7px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--bg);
+  }
+  .stat .num {
+    font-family: "IBM Plex Mono", monospace;
+    font-weight: 600;
+    font-size: 16px;
+    line-height: 1.15;
+    color: var(--fg);
+  }
+  .stat .lbl {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  /* ---- textareas ---- */
+  textarea.io {
+    width: 100%;
+    min-height: 200px;
+    resize: vertical;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 12px 14px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    outline: none;
+    tab-size: 4;
+  }
+  textarea.io:focus { border-color: var(--accent); }
+  textarea.io::placeholder { color: var(--muted); opacity: 0.7; }
+  textarea.out { background: var(--card); }
+
+  /* ---- buttons / chips ---- */
+  .btn {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.03em;
+    padding: 7px 12px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--fg); }
+  .btn svg { display: block; flex: none; }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn:disabled:hover { border-color: var(--line); color: var(--muted); }
+
+  .op-section { border-top: 1px dashed var(--line); padding-top: 12px; margin-top: 12px; }
+  .op-section:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+  .op-head {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 9px;
+  }
+  .chips { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
+  .chip {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    letter-spacing: 0.01em;
+    padding: 6px 11px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--fg);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: border-color .12s, background .12s, color .12s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chip.flash { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .field {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    padding: 6px 9px;
+    background: var(--bg);
+    color: var(--fg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    outline: none;
+  }
+  .field:focus { border-color: var(--accent); }
+  .field.w-sm { width: 62px; }
+  .field.w-md { width: 150px; }
+  .field.w-lg { flex: 1; min-width: 160px; }
+  .inline-lbl { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--muted); }
+
+  .tog {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    padding: 6px 11px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .tog:hover { border-color: var(--accent); color: var(--fg); }
+  .tog[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .flags { display: inline-flex; gap: 4px; }
+  .flag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    width: 26px;
+    padding: 6px 0;
+    text-align: center;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--card);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .flag[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+
+  .rr-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .warn {
+    margin-top: 10px;
+    padding: 9px 12px;
+    border: 1px solid var(--warn-fg);
+    background: var(--warn-bg);
+    border-radius: 6px;
+    color: var(--warn-fg);
+    font-size: 12.5px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .warn .btn { margin-left: 10px; border-color: var(--warn-fg); color: var(--warn-fg); }
+  .warn .btn:hover { background: var(--warn-fg); color: var(--card); }
+
+  .pipe {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: none;
+    letter-spacing: 0.02em;
+    text-align: right;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 60%;
+  }
+  .pipe b { color: var(--accent); font-weight: 500; }
+  .out-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  footer {
+    border-top: 1px solid var(--line);
+    padding: 14px 24px;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    display: flex;
+    justify-content: center;
+  }
 </style>
 </head>
 <body>
-<header><span class="sq"></span><div class="brand">ROCKET PUDDING / TEXT TOOLKIT</div><a class="back" href="../../">ALL TOOLS</a></header>
+
+<header>
+  <div class="accent-square" aria-hidden="true"></div>
+  <h1>Text Toolkit</h1>
+  <a class="back" href="../../">&#8592; tools</a>
+</header>
+
 <main>
-  <section class="hero">
-    <div>
-      <h1>Line surgery without ceremony.</h1>
-      <p>Paste a messy block, run line operations, and copy the result. Sort, dedupe, reverse, trim, wrap, number, prefix, suffix, filter, split, join, and count without a server.</p>
+
+  <!-- live stats bar (always visible) -->
+  <section class="card stats" id="stats" aria-label="Live statistics" aria-live="polite">
+    <div class="stat"><span class="num" id="s-chars">0</span><span class="lbl">chars</span></div>
+    <div class="stat"><span class="num" id="s-words">0</span><span class="lbl">words</span></div>
+    <div class="stat"><span class="num" id="s-lines">0</span><span class="lbl">lines</span></div>
+    <div class="stat"><span class="num" id="s-sent">0</span><span class="lbl">sentences</span></div>
+    <div class="stat"><span class="num" id="s-bytes">0</span><span class="lbl">bytes</span></div>
+    <div class="stat"><span class="num" id="s-read">0s</span><span class="lbl">read time</span></div>
+  </section>
+
+  <!-- input -->
+  <section class="card" aria-label="Input">
+    <div class="card-label">
+      <span>Input</span>
+      <span class="aux">
+        <button id="sample" class="btn" type="button" title="Load example text">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h16v4H4z"></path><path d="M4 12h10"></path><path d="M4 16h16"></path><path d="M4 20h10"></path></svg>
+          sample
+        </button>
+        <button id="clear" class="btn" type="button" title="Clear the input">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><path d="M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14"></path></svg>
+          clear
+        </button>
+      </span>
     </div>
-    <div class="badge" id="status">zero dependency</div>
+    <textarea id="input" class="io" spellcheck="false" autocomplete="off" placeholder="Type or paste text here&#8230; operations below transform it into the output. Editing the input starts a fresh chain."></textarea>
   </section>
 
-  <section class="opts">
-    <div class="opt"><label for="prefix">Prefix</label><input id="prefix" placeholder="> "></div>
-    <div class="opt"><label for="suffix">Suffix</label><input id="suffix" placeholder=","></div>
-    <div class="opt"><label for="filter">Filter contains</label><input id="filter" placeholder="needle"></div>
-    <div class="opt"><label for="wrap">Wrap width</label><input id="wrap" type="number" min="10" max="200" value="72"></div>
-  </section>
+  <!-- operations -->
+  <section class="card" aria-label="Operations">
+    <div class="card-label"><span>Operations</span><span class="aux">click to apply &middot; chains onto the result</span></div>
 
-  <section class="tools">
-    <button class="primary" data-op="trim">Trim</button>
-    <button data-op="sort">Sort</button>
-    <button data-op="dedupe">Dedupe</button>
-    <button data-op="reverse">Reverse</button>
-    <button data-op="number">Number</button>
-    <button data-op="prefix">Prefix</button>
-    <button data-op="suffix">Suffix</button>
-    <button data-op="filter">Filter</button>
-    <button data-op="blank">No blanks</button>
-    <button data-op="wrap">Wrap</button>
-    <button data-op="csv">CSV lines</button>
-    <button data-op="copy">Copy</button>
-  </section>
-
-  <section class="grid">
-    <div class="panel">
-      <h2>Input</h2>
-      <textarea id="input" spellcheck="false"></textarea>
-      <div class="log" id="inLog"></div>
+    <div class="op-section">
+      <div class="op-head">case</div>
+      <div class="chips">
+        <button class="chip" data-op="upper" type="button">UPPER</button>
+        <button class="chip" data-op="lower" type="button">lower</button>
+        <button class="chip" data-op="title" type="button">Title Case</button>
+        <button class="chip" data-op="sentence" type="button">Sentence case</button>
+        <button class="chip" data-op="camel" type="button">camelCase</button>
+        <button class="chip" data-op="snake" type="button">snake_case</button>
+        <button class="chip" data-op="kebab" type="button">kebab-case</button>
+        <button class="chip" data-op="constant" type="button">CONSTANT_CASE</button>
+      </div>
     </div>
-    <div class="panel">
-      <h2>Output</h2>
-      <textarea id="output" spellcheck="false"></textarea>
-      <div class="log" id="outLog"></div>
+
+    <div class="op-section">
+      <div class="op-head">lines</div>
+      <div class="chips">
+        <button class="chip" data-op="sortAsc" type="button">sort A&#8594;Z</button>
+        <button class="chip" data-op="sortDesc" type="button">sort Z&#8594;A</button>
+        <button class="chip" data-op="sortNum" type="button">sort numeric</button>
+        <button class="chip" data-op="sortNat" type="button">sort natural</button>
+        <button class="chip" data-op="dedupe" type="button">dedupe</button>
+        <button class="chip" data-op="reverseLines" type="button">reverse lines</button>
+        <button class="chip" data-op="shuffle" type="button">shuffle</button>
+        <button class="chip" data-op="trimEach" type="button">trim each</button>
+        <button class="chip" data-op="removeBlank" type="button">remove blank</button>
+        <button class="chip" data-op="number" type="button">number lines</button>
+      </div>
+      <div class="chips" style="margin-top:8px;">
+        <input id="prefix" class="field w-md" type="text" placeholder="prefix&#8230;" aria-label="Prefix for each line">
+        <button class="chip" data-op="prefix" type="button">prefix each</button>
+        <input id="suffix" class="field w-md" type="text" placeholder="suffix&#8230;" aria-label="Suffix for each line">
+        <button class="chip" data-op="suffix" type="button">suffix each</button>
+      </div>
+    </div>
+
+    <div class="op-section">
+      <div class="op-head">whitespace</div>
+      <div class="chips">
+        <button class="chip" data-op="collapse" type="button">collapse spaces</button>
+        <button class="chip" data-op="tabsToSpaces" type="button">tabs &#8594; spaces</button>
+        <button class="chip" data-op="spacesToTabs" type="button">spaces &#8594; tabs</button>
+        <button class="chip" data-op="trimAll" type="button">trim ends</button>
+        <span class="inline-lbl">tab width</span>
+        <input id="tabWidth" class="field w-sm" type="number" min="1" max="16" value="4" aria-label="Tab width in spaces">
+      </div>
+    </div>
+
+    <div class="op-section">
+      <div class="op-head">transform</div>
+      <div class="chips">
+        <button class="chip" data-op="slugify" type="button">slugify</button>
+        <button class="chip" data-op="reverseText" type="button">reverse text</button>
+        <button class="chip" data-op="wrap" type="button">wrap</button>
+        <button class="chip" data-op="unwrap" type="button">unwrap</button>
+        <span class="inline-lbl">wrap at</span>
+        <input id="wrapCols" class="field w-sm" type="number" min="1" max="500" value="80" aria-label="Wrap column count">
+        <span class="inline-lbl">cols</span>
+      </div>
+    </div>
+
+    <div class="op-section">
+      <div class="op-head">extract</div>
+      <div class="chips">
+        <button class="chip" data-op="extractEmails" type="button">emails</button>
+        <button class="chip" data-op="extractUrls" type="button">URLs</button>
+        <button class="chip" data-op="extractNumbers" type="button">numbers</button>
+      </div>
+    </div>
+
+    <div class="op-section">
+      <div class="op-head">find &amp; replace</div>
+      <div class="rr-row">
+        <input id="find" class="field w-lg" type="text" placeholder="find&#8230;" aria-label="Find text or pattern" autocomplete="off" spellcheck="false">
+        <input id="replace" class="field w-lg" type="text" placeholder="replace with&#8230;" aria-label="Replacement text" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="rr-row" style="margin-top:8px;">
+        <button id="regexTog" class="tog" type="button" aria-pressed="false" title="Treat the find field as a regular expression">.* regex</button>
+        <span class="inline-lbl">flags</span>
+        <span class="flags" role="group" aria-label="Regex flags">
+          <button class="flag" data-flag="g" type="button" aria-pressed="true" title="global">g</button>
+          <button class="flag" data-flag="i" type="button" aria-pressed="false" title="ignore case">i</button>
+          <button class="flag" data-flag="m" type="button" aria-pressed="false" title="multiline">m</button>
+          <button class="flag" data-flag="s" type="button" aria-pressed="false" title="dotall">s</button>
+        </span>
+        <button id="doReplace" class="chip" type="button" style="margin-left:auto;">replace</button>
+      </div>
+      <div id="rrWarn" class="warn" hidden></div>
     </div>
   </section>
 
-  <section class="metrics">
-    <div class="metric"><div class="k">Lines</div><div class="v" id="mLines">0</div></div>
-    <div class="metric"><div class="k">Words</div><div class="v" id="mWords">0</div></div>
-    <div class="metric"><div class="k">Chars</div><div class="v" id="mChars">0</div></div>
-    <div class="metric"><div class="k">Unique</div><div class="v" id="mUnique">0</div></div>
-    <div class="metric"><div class="k">Bytes</div><div class="v" id="mBytes">0</div></div>
+  <!-- output -->
+  <section class="card" aria-label="Output">
+    <div class="card-label">
+      <span>Output</span>
+      <span class="pipe" id="pipe" aria-live="polite"></span>
+    </div>
+    <textarea id="output" class="io out" readonly spellcheck="false" aria-label="Result" placeholder="Result appears here."></textarea>
+    <div class="out-actions" style="margin-top:12px;">
+      <button id="copy" class="btn" type="button" title="Copy output to clipboard">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        <span id="copyLabel">copy</span>
+      </button>
+      <button id="download" class="btn" type="button" title="Download output as a .txt file">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+        download
+      </button>
+      <button id="swap" class="btn" type="button" title="Move the output back into the input to keep transforming">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+        output &#8594; input
+      </button>
+      <button id="reset" class="btn" type="button" title="Reset the output back to the raw input">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg>
+        reset
+      </button>
+    </div>
   </section>
+
 </main>
-<footer>Original zero-dependency Rocket Pudding text bench. All processing happens in the browser.</footer>
-<script>
-const $ = id => document.getElementById(id);
-const sample = `delta
-alpha
-beta
-alpha
 
-  trim me
-error: retry
-warn: disk
-info: done`;
-function lines(text){ return text.split(/\r?\n/); }
-function setStatus(text){ $('status').textContent = text; }
-function stats(text, prefix){
-  const ls = text.length ? lines(text) : [];
-  const words = (text.match(/\S+/g) || []).length;
-  const unique = new Set(ls.filter(Boolean)).size;
-  $(prefix+'Log').textContent = `${ls.length} lines / ${words} words / ${text.length} chars`;
-  $('mLines').textContent = ls.length;
-  $('mWords').textContent = words;
-  $('mChars').textContent = text.length;
-  $('mUnique').textContent = unique;
-  $('mBytes').textContent = new TextEncoder().encode(text).length;
-}
-function wrapText(text, width){
-  width = Math.max(10, Number(width) || 72);
-  return text.split(/\n\s*\n/).map(p => {
-    const out = [];
-    let line = '';
-    for(const word of p.replace(/\s+/g,' ').trim().split(' ').filter(Boolean)){
-      if((line + ' ' + word).trim().length > width){ if(line) out.push(line); line = word; }
-      else line = (line + ' ' + word).trim();
+<footer>
+  <span>zero dependencies</span>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var STORE_KEY = "text-toolkit.v1";
+  var MAX_REGEX_INPUT = 2000000;   // char cap for regex replace
+  var TIME_BUDGET_MS = 300;        // per-replace soft budget
+
+  var enc = (typeof TextEncoder !== "undefined") ? new TextEncoder() : null;
+  var natCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
+
+  var $ = function (id) { return document.getElementById(id); };
+  var $input = $("input");
+  var $output = $("output");
+  var $prefix = $("prefix");
+  var $suffix = $("suffix");
+  var $tabWidth = $("tabWidth");
+  var $wrapCols = $("wrapCols");
+  var $find = $("find");
+  var $replace = $("replace");
+  var $regexTog = $("regexTog");
+  var $rrWarn = $("rrWarn");
+  var $pipe = $("pipe");
+  var $copyLabel = $("copyLabel");
+
+  var working = "";       // the buffer operations act on (mirrors output)
+  var chain = [];         // labels applied since last reset/input edit
+  var pendingReplace = false; // set true after user confirms a risky pattern
+
+  /* ---------------- text helpers ---------------- */
+  function getLines(t) { return t.split(/\r\n|\r|\n/); }
+  function perLine(t, fn) { return getLines(t).map(fn).join("\n"); }
+  function cap(w) { return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase(); }
+  function repeat(s, n) { var o = ""; for (var i = 0; i < n; i++) o += s; return o; }
+
+  function toWords(s) {
+    return s
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+      .split(/[^A-Za-z0-9]+/)
+      .filter(Boolean);
+  }
+  function sentenceCase(t) {
+    return t.toLowerCase().replace(/(^\s*|[.!?]["')\]]?\s+)([a-z])/g,
+      function (m, lead, c) { return lead + c.toUpperCase(); });
+  }
+  function numOf(x) { var n = parseFloat(x); return isNaN(n) ? Infinity : n; }
+  function sortLines(t, cmp) { return getLines(t).slice().sort(cmp).join("\n"); }
+  function dedupeLines(t) {
+    var seen = Object.create(null), out = [], lines = getLines(t);
+    for (var i = 0; i < lines.length; i++) {
+      if (!(lines[i] in seen)) { seen[lines[i]] = 1; out.push(lines[i]); }
     }
-    if(line) out.push(line);
-    return out.join('\n');
-  }).join('\n\n');
-}
-function csvLine(s){
-  if(/[",\n]/.test(s)) return '"' + s.replace(/"/g,'""') + '"';
-  return s;
-}
-function transform(op){
-  const input = $('input').value;
-  let ls = lines(input);
-  let out = input;
-  if(op === 'trim') out = ls.map(x => x.trim()).join('\n');
-  if(op === 'sort') out = ls.slice().sort((a,b)=>a.localeCompare(b)).join('\n');
-  if(op === 'dedupe'){ const seen = new Set(); out = ls.filter(x => !seen.has(x) && seen.add(x)).join('\n'); }
-  if(op === 'reverse') out = ls.reverse().join('\n');
-  if(op === 'number') out = ls.map((x,i)=>String(i+1).padStart(String(ls.length).length,'0') + ': ' + x).join('\n');
-  if(op === 'prefix') out = ls.map(x => $('prefix').value + x).join('\n');
-  if(op === 'suffix') out = ls.map(x => x + $('suffix').value).join('\n');
-  if(op === 'filter'){ const f = $('filter').value; out = f ? ls.filter(x => x.includes(f)).join('\n') : input; }
-  if(op === 'blank') out = ls.filter(x => x.trim()).join('\n');
-  if(op === 'wrap') out = wrapText(input, $('wrap').value);
-  if(op === 'csv') out = ls.map(csvLine).join(',');
-  if(op === 'copy'){ navigator.clipboard && navigator.clipboard.writeText($('output').value || input); setStatus('copied'); return; }
-  $('output').value = out;
-  stats(out, 'out');
-  setStatus(op);
-}
-document.querySelectorAll('button[data-op]').forEach(b => b.addEventListener('click', () => transform(b.dataset.op)));
-$('input').addEventListener('input', () => stats($('input').value, 'in'));
-$('output').addEventListener('input', () => stats($('output').value, 'out'));
-$('input').value = sample;
-$('output').value = sample;
-stats(sample, 'in');
-stats(sample, 'out');
+    return out.join("\n");
+  }
+  function shuffleLines(t) {
+    var a = getLines(t);
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var tmp = a[i]; a[i] = a[j]; a[j] = tmp;
+    }
+    return a.join("\n");
+  }
+  function numberLines(t) {
+    var lines = getLines(t), w = String(lines.length).length;
+    return lines.map(function (l, i) {
+      var n = String(i + 1);
+      return repeat(" ", w - n.length) + n + "  " + l;
+    }).join("\n");
+  }
+  function spacesToTabs(t, w) {
+    return getLines(t).map(function (l) {
+      var m = l.match(/^ +/);
+      if (!m) return l;
+      var lead = m[0].length;
+      var nt = Math.floor(lead / w), rem = lead % w;
+      return repeat("\t", nt) + repeat(" ", rem) + l.slice(lead);
+    }).join("\n");
+  }
+  function slugifyLine(s) {
+    return s.normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .toLowerCase().trim()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+  }
+  function wrapLine(line, cols) {
+    if (line.length <= cols) return line;
+    var words = line.split(" "), out = [], cur = "";
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      if (cur === "") cur = w;
+      else if ((cur + " " + w).length <= cols) cur += " " + w;
+      else { out.push(cur); cur = w; }
+      while (cur.length > cols) { out.push(cur.slice(0, cols)); cur = cur.slice(cols); }
+    }
+    if (cur !== "") out.push(cur);
+    return out.join("\n");
+  }
+  function wrapText(t, cols) {
+    if (!(cols >= 1)) cols = 1;
+    return getLines(t).map(function (l) { return wrapLine(l, cols); }).join("\n");
+  }
+  function unwrapText(t) {
+    var lines = getLines(t), out = [], para = [];
+    function flush() { if (para.length) { out.push(para.join(" ")); para = []; } }
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim() === "") { flush(); out.push(""); }
+      else para.push(lines[i].trim());
+    }
+    flush();
+    return out.join("\n");
+  }
+  function extract(t, re) { var m = t.match(re); return m ? m.join("\n") : ""; }
+  function escapeRegExp(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+  var EMAIL_RE = /[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/g;
+  var URL_RE = /\b(?:https?:\/\/|www\.)[^\s<>"'`)\]]+/gi;
+  var NUM_RE = /-?\d+(?:\.\d+)?/g;
+
+  /* ---- catastrophic-regex heuristic (time-budget guard) ---- */
+  function looksCatastrophic(p) {
+    if (/\([^)]*[+*][^)]*\)\s*[+*]/.test(p)) return true;      // nested quantifier: (..+..)+
+    if (/\((?:[^()]*\|[^()]*)\)\s*[+*]/.test(p)) return true;  // (a|a)+ alternation under quantifier
+    if (/(?:\.\*|\.\+)\s*(?:\.\*|\.\+)/.test(p)) return true;  // .*.* / .+.+ adjacency
+    return false;
+  }
+
+  function doReplaceOp(t, ctx) {
+    if (ctx.find === "") return { out: t, ms: 0 };
+    var re, repl;
+    if (ctx.regex) {
+      if (t.length > MAX_REGEX_INPUT) { throw { kind: "toobig" }; }
+      if (looksCatastrophic(ctx.find) && !ctx.confirmed) { throw { kind: "risky" }; }
+      try { re = new RegExp(ctx.find, ctx.flags); }
+      catch (e) { throw { kind: "badre", msg: e.message }; }
+      repl = ctx.replace;
+    } else {
+      re = new RegExp(escapeRegExp(ctx.find), ctx.flags);
+      repl = ctx.replace.replace(/\$/g, "$$$$"); // literal $ in replacement
+    }
+    var start = (typeof performance !== "undefined") ? performance.now() : Date.now();
+    var out = t.replace(re, repl);
+    var ms = ((typeof performance !== "undefined") ? performance.now() : Date.now()) - start;
+    return { out: out, ms: ms };
+  }
+
+  /* ---------------- operation registry ---------------- */
+  var OPS = {
+    upper:        { label: "UPPER",         fn: function (t) { return t.toUpperCase(); } },
+    lower:        { label: "lower",         fn: function (t) { return t.toLowerCase(); } },
+    title:        { label: "Title Case",    fn: function (t) { return t.replace(/[A-Za-z0-9']+/g, function (w) { return cap(w); }); } },
+    sentence:     { label: "Sentence case", fn: sentenceCase },
+    camel:        { label: "camelCase",     fn: function (t) { return perLine(t, function (l) { return toWords(l).map(function (w, i) { return i === 0 ? w.toLowerCase() : cap(w); }).join(""); }); } },
+    snake:        { label: "snake_case",    fn: function (t) { return perLine(t, function (l) { return toWords(l).map(function (w) { return w.toLowerCase(); }).join("_"); }); } },
+    kebab:        { label: "kebab-case",    fn: function (t) { return perLine(t, function (l) { return toWords(l).map(function (w) { return w.toLowerCase(); }).join("-"); }); } },
+    constant:     { label: "CONSTANT_CASE", fn: function (t) { return perLine(t, function (l) { return toWords(l).map(function (w) { return w.toUpperCase(); }).join("_"); }); } },
+
+    sortAsc:      { label: "sort A-Z",      fn: function (t) { return sortLines(t, function (a, b) { return a.localeCompare(b); }); } },
+    sortDesc:     { label: "sort Z-A",      fn: function (t) { return sortLines(t, function (a, b) { return b.localeCompare(a); }); } },
+    sortNum:      { label: "sort numeric",  fn: function (t) { return sortLines(t, function (a, b) { return numOf(a) - numOf(b); }); } },
+    sortNat:      { label: "sort natural",  fn: function (t) { return sortLines(t, function (a, b) { return natCollator.compare(a, b); }); } },
+    dedupe:       { label: "dedupe",        fn: dedupeLines },
+    reverseLines: { label: "reverse lines", fn: function (t) { return getLines(t).reverse().join("\n"); } },
+    shuffle:      { label: "shuffle",       fn: shuffleLines },
+    trimEach:     { label: "trim each",     fn: function (t) { return perLine(t, function (l) { return l.replace(/^\s+|\s+$/g, ""); }); } },
+    removeBlank:  { label: "remove blank",  fn: function (t) { return getLines(t).filter(function (l) { return l.trim() !== ""; }).join("\n"); } },
+    number:       { label: "number lines",  fn: numberLines },
+    prefix:       { label: "prefix each",   fn: function (t, c) { return perLine(t, function (l) { return c.prefix + l; }); } },
+    suffix:       { label: "suffix each",   fn: function (t, c) { return perLine(t, function (l) { return l + c.suffix; }); } },
+
+    collapse:     { label: "collapse spaces", fn: function (t) { return perLine(t, function (l) { return l.replace(/[ \t]+/g, " "); }); } },
+    tabsToSpaces: { label: "tabs to spaces",  fn: function (t, c) { return t.replace(/\t/g, repeat(" ", c.tabWidth)); } },
+    spacesToTabs: { label: "spaces to tabs",  fn: function (t, c) { return spacesToTabs(t, c.tabWidth); } },
+    trimAll:      { label: "trim ends",       fn: function (t) { return t.replace(/^\s+|\s+$/g, ""); } },
+
+    slugify:      { label: "slugify",       fn: function (t) { return perLine(t, slugifyLine); } },
+    reverseText:  { label: "reverse text",  fn: function (t) { return Array.from(t).reverse().join(""); } },
+    wrap:         { label: "wrap",          fn: function (t, c) { return wrapText(t, c.wrapCols); } },
+    unwrap:       { label: "unwrap",        fn: unwrapText },
+
+    extractEmails:  { label: "extract emails",  fn: function (t) { return extract(t, EMAIL_RE); } },
+    extractUrls:    { label: "extract URLs",    fn: function (t) { return extract(t, URL_RE); } },
+    extractNumbers: { label: "extract numbers", fn: function (t) { return extract(t, NUM_RE); } }
+  };
+
+  function readCtx() {
+    var flags = "";
+    var fbtns = document.querySelectorAll(".flag");
+    for (var i = 0; i < fbtns.length; i++) {
+      if (fbtns[i].getAttribute("aria-pressed") === "true") flags += fbtns[i].getAttribute("data-flag");
+    }
+    var tw = parseInt($tabWidth.value, 10); if (!(tw >= 1)) tw = 4;
+    var wc = parseInt($wrapCols.value, 10); if (!(wc >= 1)) wc = 80;
+    return {
+      prefix: $prefix.value,
+      suffix: $suffix.value,
+      tabWidth: tw,
+      wrapCols: wc,
+      find: $find.value,
+      replace: $replace.value,
+      regex: $regexTog.getAttribute("aria-pressed") === "true",
+      flags: flags,
+      confirmed: pendingReplace
+    };
+  }
+
+  /* ---------------- rendering ---------------- */
+  function setWorking(text) {
+    working = text;
+    $output.value = text;
+    renderPipe();
+  }
+  function escHtml(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+  function renderPipe() {
+    if (chain.length === 0) { $pipe.textContent = "output mirrors input"; return; }
+    var parts = chain.map(function (l) { return "<b>" + escHtml(l) + "</b>"; });
+    $pipe.innerHTML = "input &#8594; " + parts.join(" &#8594; ");
+  }
+
+  function computeStats(t) {
+    var chars = Array.from(t).length;
+    var words = (t.match(/\S+/g) || []).length;
+    var lines = t === "" ? 0 : getLines(t).length;
+    var sentences = (t.match(/[^.!?\s][^.!?]*[.!?]+/g) || []).length;
+    var bytes = enc ? enc.encode(t).length : unescape(encodeURIComponent(t)).length;
+    var read;
+    if (words === 0) read = "0s";
+    else {
+      var mins = words / 200;
+      read = mins < 1 ? Math.max(1, Math.round(mins * 60)) + "s" : mins.toFixed(1) + " min";
+    }
+    return { chars: chars, words: words, lines: lines, sentences: sentences, bytes: bytes, read: read };
+  }
+  function fmt(n) { return n.toLocaleString(); }
+  function renderStats() {
+    var s = computeStats($input.value);
+    $("s-chars").textContent = fmt(s.chars);
+    $("s-words").textContent = fmt(s.words);
+    $("s-lines").textContent = fmt(s.lines);
+    $("s-sent").textContent = fmt(s.sentences);
+    $("s-bytes").textContent = fmt(s.bytes);
+    $("s-read").textContent = s.read;
+  }
+
+  /* ---------------- apply ops ---------------- */
+  function flashChip(el) {
+    if (!el) return;
+    el.classList.add("flash");
+    setTimeout(function () { el.classList.remove("flash"); }, 180);
+  }
+
+  function applyOp(opId, chipEl) {
+    var op = OPS[opId];
+    if (!op) return;
+    var ctx = readCtx();
+    var result = op.fn(working, ctx);
+    setWorking(result);
+    chain.push(op.label);
+    renderPipe();
+    flashChip(chipEl);
+    save();
+  }
+
+  function runReplace() {
+    $rrWarn.hidden = true;
+    var ctx = readCtx();
+    if (ctx.find === "") { showWarn("Enter something in the find field.", false); return; }
+    try {
+      var r = doReplaceOp(working, ctx);
+      setWorking(r.out);
+      chain.push("replace");
+      renderPipe();
+      pendingReplace = false;
+      save();
+      if (r.ms > TIME_BUDGET_MS) {
+        showWarn("That replace took " + Math.round(r.ms) + "ms - over the " + TIME_BUDGET_MS + "ms budget. Simplify the pattern before re-running on large input.", false);
+      }
+    } catch (e) {
+      if (e && e.kind === "risky") {
+        showWarn("This pattern has nested quantifiers and can hang the tab on some input (catastrophic backtracking).", true);
+      } else if (e && e.kind === "toobig") {
+        showWarn("Input exceeds the " + fmt(MAX_REGEX_INPUT) + "-char regex limit. Trim it or use a literal find.", false);
+      } else if (e && e.kind === "badre") {
+        showWarn("Invalid regular expression: " + e.msg, false);
+      } else {
+        showWarn("Replace failed.", false);
+      }
+    }
+  }
+  function showWarn(msg, offerRun) {
+    $rrWarn.textContent = msg;
+    if (offerRun) {
+      var b = document.createElement("button");
+      b.className = "btn";
+      b.type = "button";
+      b.textContent = "replace anyway";
+      b.addEventListener("click", function () { pendingReplace = true; runReplace(); });
+      $rrWarn.appendChild(b);
+    }
+    $rrWarn.hidden = false;
+  }
+
+  /* ---------------- input / chain lifecycle ---------------- */
+  function onInputChanged() {
+    chain = [];
+    pendingReplace = false;
+    $rrWarn.hidden = true;
+    setWorking($input.value);
+    renderStats();
+    save();
+  }
+
+  function resetChain() {
+    chain = [];
+    pendingReplace = false;
+    $rrWarn.hidden = true;
+    setWorking($input.value);
+    save();
+  }
+
+  function swapToInput() {
+    $input.value = working;
+    chain = [];
+    pendingReplace = false;
+    $rrWarn.hidden = true;
+    renderPipe();
+    renderStats();
+    save();
+    $input.focus();
+  }
+
+  /* ---------------- clipboard / download ---------------- */
+  function copyText(text, done) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }, fallback);
+    } else { fallback(); }
+    function fallback() {
+      var ta = document.createElement("textarea");
+      ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+      document.body.appendChild(ta); ta.focus(); ta.select();
+      var ok = false;
+      try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+      document.body.removeChild(ta);
+      done(ok);
+    }
+  }
+
+  /* ---------------- persistence ---------------- */
+  var saveTimer = null;
+  function save() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify({ input: $input.value }));
+      } catch (e) { /* ignore */ }
+    }, 200);
+  }
+  function loadSaved() {
+    try {
+      var s = JSON.parse(localStorage.getItem(STORE_KEY));
+      if (s && typeof s.input === "string") { $input.value = s.input; return true; }
+    } catch (e) { /* ignore */ }
+    return false;
+  }
+
+  var SAMPLE = [
+    "The Quick Brown Fox",
+    "jumps over the LAZY dog. it did not stop.",
+    "   hello world   ",
+    "Hello World",
+    "hello world",
+    "banana",
+    "apple",
+    "cherry",
+    "apple",
+    "item 2",
+    "item 10",
+    "item 1",
+    "Contact sean@example.com or admin@test.org for access.",
+    "Docs at http://example.com and " + "www.rocketpudding.ai/tools plus " + "https" + "://openai.example/x",
+    "Invoice #42 total 1999.95 across 3 lines and -7 credits."
+  ].join("\n");
+
+  /* ---------------- wiring ---------------- */
+  $input.addEventListener("input", onInputChanged);
+
+  var chips = document.querySelectorAll(".chip[data-op]");
+  for (var c = 0; c < chips.length; c++) {
+    (function (btn) {
+      btn.addEventListener("click", function () { applyOp(btn.getAttribute("data-op"), btn); });
+    })(chips[c]);
+  }
+
+  $("doReplace").addEventListener("click", function () { pendingReplace = false; runReplace(); });
+
+  $regexTog.addEventListener("click", function () {
+    var on = $regexTog.getAttribute("aria-pressed") === "true";
+    $regexTog.setAttribute("aria-pressed", on ? "false" : "true");
+    $rrWarn.hidden = true;
+  });
+  var flagBtns = document.querySelectorAll(".flag");
+  for (var f = 0; f < flagBtns.length; f++) {
+    (function (btn) {
+      btn.addEventListener("click", function () {
+        btn.setAttribute("aria-pressed", btn.getAttribute("aria-pressed") === "true" ? "false" : "true");
+      });
+    })(flagBtns[f]);
+  }
+
+  $("sample").addEventListener("click", function () {
+    $input.value = SAMPLE;
+    onInputChanged();
+    $input.focus();
+  });
+  $("clear").addEventListener("click", function () {
+    $input.value = "";
+    onInputChanged();
+    $input.focus();
+  });
+  $("reset").addEventListener("click", resetChain);
+  $("swap").addEventListener("click", swapToInput);
+
+  $("copy").addEventListener("click", function () {
+    copyText($output.value, function (ok) {
+      $copyLabel.textContent = ok ? "copied" : "failed";
+      setTimeout(function () { $copyLabel.textContent = "copy"; }, 1100);
+    });
+  });
+  $("download").addEventListener("click", function () {
+    var blob = new Blob([$output.value], { type: "text/plain;charset=utf-8" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = "text-toolkit-output.txt";
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  });
+
+  /* ---------------- init ---------------- */
+  if (!loadSaved()) $input.value = SAMPLE;
+  setWorking($input.value);
+  renderStats();
+})();
 </script>
+
 </body>
 </html>

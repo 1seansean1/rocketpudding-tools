@@ -710,19 +710,19 @@
     {
       "slug": "text-toolkit",
       "name": "Text Toolkit",
-      "tagline": "Sort, dedupe, reverse, trim, wrap, number, filter, prefix, and suffix text lines.",
-      "description": "Zero-dependency line operations bench for everyday text cleanup: paste a block, sort, dedupe, reverse, trim, remove blanks, wrap paragraphs, number lines, prefix or suffix each line, filter by substring, emit CSV lines, and copy the result. All processing stays local.",
+      "tagline": "Transform text with case tools, line ops, whitespace cleanup, extractors, and guarded regex replace.",
+      "description": "Zero-dependency swiss-army text transformer: paste a block and run case conversion, sort, dedupe, shuffle, trim, number, prefix, suffix, whitespace cleanup, slugify, wrap/unwrap, email/URL/number extraction, and guarded regex find/replace. Includes live stats, copy, download, and chain-back-to-input.",
       "path": "tools/text-toolkit/",
       "tags": [
         "text",
         "lines",
-        "sort",
-        "dedupe",
+        "regex",
+        "case",
         "zero-dep"
       ],
       "added": "2026-07-12",
       "status": "live",
-      "accent": "#5ee38a",
+      "accent": "#c24bff",
       "origin": "original",
       "provenance": {
         "lib": "zero dependencies",
