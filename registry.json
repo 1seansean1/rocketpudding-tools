@@ -6,8 +6,8 @@
     {
       "slug": "dag-layout-lab",
       "name": "DAG Layout Lab",
-      "tagline": "Prototype & benchmark DAG layout algorithms on an Excalidraw-style canvas.",
-      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms — layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress — with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export.",
+      "tagline": "Prototype & benchmark DAG layout algorithms, or flip to an event-sequence diagram.",
+      "description": "Interactive lab for comparing directed-acyclic-graph layout algorithms — layered/Sugiyama with barycenter crossing reduction, Coffman-Graham, and rank-weighted stress — with a live benchmark leaderboard, node metadata cards, mermaid import, grouped containers, Caramel-URI provenance labels, and SVG/PNG/PDF/HTML export. Toggle the same graph into SEQUENCE mode for a UML-style event-sequence diagram with participant lifelines, ordered messages, combined fragments, a scrubbable time axis with step/play transport, and trace + timing inspectors.",
       "path": "tools/dag-layout-lab/",
       "entry": "tools/dag-layout-lab/index.html",
       "tags": [
@@ -17,7 +17,10 @@
         "visualization",
         "canvas",
         "algorithm",
-        "diagram"
+        "diagram",
+        "sequence-diagram",
+        "uml",
+        "trace"
       ],
       "added": "2026-07-11",
       "status": "live",
