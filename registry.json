@@ -4,6 +4,33 @@
   "updated": "2026-07-12",
   "tools": [
     {
+      "slug": "event-sequence-lab",
+      "name": "Event Sequence Lab",
+      "tagline": "Author and replay UML-style event-sequence diagrams.",
+      "description": "Standalone lab for building UML-style event-sequence (interaction) diagrams: participant lifelines, ordered messages with sync/async/reply arrows, activation bars, combined fragments (alt/opt/loop/par), and a scrubbable time axis with step/play transport. Pairs with DAG Layout Lab, which can flip the same system graph into this sequence view.",
+      "path": "tools/event-sequence-lab/",
+      "entry": "tools/event-sequence-lab/index.html",
+      "tags": [
+        "sequence-diagram",
+        "uml",
+        "trace",
+        "diagram",
+        "visualization",
+        "timeline"
+      ],
+      "added": "2026-07-12",
+      "status": "live",
+      "accent": "#b05a3c",
+      "origin": "original",
+      "provenance": {
+        "lib": "original",
+        "license": "MIT",
+        "version": "",
+        "url": "https://github.com/1seansean1/rocketpudding-tools",
+        "note": "designed in Claude Design; built here"
+      }
+    },
+    {
       "slug": "dag-layout-lab",
       "name": "DAG Layout Lab",
       "tagline": "Prototype & benchmark DAG layout algorithms, or flip to an event-sequence diagram.",
